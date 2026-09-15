@@ -18,6 +18,7 @@ This document lists external values/accounts required to complete Android/iOS re
 | iOS bundle ID in Xcode project | `com.chatpalez` | Must be registered/owned in client Apple Developer team |
 | Production origin | `https://chatpalez.com` | Confirmed |
 | Native shell user-agent marker | `ChatPalezMobile/1.0` | Implemented |
+| Custom app deep-link scheme | `chatpalez://open` | Registered on Android/iOS; trusted-target validation implemented |
 
 ## Android — Google Play / Signing
 
@@ -25,16 +26,18 @@ Required before final signed AAB:
 
 1. Google Play Console access to the existing ChatPalez app, if an existing listing is being upgraded.
 2. Confirm Play package name is exactly `com.chatpalez`.
-3. Determine whether **Play App Signing** is already enabled.
-4. If this is an update, obtain the correct upload key/keystore or use the existing Play upload-key process.
-5. Required local/CI signing values:
+3. **Read the highest version code already uploaded/published in Google Play.** The new Android `versionCode` must be strictly higher. The generated project currently uses `versionCode 1` only as a development placeholder and this must not be treated as release-ready for an existing listing.
+4. Confirm the desired user-facing release `versionName` (for example `1.0`, `1.1`, or the next existing product version) so Android and iOS marketing versions can be aligned intentionally.
+5. Determine whether **Play App Signing** is already enabled.
+6. If this is an update, obtain the correct upload key/keystore or use the existing Play upload-key process.
+7. Required local/CI signing values:
    - keystore file (`.jks`/`.keystore`)
    - keystore password
    - key alias
    - key password
-6. Verify signing certificate SHA-256/SHA-1 fingerprints if Firebase/App Links need them.
+8. Verify signing certificate SHA-256/SHA-1 fingerprints if Firebase/App Links need them.
 
-Current engineering state: CI already compiles an unsigned release `.aab`; signing is deliberately not embedded in source control.
+Current engineering state: CI already compiles an unsigned release `.aab`; signing is deliberately not embedded in source control. The artifact proves the release variant compiles, but it is **not** the final Play-upload artifact until version/signing inputs above are applied.
 
 ## Firebase / FCM — Android Push
 
@@ -68,11 +71,12 @@ Required:
 1. Active Apple Developer Program membership.
 2. Access to the client team in Apple Developer and App Store Connect.
 3. Register/confirm bundle identifier `com.chatpalez`.
-4. Enable capabilities required by the final app, including Push Notifications when native push is enabled.
-5. Configure signing through Xcode automatic signing or managed certificates/profiles.
-6. Confirm Team ID.
-7. Create/confirm the App Store Connect app record for ChatPalez.
-8. Provide final app metadata, privacy policy URL, support URL, screenshots and age/content declarations.
+4. If an existing iOS listing/build exists, read the current App Store marketing version and highest build number. New `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` values must advance correctly; the generated `1.0` / build `1` values are development placeholders until this is confirmed.
+5. Enable capabilities required by the final app, including Push Notifications when native push is enabled.
+6. Configure signing through Xcode automatic signing or managed certificates/profiles.
+7. Confirm Team ID.
+8. Create/confirm the App Store Connect app record for ChatPalez.
+9. Provide final app metadata, privacy policy URL, support URL, screenshots and age/content declarations.
 
 A cloud Mac is sufficient for Xcode archive/TestFlight work, but Apple Developer/App Store credentials remain separate.
 
@@ -116,7 +120,10 @@ When credentials become available, provide access through the relevant client-ow
 
 - Apple Team ID
 - exact bundle ID
+- current App Store marketing version/highest build number, if an iOS listing already exists
 - Google Play package ID/listing confirmation
+- highest Google Play version code already uploaded/published
+- desired next user-facing mobile version
 - Firebase project ID/app registration confirmation
 - OneSignal App ID / app selection confirmation
 - final support URL
