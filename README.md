@@ -1,86 +1,159 @@
 # ChatPalez Mobile
 
-Hybrid Android and iOS client for ChatPalez, built with Capacitor and TypeScript.
+Hybrid Android and iOS client for ChatPalez, built with Capacitor 8 and TypeScript.
 
 ## Architecture
 
-This repository contains the mobile shell and native platform projects. The existing ChatPalez PHP/Smarty application remains the system of record for social-network business logic and most UI. Native capabilities are added progressively through Capacitor.
+This repository contains the shared mobile shell plus Android and iOS native projects. The existing ChatPalez PHP/Smarty application remains the system of record for social-network business logic and most UI; native capabilities are layered onto the installed app through Capacitor and the guarded backend mobile bridge.
 
-See:
-- `docs/ARCHITECTURE_AND_SCOPE.md`
-- `docs/BACKLOG.md`
+Core project documents:
+
+- `docs/ARCHITECTURE_AND_SCOPE.md` — architecture and delivery scope
+- `docs/BACKLOG.md` — implementation/status ledger
+- `docs/RUNTIME_QA_MATRIX.md` — Android/iOS runtime acceptance tests
+- `docs/APP_STORE_COMPLIANCE.md` — UGC/privacy/store audit
+- `docs/RELEASE_INPUTS.md` — external Apple/Google/Firebase/OneSignal/signing inputs
+- `docs/PLATFORM_SUPPORT.md` — supported Android/iOS versions and orientation policy
+- `docs/RELEASE_CHECKLIST.md` — authoritative release go/no-go checklist
+
+## Confirmed Runtime Identity
+
+| Item | Value |
+|---|---|
+| App display name | ChatPalez |
+| Android application ID | `com.chatpalez` |
+| iOS bundle ID in project | `com.chatpalez` |
+| Production origin | `https://chatpalez.com` |
+| Official-shell marker | `ChatPalezMobile/1.0` |
+| Custom deep-link scheme | `chatpalez://open` |
+
+The Android identity is preserved for compatibility with the existing app identity. Apple ownership/signing for `com.chatpalez` still has to be confirmed in the client Apple Developer team before release.
+
+## Platform Support
+
+- Android API 24 / Android 7.0 and newer
+- Android compile/target SDK 36
+- iOS 15.0 and newer
+
+See `docs/PLATFORM_SUPPORT.md` for orientation and support-policy details.
 
 ## Requirements
 
 - Node.js 22+
 - npm
-- Android Studio + Android SDK for Android builds
-- macOS + Xcode for iOS builds
-- CocoaPods if required by installed iOS plugins
+- Android Studio + Android SDK for Android local builds
+- macOS + Xcode for iOS device/archive builds
 
-## First-time setup
+CI already validates Android debug/release compilation and unsigned iOS simulator compilation. Final signed store artifacts still require client-controlled signing credentials/accounts.
+
+## First-time Setup
 
 ```bash
 cp .env.example .env
 npm install
 npm run build
+npm test
 ```
 
-Update `.env` with the approved ChatPalez origin and trusted host names before generating native projects.
+Public runtime configuration belongs in `.env`; privileged credentials do not.
 
-## Native project generation
-
-Android:
+## Common Commands
 
 ```bash
-npm run cap:add:android
+npm run build
+npm test
+npm run build:metadata
+npm run cap:sync
+npm run android
+npm run ios
 ```
 
-iOS:
+`npm run build:metadata` validates native identity/version consistency and writes `artifacts/build-metadata.json` for traceable build evidence.
 
-```bash
-npm run cap:add:ios
-```
+## Native Projects
 
-After dependencies or web code change:
+The source-controlled native projects are:
+
+- `android/`
+- `ios/`
+
+They are intentionally kept in the same repository because Android and iOS share the Capacitor configuration, web/native bridge contract, dependencies, release documentation and product behavior.
+
+After plugin/config/web-shell changes:
 
 ```bash
 npm run cap:sync
 ```
 
-Open native IDEs:
+Only regenerate a native project deliberately. CI guards important native configuration such as package identity, Android backup/cleartext policy, permissions and deep-link registration.
 
-```bash
-npm run android
-npm run ios
+## Runtime Configuration
+
+`.env.example` defines the non-secret configuration used by the local shell:
+
+- `VITE_CHATPALEZ_ORIGIN=https://chatpalez.com`
+- trusted internal host configuration
+- `CAP_APP_ID=com.chatpalez`
+- `CAP_APP_NAME=ChatPalez`
+- `CAP_SERVER_URL=https://chatpalez.com`
+
+Never put API secrets, signing passwords, Apple APNs private keys, Firebase service-account credentials, OneSignal REST keys or private signing material in `VITE_*` variables or commit them to this repository.
+
+## Current Native Capabilities
+
+The active implementation includes:
+
+- trusted HTTPS ChatPalez container policy
+- recoverable loading/offline/server-error shell
+- Android back behavior
+- iOS WKWebView back/forward swipe navigation
+- app lifecycle hooks
+- external HTTP(S) browser handoff
+- `tel:` and `mailto:` OS handoff
+- native Share bridge
+- keyboard resize/state integration
+- safe-area/status/splash handling
+- selective haptics
+- custom `chatpalez://open` deep links with trusted-target validation
+- OneSignal native SDK integration and user-controlled permission UX
+- ChatPalez user ↔ OneSignal external identity bridge
+- foreground/click notification handlers
+- bounded privacy-safe diagnostics
+- Android emulator/instrumentation smoke coverage
+- Android unsigned release-AAB generation in CI
+
+The matching server-side bridge remains isolated in `justyce2/chatpalez-backend-2` on the `mobile-app-integration` branch/draft PR until runtime acceptance is complete.
+
+## Deep Links
+
+The installed app registers:
+
+```text
+chatpalez://open?path=/settings/notifications
 ```
 
-## Environment variables
+or an encoded trusted same-origin URL through the `url` parameter. The bridge resolves only destinations that map back to the approved ChatPalez HTTPS origin. External hosts, script/data schemes, protocol-relative escape attempts and malformed targets are rejected.
 
-`VITE_CHATPALEZ_ORIGIN` is the HTTPS ChatPalez URL opened by the mobile shell.
+## Push Notifications
 
-`VITE_ALLOWED_HOSTS` contains comma-separated hosts trusted by the web-side navigation layer.
+Native push scaffolding is implemented, but real delivery is not release-complete until the client provides/configures:
 
-`CAP_ALLOWED_HOSTS` contains hosts Capacitor is permitted to keep inside the native WebView.
+- OneSignal mobile platform access/configuration
+- Firebase/FCM for Android
+- APNs/Apple Developer configuration for iOS
+- physical-device delivery/click testing
 
-`CAP_APP_ID` and `CAP_APP_NAME` configure native application identity. The current repository default `com.chatpalez.mobile` is provisional and must be finalized before store registration/signing.
+The app does **not** automatically prompt on first launch. The user explicitly enables native notifications from ChatPalez Notifications settings.
 
-Never place private keys, API secrets, Apple APNs keys, Android signing keys, Firebase service-account credentials, or other privileged secrets in `VITE_*` variables or commit them to this repository.
+## Release Versioning
 
-## Current startup flow
+The current generated Android `versionCode 1` and iOS build `1` are development placeholders. Because ChatPalez has an existing Android identity, the final Android version code must be strictly higher than the highest version already uploaded to Google Play. Do not guess this number.
 
-1. Launch local Capacitor shell.
-2. Prepare native status/splash UI.
-3. Check network connectivity.
-4. Validate configured ChatPalez origin.
-5. Show a recoverable offline/configuration state when necessary.
-6. Navigate to the approved ChatPalez mobile experience.
+See `docs/RELEASE_INPUTS.md` before producing a final signed release.
 
-Navigation interception, authentication verification, native push, media permissions, deep links and release signing are tracked in `docs/BACKLOG.md` and will be implemented incrementally.
+## Branch Strategy
 
-## Branch strategy
+- `main`: stable/release-ready work
+- `develop`: active mobile implementation/integration
 
-- `main`: stable/release-ready work.
-- `develop`: active implementation and integration.
-
-Implementation should land on `develop`, be tested, then merge to `main` at release milestones.
+The current `develop → main` pull request remains intentionally draft. Do not merge merely because compile CI passes; runtime P0/P1 acceptance and release dependencies are tracked in `docs/RELEASE_CHECKLIST.md`.
