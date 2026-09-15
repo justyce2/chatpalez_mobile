@@ -21,6 +21,7 @@ permissions:
 
 env:
   EXPECTED_APP_ID: com.chatpalez
+  ONESIGNAL_DISABLE_LOCATION: true
 
 jobs:
   android:
