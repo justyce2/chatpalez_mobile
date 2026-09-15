@@ -33,8 +33,10 @@
 	},
 	"packageClassList": [
 		"AppPlugin",
+		"AppLauncherPlugin",
 		"CAPBrowserPlugin",
 		"HapticsPlugin",
+		"KeyboardPlugin",
 		"CAPNetworkPlugin",
 		"SharePlugin",
 		"SplashScreenPlugin",
