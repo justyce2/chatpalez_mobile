@@ -1,7 +1,7 @@
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import type { AppConfig } from './config';
-import { normalizeInternalRoute } from './navigation';
+import { resolveAppDeepLink } from './navigation';
 
 export type RouteHandler = (route: string) => void;
 
@@ -9,7 +9,7 @@ export async function registerNativeLifecycle(config: AppConfig, onRoute: RouteH
   if (!Capacitor.isNativePlatform()) return;
 
   await App.addListener('appUrlOpen', ({ url }) => {
-    const route = normalizeInternalRoute(url, config);
+    const route = resolveAppDeepLink(url, config);
     if (route) onRoute(route);
   });
 
