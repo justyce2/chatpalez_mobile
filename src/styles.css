@@ -9,7 +9,7 @@
 * { box-sizing: border-box; }
 html, body, #app { width: 100%; min-height: 100%; margin: 0; }
 body { min-height: 100vh; min-height: 100dvh; background: #f8fafc; }
-button, input { font: inherit; }
+button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 .app-shell { min-height: 100vh; min-height: 100dvh; }
 
@@ -61,6 +61,7 @@ p { color: #64748b; line-height: 1.55; }
 .primary-button { background: #111827; color: #fff; }
 .primary-button:disabled { opacity: .65; cursor: wait; }
 .secondary-button { background: #e2e8f0; color: #0f172a; margin-top: 12px; }
+.compact-button { margin-top: 0; padding: 9px 12px; }
 .form-error { margin: 0; padding: 11px 12px; border-radius: 12px; background: #fef2f2; color: #b91c1c; font-size: .9rem; }
 
 .mobile-layout {
@@ -120,6 +121,71 @@ p { color: #64748b; line-height: 1.55; }
   color: #0f172a;
 }
 .conversation-item span { color: #64748b; font-size: .85rem; }
+
+.conversation-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.conversation-header .screen-title { margin: 0; }
+.message-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-height: 220px;
+  max-height: calc(100dvh - 300px);
+  overflow-y: auto;
+  padding: 6px 2px 16px;
+}
+.message-bubble {
+  align-self: flex-start;
+  max-width: 82%;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px 16px 16px 5px;
+  background: #fff;
+  color: #0f172a;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.message-bubble.is-mine {
+  align-self: flex-end;
+  border-color: #111827;
+  border-radius: 16px 16px 5px 16px;
+  background: #111827;
+  color: #fff;
+}
+.message-bubble small {
+  display: block;
+  margin-top: 5px;
+  opacity: .65;
+  font-size: .72rem;
+}
+.message-composer {
+  position: sticky;
+  bottom: 72px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px 0;
+  background: linear-gradient(to top, #f8fafc 75%, rgba(248,250,252,0));
+}
+.message-composer textarea {
+  width: 100%;
+  min-height: 48px;
+  max-height: 140px;
+  resize: vertical;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 12px 13px;
+  background: #fff;
+  color: #0f172a;
+  outline: none;
+}
+.message-composer textarea:focus { border-color: #475569; box-shadow: 0 0 0 3px rgba(71, 85, 105, .12); }
+.message-composer .primary-button { min-height: 48px; }
 
 .bottom-tabs {
   position: fixed;
