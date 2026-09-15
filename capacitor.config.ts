@@ -2,23 +2,23 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const appId = process.env.CAP_APP_ID ?? 'com.chatpalez.mobile';
 const appName = process.env.CAP_APP_NAME ?? 'ChatPalez';
-const allowedHosts = (process.env.CAP_ALLOWED_HOSTS ?? '')
-  .split(',')
-  .map((host) => host.trim())
-  .filter(Boolean);
 
 const config: CapacitorConfig = {
   appId,
   appName,
   webDir: 'dist',
-  server: allowedHosts.length > 0 ? { allowNavigation: allowedHosts } : undefined,
+  appendUserAgent: ' ChatPalezMobile/1.0',
+  loggingBehavior: 'debug',
   android: {
     allowMixedContent: false,
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
+    initialFocus: true
   },
   ios: {
     backgroundColor: '#ffffff',
-    contentInset: 'automatic'
+    contentInset: 'automatic',
+    preferredContentMode: 'mobile',
+    allowsLinkPreview: false
   },
   plugins: {
     SplashScreen: {
