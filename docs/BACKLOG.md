@@ -25,11 +25,11 @@
 | Metric | Current |
 |---|---:|
 | Total tracked tasks | 63 |
-| Completed | 2 |
-| In Progress | 0 |
-| Testing | 0 |
+| Completed | 6 |
+| In Progress | 2 |
+| Testing | 4 |
 | Blocked | 0 |
-| Planned | 61 |
+| Planned | 51 |
 | Deferred | 0 |
 
 > Update rule: whenever a feature or task is completed, update its row, completion count, notes and—where relevant—the commit/PR reference.
@@ -42,11 +42,11 @@
 |---|---|---|---|---|---|
 | A-01 | Inspect existing ChatPalez backend architecture | Completed | Backend/frontend architecture and mobile implementation approach identified | Access to `chatpalez-backend-2` | Existing PHP/Smarty/Bootstrap architecture reviewed |
 | A-02 | Define mobile architecture and scope | Completed | Architecture, scope, delivery phases, risks and DoD documented | A-01 | See `ARCHITECTURE_AND_SCOPE.md` |
-| A-03 | Validate production/staging web origin strategy | Planned | Approved URL(s), SSL behavior and environment approach documented | Backend URL/access | Determine staging vs production integration |
-| A-04 | Confirm Android application ID | Planned | Final unique package ID approved | Client/product decision | Must be stable before store release |
-| A-05 | Confirm iOS bundle identifier | Planned | Final unique bundle ID approved | Apple Developer account | Must match App Store configuration |
-| A-06 | Confirm app display name and branding assets | Planned | Name, icon source and splash assets approved | Client assets | Needed for native project branding |
-| A-07 | Confirm minimum Android/iOS support targets | Planned | Minimum supported versions recorded in project docs/config | Capacitor version decision | Prefer currently supported versions |
+| A-03 | Validate production/staging web origin strategy | In Progress | Approved URL(s), SSL behavior and environment approach documented | Backend URL/access | Environment abstraction implemented; final approved origin still required |
+| A-04 | Confirm Android application ID | Planned | Final unique package ID approved | Client/product decision | `com.chatpalez.mobile` is provisional only |
+| A-05 | Confirm iOS bundle identifier | Planned | Final unique bundle ID approved | Apple Developer account | `com.chatpalez.mobile` is provisional only; must match App Store configuration |
+| A-06 | Confirm app display name and branding assets | Planned | Name, icon source and splash assets approved | Client assets | Working display name is ChatPalez; final source assets still required |
+| A-07 | Confirm minimum Android/iOS support targets | Planned | Minimum supported versions recorded in project docs/config | Capacitor version decision | Capacitor 8 selected; native generated projects will define final platform values |
 
 ---
 
@@ -54,14 +54,14 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| B-01 | Initialize Node/TypeScript project | Planned | `package.json`, TypeScript config and scripts committed | None | Shared mobile project foundation |
-| B-02 | Install and configure Capacitor core/CLI | Planned | Capacitor initialized with valid config | B-01, A-04, A-05 | No secrets in config |
-| B-03 | Create minimal local app shell | Planned | Local shell renders loading/error/offline states | B-02 | Avoid blank WebView experience |
-| B-04 | Add Android Capacitor project | Planned | `android/` project generated and sync succeeds | B-02 | Build from Android Studio/CLI |
-| B-05 | Add iOS Capacitor project | Planned | `ios/` project generated and sync succeeds | B-02 | Requires macOS/Xcode for build verification |
-| B-06 | Add environment/config abstraction | Planned | Dev/prod origins and non-secret config separated cleanly | B-02 | Prevent hard-coded production assumptions |
-| B-07 | Add `.gitignore` and secret-safety rules | Planned | Native build artifacts, local configs and credentials excluded | B-01 | Mandatory before native credentials |
-| B-08 | Add project README/build instructions | Planned | Fresh developer can understand setup/build flow | B-01–B-07 | Update throughout implementation |
+| B-01 | Initialize Node/TypeScript project | Completed | `package.json`, TypeScript config and scripts committed | None | TypeScript + Vite foundation committed on `develop` |
+| B-02 | Install and configure Capacitor core/CLI | Testing | Capacitor initialized with valid config | B-01, A-04, A-05 | Capacitor 8 dependencies/config committed; runtime install/build verification pending |
+| B-03 | Create minimal local app shell | Testing | Local shell renders loading/error/offline states | B-02 | Shell, retry flow, safe-area layout and startup states implemented; runtime verification pending |
+| B-04 | Add Android Capacitor project | Planned | `android/` project generated and sync succeeds | B-02 | Generate with `npm run cap:add:android` once foundation build is verified |
+| B-05 | Add iOS Capacitor project | Planned | `ios/` project generated and sync succeeds | B-02 | Generate with `npm run cap:add:ios`; build verification requires macOS/Xcode |
+| B-06 | Add environment/config abstraction | Completed | Dev/prod origins and non-secret config separated cleanly | B-02 | `.env.example`, validated web config and native host allow-list variables committed |
+| B-07 | Add `.gitignore` and secret-safety rules | Completed | Native build artifacts, local configs and credentials excluded | B-01 | APNs, Firebase, signing files, local env and native build outputs excluded |
+| B-08 | Add project README/build instructions | Completed | Fresh developer can understand setup/build flow | B-01–B-07 | Setup, native generation, sync, environments and branch strategy documented |
 
 ---
 
@@ -69,16 +69,16 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| C-01 | Load approved ChatPalez origin in app | Planned | App consistently opens correct mobile experience | B-03, A-03 | HTTPS only in production |
-| C-02 | Implement trusted-host allow-list | Planned | Only approved ChatPalez origins can remain inside app WebView | C-01 | Security-critical |
+| C-01 | Load approved ChatPalez origin in app | Planned | App consistently opens correct mobile experience | B-03, A-03 | Bootstrap navigation implemented but final origin is not yet approved/configured |
+| C-02 | Implement trusted-host allow-list | In Progress | Only approved ChatPalez origins can remain inside app WebView | C-01 | Web and Capacitor host allow-list configuration started; interception enforcement still required |
 | C-03 | Implement external URL interception | Planned | External links open with appropriate system/browser behavior | C-02 | Handle `http/https` intentionally |
 | C-04 | Handle `tel:` / `mailto:` / app links | Planned | Supported URI schemes hand off to OS correctly | C-03 | Graceful failure if target app unavailable |
 | C-05 | Implement popup/new-window handling | Planned | Links using new window do not fail silently | C-03 | Common with OAuth/social links |
 | C-06 | Implement Android back-button behavior | Planned | Back navigates history correctly and root behavior is predictable | C-01 | Must not exit unexpectedly |
 | C-07 | Define iOS navigation/back behavior | Planned | Web history and native gestures produce acceptable UX | C-01 | Validate WKWebView behavior |
-| C-08 | Implement loading state | Planned | User sees intentional loading UI before remote content is ready | B-03, C-01 | No blank screen |
-| C-09 | Implement server/error state | Planned | SSL/load/server errors show recoverable UI | B-03, C-01 | Include retry |
-| C-10 | Implement offline state and reconnect | Planned | Offline state shown; app can recover after network returns | C-01 | Test cold start + mid-session loss |
+| C-08 | Implement loading state | Testing | User sees intentional loading UI before remote content is ready | B-03, C-01 | Local startup loading state implemented; native runtime verification pending |
+| C-09 | Implement server/error state | Planned | SSL/load/server errors show recoverable UI | B-03, C-01 | Configuration/startup errors handled; native remote-load failures still require platform handling |
+| C-10 | Implement offline state and reconnect | Testing | Offline state shown; app can recover after network returns | C-01 | Network plugin listener/retry flow implemented; device verification pending |
 
 ---
 
@@ -101,10 +101,10 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| E-01 | Configure splash screen | Planned | Correct splash displays on Android and iOS | A-06, B-04, B-05 | Use production branding |
+| E-01 | Configure splash screen | Planned | Correct splash displays on Android and iOS | A-06, B-04, B-05 | Base Capacitor splash behavior configured; final branding pending |
 | E-02 | Configure app icons | Planned | Required Android/iOS icon sets generated and applied | A-06 | Store-ready sizes |
-| E-03 | Configure status bar | Planned | Status bar does not clash with app UI | B-04, B-05 | Test dark/light page contexts |
-| E-04 | Configure safe-area handling | Planned | Content avoids notches/home indicators | C-01 | Especially iOS |
+| E-03 | Configure status bar | Planned | Status bar does not clash with app UI | B-04, B-05 | Base plugin/bootstrap handling added; native testing pending |
+| E-04 | Configure safe-area handling | Planned | Content avoids notches/home indicators | C-01 | Local shell uses CSS safe-area insets; remote ChatPalez UI still needs verification |
 | E-05 | Configure keyboard behavior | Planned | Forms/messages remain usable when keyboard opens | C-01 | Test chat composer and login |
 | E-06 | Define orientation behavior | Planned | App orientation policy documented and configured | Product decision | Likely portrait-first unless calls/media require otherwise |
 | E-07 | Validate Android edge-to-edge behavior | Planned | No content clipping on current Android UI modes | B-04 | Device/emulator testing |
@@ -232,9 +232,9 @@ These are not implementation tasks by themselves, but delays here can block impl
 
 | Dependency | Needed for | Current status |
 |---|---|---|
-| Final ChatPalez staging/production URL | Web container integration | Needed |
-| Android application ID | Native project/store identity | Needed |
-| iOS bundle ID | Native project/App Store identity | Needed |
+| Final ChatPalez staging/production URL | Web container integration | Needed; env/config support implemented |
+| Android application ID | Native project/store identity | Needed; provisional `com.chatpalez.mobile` in development config |
+| iOS bundle ID | Native project/App Store identity | Needed; provisional `com.chatpalez.mobile` in development config |
 | Apple Developer Program access | iOS signing/APNs/TestFlight | Needed before release work |
 | App Store Connect access | TestFlight/submission | Needed before release work |
 | Firebase/FCM access | Android native push | Needed before push phase |
@@ -298,3 +298,4 @@ Exit condition: release artifacts can be produced and the application is enginee
 | Date | Change |
 |---|---|
 | 2026-09-15 | Initial backlog created. Architecture review and architecture/scope document marked Completed. All implementation tasks initialized for the two-week delivery plan. |
+| 2026-09-15 | Implementation started on `develop`. Added TypeScript/Vite/Capacitor 8 foundation, environment abstraction, secret-safety rules, local startup/offline shell, trusted-host configuration and README/build workflow. B-01/B-06/B-07/B-08 marked Completed; B-02/B-03/C-08/C-10 moved to Testing; A-03/C-02 moved to In Progress. |
