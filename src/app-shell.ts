@@ -1,4 +1,4 @@
-import type { Conversation } from './api/chat';
+import type { Conversation, Message, MessagesResult } from './api/chat';
 import type { AuthSession } from './auth/session';
 
 export type LoginCredentials = {
@@ -11,6 +11,8 @@ export type AppShellHandlers = {
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string) => void;
   onLoadConversations?: () => Promise<Conversation[]>;
+  onLoadMessages?: (conversationId: number | string) => Promise<MessagesResult>;
+  onSendMessage?: (conversationId: number | string, message: string) => Promise<void>;
 };
 
 export type AppShell = {
@@ -137,29 +139,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       }
 
       if (tab === 'messages') {
-        content.append(screenTitle('Messages'));
-        if (!handlers.onLoadConversations) {
-          content.append(paragraph('The messaging API service is implemented and ready for the final shell wiring step.'));
-          return;
-        }
-
-        const loading = paragraph('Loading conversations…');
-        content.append(loading);
-        try {
-          const conversations = await handlers.onLoadConversations();
-          content.replaceChildren(screenTitle('Messages'));
-          if (conversations.length === 0) {
-            content.append(paragraph('No conversations yet.'));
-            return;
-          }
-          content.append(conversationList(conversations, handlers));
-        } catch (error) {
-          content.replaceChildren(screenTitle('Messages'));
-          content.append(paragraph(error instanceof Error ? error.message : 'Unable to load conversations.'));
-          const retry = secondaryButton('Try again');
-          retry.addEventListener('click', () => void selectTab('messages'));
-          content.append(retry);
-        }
+        await showConversationList();
         return;
       }
 
@@ -183,6 +163,104 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.append(settings, logout);
     }
 
+    async function showConversationList(): Promise<void> {
+      content.replaceChildren(screenTitle('Messages'));
+      if (!handlers.onLoadConversations) {
+        content.append(paragraph('The messaging API service is implemented and ready for the final shell wiring step.'));
+        return;
+      }
+
+      const loading = paragraph('Loading conversations…');
+      content.append(loading);
+      try {
+        const conversations = await handlers.onLoadConversations();
+        content.replaceChildren(screenTitle('Messages'));
+        if (conversations.length === 0) {
+          content.append(paragraph('No conversations yet.'));
+          return;
+        }
+        content.append(conversationList(conversations, (conversation) => void showConversation(conversation)));
+      } catch (error) {
+        content.replaceChildren(screenTitle('Messages'));
+        content.append(paragraph(error instanceof Error ? error.message : 'Unable to load conversations.'));
+        const retry = secondaryButton('Try again');
+        retry.addEventListener('click', () => void showConversationList());
+        content.append(retry);
+      }
+    }
+
+    async function showConversation(conversation: Conversation): Promise<void> {
+      const conversationId = conversation.conversation_id;
+      const titleText = String(conversation.name || conversation.name_list || 'Conversation');
+      content.replaceChildren();
+
+      const header = element('div', 'conversation-header');
+      const back = secondaryButton('Back');
+      back.classList.add('compact-button');
+      back.addEventListener('click', () => void showConversationList());
+      header.append(back, screenTitle(titleText));
+      content.append(header);
+
+      const thread = element('div', 'message-thread');
+      thread.append(paragraph('Loading messages…'));
+      content.append(thread);
+
+      if (!handlers.onLoadMessages) {
+        thread.replaceChildren(paragraph('Message loading is not wired yet.'));
+        return;
+      }
+
+      const composer = document.createElement('form');
+      composer.className = 'message-composer';
+      const text = document.createElement('textarea');
+      text.name = 'message';
+      text.rows = 2;
+      text.placeholder = 'Write a message…';
+      text.setAttribute('aria-label', 'Message');
+      const send = actionButton('Send');
+      send.type = 'submit';
+      composer.append(text, send);
+      content.append(composer);
+
+      const refreshThread = async (): Promise<void> => {
+        try {
+          const result = await handlers.onLoadMessages?.(conversationId);
+          thread.replaceChildren();
+          const messages = result?.messages ?? [];
+          if (messages.length === 0) {
+            thread.append(paragraph('No messages yet.'));
+            return;
+          }
+          for (const message of messages) thread.append(messageBubble(message, session));
+          thread.scrollTop = thread.scrollHeight;
+        } catch (error) {
+          thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
+        }
+      };
+
+      composer.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const message = text.value.trim();
+        if (!message || !handlers.onSendMessage) return;
+        send.disabled = true;
+        send.textContent = 'Sending…';
+        void handlers.onSendMessage(conversationId, message)
+          .then(async () => {
+            text.value = '';
+            await refreshThread();
+          })
+          .catch((error: unknown) => {
+            window.alert(error instanceof Error ? error.message : 'Unable to send message.');
+          })
+          .finally(() => {
+            send.disabled = false;
+            send.textContent = 'Send';
+          });
+      });
+
+      await refreshThread();
+    }
+
     layout.append(topbar, content, nav);
     root.append(layout);
     void selectTab('home');
@@ -199,7 +277,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   return { showStartup, showLogin, showAuthenticated, setBusy };
 }
 
-function conversationList(conversations: Conversation[], handlers: AppShellHandlers): HTMLDivElement {
+function conversationList(conversations: Conversation[], onOpen: (conversation: Conversation) => void): HTMLDivElement {
   const list = element('div', 'conversation-list');
   for (const conversation of conversations) {
     const item = element('button', 'conversation-item');
@@ -208,10 +286,20 @@ function conversationList(conversations: Conversation[], handlers: AppShellHandl
     const title = elementWithText('strong', name);
     const meta = elementWithText('span', conversation.user_is_online ? 'Online' : 'Open conversation');
     item.append(title, meta);
-    item.addEventListener('click', () => handlers.onOpenWebModule(`/messages/${conversation.conversation_id}`));
+    item.addEventListener('click', () => onOpen(conversation));
     list.append(item);
   }
   return list;
+}
+
+function messageBubble(message: Message, session: AuthSession): HTMLDivElement {
+  const bubble = element('div', 'message-bubble');
+  const senderId = String(message.user_id ?? message.sender_id ?? '');
+  if (senderId && senderId === String(session.user.user_id ?? '')) bubble.classList.add('is-mine');
+  const body = String(message.message ?? '');
+  bubble.append(elementWithText('div', body || 'Attachment'));
+  if (message.time) bubble.append(elementWithText('small', String(message.time)));
+  return bubble;
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): HTMLElementTagNameMap[K] {
