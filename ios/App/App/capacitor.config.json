@@ -18,7 +18,8 @@
 		"backgroundColor": "#ffffff",
 		"contentInset": "automatic",
 		"preferredContentMode": "mobile",
-		"allowsLinkPreview": false
+		"allowsLinkPreview": false,
+		"handleApplicationNotifications": false
 	},
 	"plugins": {
 		"SplashScreen": {
@@ -37,6 +38,7 @@
 		"CAPNetworkPlugin",
 		"SharePlugin",
 		"SplashScreenPlugin",
-		"StatusBarPlugin"
+		"StatusBarPlugin",
+		"OneSignalCapacitorPlugin"
 	]
 }
