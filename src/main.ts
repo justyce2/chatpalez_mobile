@@ -2,7 +2,9 @@ import { Capacitor } from '@capacitor/core';
 import { Network } from '@capacitor/network';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { installMobileBridge } from './bridge';
 import { getAppConfig } from './config';
+import { registerNativeLifecycle } from './native-lifecycle';
 import './styles.css';
 
 const title = document.querySelector<HTMLHeadingElement>('#state-title');
@@ -25,13 +27,19 @@ async function prepareNativeChrome(): Promise<void> {
   }
 }
 
-async function openChatPalez(): Promise<void> {
+async function bootstrap(): Promise<void> {
   setState('Opening ChatPalez', 'Checking your connection…');
 
   try {
     const config = getAppConfig();
-    const network = await Network.getStatus();
+    installMobileBridge(config);
 
+    await registerNativeLifecycle(config, (route) => {
+      const destination = new URL(route, config.origin);
+      window.location.assign(destination.toString());
+    });
+
+    const network = await Network.getStatus();
     if (!network.connected) {
       setState('You are offline', 'Connect to the internet, then try again.', true);
       return;
@@ -50,13 +58,13 @@ async function openChatPalez(): Promise<void> {
 }
 
 retryButton?.addEventListener('click', () => {
-  void openChatPalez();
+  void bootstrap();
 });
 
 void Network.addListener('networkStatusChange', (status) => {
   if (status.connected && retryButton && !retryButton.hidden) {
-    void openChatPalez();
+    void bootstrap();
   }
 });
 
-void prepareNativeChrome().then(openChatPalez);
+void prepareNativeChrome().then(bootstrap);
