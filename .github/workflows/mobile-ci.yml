@@ -31,5 +31,15 @@ jobs:
       - name: Type-check and build web assets
         run: npm run build
 
+      - name: Validate release metadata consistency
+        run: npm run build:metadata
+
       - name: Validate Capacitor Android sync
         run: npx cap sync android
+
+      - name: Upload build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatpalez-build-metadata
+          path: artifacts/build-metadata.json
+          retention-days: 7
