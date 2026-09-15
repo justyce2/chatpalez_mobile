@@ -5,6 +5,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { installMobileBridge } from './bridge';
 import { getAppConfig } from './config';
 import { registerNativeLifecycle } from './native-lifecycle';
+import { bindWebBridgeEvents } from './web-bridge-events';
 import './styles.css';
 
 const title = document.querySelector<HTMLHeadingElement>('#state-title');
@@ -32,7 +33,8 @@ async function bootstrap(): Promise<void> {
 
   try {
     const config = getAppConfig();
-    installMobileBridge(config);
+    const bridge = installMobileBridge(config);
+    bindWebBridgeEvents(bridge);
 
     await registerNativeLifecycle(config, (route) => {
       const destination = new URL(route, config.origin);
