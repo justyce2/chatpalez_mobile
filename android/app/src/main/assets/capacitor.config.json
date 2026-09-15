@@ -1,0 +1,28 @@
+{
+	"appId": "com.chatpalez.mobile",
+	"appName": "ChatPalez",
+	"webDir": "dist",
+	"appendUserAgent": " ChatPalezMobile/1.0",
+	"loggingBehavior": "debug",
+	"android": {
+		"allowMixedContent": false,
+		"backgroundColor": "#ffffff",
+		"initialFocus": true
+	},
+	"ios": {
+		"backgroundColor": "#ffffff",
+		"contentInset": "automatic",
+		"preferredContentMode": "mobile",
+		"allowsLinkPreview": false
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchAutoHide": false,
+			"showSpinner": false,
+			"backgroundColor": "#FFFFFFFF"
+		},
+		"StatusBar": {
+			"overlaysWebView": false
+		}
+	}
+}
