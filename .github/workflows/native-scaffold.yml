@@ -66,11 +66,18 @@ jobs:
           grep -q "namespace = \"${EXPECTED_APP_ID}\"" android/app/build.gradle
           grep -q "applicationId \"${EXPECTED_APP_ID}\"" android/app/build.gradle
 
-      - name: Compile Android debug app
+      - name: Compile Android debug and release variants
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug bundleRelease
+
+      - name: Upload unsigned release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatpalez-android-unsigned-release-aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          retention-days: 7
 
       - name: Upload Android project
         uses: actions/upload-artifact@v4
