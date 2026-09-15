@@ -16,6 +16,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: native-validation-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
