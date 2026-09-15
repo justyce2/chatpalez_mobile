@@ -5,6 +5,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { createAppShell } from './app-shell';
 import { ChatPalezApiClient, ApiError } from './api/client';
 import { AuthService } from './api/auth';
+import { ChatService } from './api/chat';
 import { clearSession, getAuthToken, getSession, setSession } from './auth/session';
 import { getAppConfig } from './config';
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
@@ -17,6 +18,7 @@ if (!root) throw new Error('ChatPalez app root was not found.');
 const config = getAppConfig();
 const api = new ChatPalezApiClient({ config, getAuthToken });
 const auth = new AuthService(api);
+const chat = new ChatService(api);
 
 const shell = createAppShell(root, {
   onLogin: async ({ usernameEmail, password }) => {
@@ -54,6 +56,11 @@ const shell = createAppShell(root, {
     const destination = new URL(path, config.origin);
     logInfo('Web-backed module requested', { url: destination.toString() });
     window.alert('This web-backed section is waiting for the API-to-web session bridge. Your mobile API session remains signed in.');
+  },
+  onLoadConversations: async () => {
+    const conversations = await chat.getConversations();
+    logInfo('Conversation list loaded', { count: conversations.length });
+    return conversations;
   }
 });
 
