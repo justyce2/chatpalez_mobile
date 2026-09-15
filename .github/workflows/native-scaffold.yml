@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   EXPECTED_APP_ID: com.chatpalez
@@ -48,20 +48,16 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      - name: Ensure Android identity and project
+      - name: Verify Android project exists and identity matches
         run: |
-          if [ -f android/app/build.gradle ] && ! grep -q "applicationId \"${EXPECTED_APP_ID}\"" android/app/build.gradle; then
-            echo "Android app id changed; regenerating native project."
-            rm -rf android
-          fi
-          if [ ! -d android ]; then
-            CAP_APP_ID="${EXPECTED_APP_ID}" npx cap add android
-          fi
+          test -d android
+          grep -q "namespace = \"${EXPECTED_APP_ID}\"" android/app/build.gradle
+          grep -q "applicationId \"${EXPECTED_APP_ID}\"" android/app/build.gradle
 
       - name: Sync Android project
         run: CAP_APP_ID="${EXPECTED_APP_ID}" npx cap sync android
 
-      - name: Verify Android identity and security policy
+      - name: Verify Android identity and security policy after sync
         run: |
           grep -q "namespace = \"${EXPECTED_APP_ID}\"" android/app/build.gradle
           grep -q "applicationId \"${EXPECTED_APP_ID}\"" android/app/build.gradle
@@ -84,13 +80,6 @@ jobs:
         with:
           name: chatpalez-android-unsigned-release-aab
           path: android/app/build/outputs/bundle/release/*.aab
-          retention-days: 7
-
-      - name: Upload Android project
-        uses: actions/upload-artifact@v4
-        with:
-          name: chatpalez-android-scaffold
-          path: android
           retention-days: 7
 
   android-smoke:
@@ -124,7 +113,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run Android launch smoke test
+      - name: Run Android runtime integration tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -151,20 +140,15 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      - name: Ensure iOS identity and project
+      - name: Verify iOS project exists and identity matches
         run: |
-          if [ -f ios/App/App.xcodeproj/project.pbxproj ] && ! grep -q "PRODUCT_BUNDLE_IDENTIFIER = ${EXPECTED_APP_ID};" ios/App/App.xcodeproj/project.pbxproj; then
-            echo "iOS bundle id changed; regenerating native project."
-            rm -rf ios
-          fi
-          if [ ! -d ios ]; then
-            CAP_APP_ID="${EXPECTED_APP_ID}" npx cap add ios
-          fi
+          test -d ios
+          grep -q "PRODUCT_BUNDLE_IDENTIFIER = ${EXPECTED_APP_ID};" ios/App/App.xcodeproj/project.pbxproj
 
       - name: Sync iOS project
         run: CAP_APP_ID="${EXPECTED_APP_ID}" npx cap sync ios
 
-      - name: Verify iOS identity and deep link scheme
+      - name: Verify iOS identity and deep link scheme after sync
         run: |
           grep -q "PRODUCT_BUNDLE_IDENTIFIER = ${EXPECTED_APP_ID};" ios/App/App.xcodeproj/project.pbxproj
           grep -q '<string>chatpalez</string>' ios/App/App/Info.plist
@@ -175,47 +159,3 @@ jobs:
 
       - name: Validate Xcode project without signing
         run: xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
-
-      - name: Upload iOS project
-        uses: actions/upload-artifact@v4
-        with:
-          name: chatpalez-ios-scaffold
-          path: ios
-          retention-days: 7
-
-  persist:
-    if: github.event_name == 'push'
-    needs:
-      - android
-      - ios
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout develop
-        uses: actions/checkout@v4
-        with:
-          ref: develop
-          fetch-depth: 0
-
-      - name: Download Android scaffold
-        uses: actions/download-artifact@v4
-        with:
-          name: chatpalez-android-scaffold
-          path: android
-
-      - name: Download iOS scaffold
-        uses: actions/download-artifact@v4
-        with:
-          name: chatpalez-ios-scaffold
-          path: ios
-
-      - name: Commit validated native projects
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add android ios
-          if git diff --cached --quiet; then
-            echo "Native projects already match the validated output."
-            exit 0
-          fi
-          git commit -m "chore: sync validated Android and iOS projects"
-          git push origin HEAD:develop
