@@ -1,9 +1,14 @@
 {
-	"appId": "com.chatpalez.mobile",
+	"appId": "com.chatpalez",
 	"appName": "ChatPalez",
 	"webDir": "dist",
 	"appendUserAgent": " ChatPalezMobile/1.0",
 	"loggingBehavior": "debug",
+	"server": {
+		"url": "https://chatpalez.com",
+		"cleartext": false,
+		"errorPath": "error.html"
+	},
 	"android": {
 		"allowMixedContent": false,
 		"backgroundColor": "#ffffff",
