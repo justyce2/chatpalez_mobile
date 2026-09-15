@@ -29,6 +29,11 @@
 		},
 		"StatusBar": {
 			"overlaysWebView": false
+		},
+		"Keyboard": {
+			"resize": "native",
+			"resizeOnFullScreen": true,
+			"autoBackdropColor": "auto"
 		}
 	}
 }
