@@ -14,6 +14,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -89,3 +92,40 @@ jobs:
           name: chatpalez-ios-scaffold
           path: ios
           retention-days: 7
+
+  persist:
+    if: github.event_name == 'push'
+    needs:
+      - android
+      - ios
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Download Android scaffold
+        uses: actions/download-artifact@v4
+        with:
+          name: chatpalez-android-scaffold
+          path: android
+
+      - name: Download iOS scaffold
+        uses: actions/download-artifact@v4
+        with:
+          name: chatpalez-ios-scaffold
+          path: ios
+
+      - name: Commit validated native projects
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android ios
+          if git diff --cached --quiet; then
+            echo "Native scaffolds already match the validated output."
+            exit 0
+          fi
+          git commit -m "chore: add validated Android and iOS scaffolds"
+          git push origin HEAD:develop
