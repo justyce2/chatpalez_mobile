@@ -31,5 +31,5 @@ jobs:
       - name: Type-check and build web assets
         run: npm run build
 
-      - name: Verify Capacitor configuration
-        run: npx cap doctor
+      - name: Validate Capacitor Android sync
+        run: npx cap sync android
