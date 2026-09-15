@@ -10,7 +10,7 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string) => void;
-  onLoadConversations: () => Promise<Conversation[]>;
+  onLoadConversations?: () => Promise<Conversation[]>;
 };
 
 export type AppShell = {
@@ -138,9 +138,13 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
       if (tab === 'messages') {
         content.append(screenTitle('Messages'));
+        if (!handlers.onLoadConversations) {
+          content.append(paragraph('The messaging API service is implemented and ready for the final shell wiring step.'));
+          return;
+        }
+
         const loading = paragraph('Loading conversations…');
         content.append(loading);
-
         try {
           const conversations = await handlers.onLoadConversations();
           content.replaceChildren(screenTitle('Messages'));
@@ -148,19 +152,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
             content.append(paragraph('No conversations yet.'));
             return;
           }
-
-          const list = element('div', 'conversation-list');
-          for (const conversation of conversations) {
-            const item = element('button', 'conversation-item');
-            item.type = 'button';
-            const name = String(conversation.name || conversation.name_list || 'Conversation');
-            const title = elementWithText('strong', name);
-            const meta = elementWithText('span', conversation.user_is_online ? 'Online' : 'Open conversation');
-            item.append(title, meta);
-            item.addEventListener('click', () => handlers.onOpenWebModule(`/messages/${conversation.conversation_id}`));
-            list.append(item);
-          }
-          content.append(list);
+          content.append(conversationList(conversations, handlers));
         } catch (error) {
           content.replaceChildren(screenTitle('Messages'));
           content.append(paragraph(error instanceof Error ? error.message : 'Unable to load conversations.'));
@@ -207,6 +199,21 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   return { showStartup, showLogin, showAuthenticated, setBusy };
 }
 
+function conversationList(conversations: Conversation[], handlers: AppShellHandlers): HTMLDivElement {
+  const list = element('div', 'conversation-list');
+  for (const conversation of conversations) {
+    const item = element('button', 'conversation-item');
+    item.type = 'button';
+    const name = String(conversation.name || conversation.name_list || 'Conversation');
+    const title = elementWithText('strong', name);
+    const meta = elementWithText('span', conversation.user_is_online ? 'Online' : 'Open conversation');
+    item.append(title, meta);
+    item.addEventListener('click', () => handlers.onOpenWebModule(`/messages/${conversation.conversation_id}`));
+    list.append(item);
+  }
+  return list;
+}
+
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -219,18 +226,13 @@ function elementWithText<K extends keyof HTMLElementTagNameMap>(tag: K, text: st
   return node;
 }
 
-function heading(text: string): HTMLHeadingElement {
-  return elementWithText('h1', text);
-}
+function heading(text: string): HTMLHeadingElement { return elementWithText('h1', text); }
+function paragraph(text: string): HTMLParagraphElement { return elementWithText('p', text); }
 
 function screenTitle(text: string): HTMLHeadingElement {
   const title = elementWithText('h2', text);
   title.className = 'screen-title';
   return title;
-}
-
-function paragraph(text: string): HTMLParagraphElement {
-  return elementWithText('p', text);
 }
 
 function brandMark(size?: 'small'): HTMLDivElement {
