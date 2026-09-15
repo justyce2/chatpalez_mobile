@@ -13,6 +13,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: production-contract-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   production-contract:
     runs-on: ubuntu-latest
