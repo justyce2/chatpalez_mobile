@@ -51,7 +51,7 @@ Commits:
 - `aa0379e629c06f92890ee260bc018ebcdbff335c` — notification router;
 - `851e7f667a7647e645b0bd5ca48ee139aa5eef16` — module registration.
 
-The fresh backend already contained the complete `NotificationsTrait::get_notifications()` business logic. The mobile adapter now exposes that existing Sngine logic through authenticated `GET /apis/php/notifications` instead of duplicating notification behavior.
+The fresh backend already contained the complete `NotificationsTrait::get_notifications()` business logic. The mobile adapter exposes that existing Sngine logic through authenticated `GET /apis/php/notifications` instead of duplicating notification behavior.
 
 ## Mobile implementation (`chatpalez_mobile/develop`)
 
@@ -103,11 +103,21 @@ Provides client methods for:
 
 The local Settings UI still needs to consume these methods.
 
-### Notifications client service
+### Notifications are now API-driven in the mobile implementation
 
-Commit: `be327cd02fef872a01927cf412c62654c4995d48`.
+- client service: `be327cd02fef872a01927cf412c62654c4995d48`;
+- local Alerts renderer: `7e81faa878256462dc44ef0cdf56a327b04de169`;
+- service wiring in application bootstrap: `f48a7c76bf6bf7d4e7f7e957928acec9eb683e66`;
+- mobile notification-list styling: `07d426fa237a6b7c888d817dc150f5bccf1cb707`.
 
-The mobile client now has a typed notification service for the newly exposed backend endpoint. Alerts UI wiring is the next local-screen step.
+Current local Alerts behavior in source:
+
+1. request authenticated notifications from `GET /apis/php/notifications`;
+2. render sender/name, message and time locally;
+3. retain notification destinations for controlled local-to-web routing;
+4. retry on API failure.
+
+Notification destination taps still depend on the pending JWT-to-web session transition before retained web pages can open as the same signed-in user.
 
 ## Confirmed auth model
 
@@ -140,15 +150,15 @@ Do not claim Android/iOS API login, chat or notifications as runtime-passed unti
 
 ## Exact next implementation steps
 
-1. Wire `NotificationsService.getNotifications()` into the local Alerts tab and render notification name/message/time with trusted destination routing.
-2. Build local Settings using confirmed `/user/blocked`, `/user/delete`, and native notification-permission controls.
-3. Add typing + seen state to local Messages, followed by contacts/new-conversation UX.
-4. Complete the safe POST transition from local/API UI to `mobile-session.php`; never put JWT in a URL.
-5. Deploy/merge `sngine-fresh` so the new API stack, first-party adapter, notifications endpoint and session bootstrap exist on the reachable ChatPalez server.
-6. Runtime-test login, 2FA, logout, session expiry, conversations, thread loading, send message, notifications, and API error handling.
-7. Replace interim `sessionStorage` JWT persistence with native secure storage.
-8. Continue endpoint mapping for feed/posts/profile editing/groups/pages/search.
-9. Re-test OneSignal identity association against JWT auth using the official `/user/onesignal` route.
+1. Build local Settings using confirmed `/user/blocked`, `/user/delete`, and native notification-permission controls.
+2. Add typing + seen state to local Messages, followed by contacts/new-conversation UX.
+3. Complete the safe POST transition from local/API UI to `mobile-session.php`; never put JWT in a URL.
+4. Deploy/merge `sngine-fresh` so the new API stack, first-party adapter, notifications endpoint and session bootstrap exist on the reachable ChatPalez server.
+5. Runtime-test login, 2FA, logout, session expiry, conversations, thread loading, send message, notifications, and API error handling.
+6. Replace interim `sessionStorage` JWT persistence with native secure storage.
+7. Continue endpoint mapping for feed/posts/profile editing/groups/pages/search.
+8. Re-test OneSignal identity association against JWT auth using the official `/user/onesignal` route.
+9. Add notification read/reset behavior if required after runtime verification of existing Sngine counters.
 10. Keep documentation synchronized after each material milestone.
 
 ## Backend branch policy
