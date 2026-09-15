@@ -6,6 +6,7 @@ import { createAppShell } from './app-shell';
 import { ChatPalezApiClient, ApiError } from './api/client';
 import { AuthService } from './api/auth';
 import { ChatService } from './api/chat';
+import { NotificationsService } from './api/notifications';
 import { clearSession, getAuthToken, getSession, setSession } from './auth/session';
 import { getAppConfig } from './config';
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
@@ -19,6 +20,7 @@ const config = getAppConfig();
 const api = new ChatPalezApiClient({ config, getAuthToken });
 const auth = new AuthService(api);
 const chat = new ChatService(api);
+const notifications = new NotificationsService(api);
 
 const shell = createAppShell(root, {
   onLogin: async ({ usernameEmail, password }) => {
@@ -73,6 +75,11 @@ const shell = createAppShell(root, {
   onSendMessage: async (conversationId, message) => {
     await chat.sendMessage(conversationId, message);
     logInfo('Message sent', { conversationId });
+  },
+  onLoadNotifications: async () => {
+    const items = await notifications.getNotifications();
+    logInfo('Notifications loaded', { count: items.length });
+    return items;
   }
 });
 
