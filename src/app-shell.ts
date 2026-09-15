@@ -1,3 +1,4 @@
+import type { Conversation } from './api/chat';
 import type { AuthSession } from './auth/session';
 
 export type LoginCredentials = {
@@ -9,6 +10,7 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string) => void;
+  onLoadConversations: () => Promise<Conversation[]>;
 };
 
 export type AppShell = {
@@ -44,7 +46,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     const form = document.createElement('form');
     form.className = 'auth-form';
 
-    const identity = input('email', 'Email or username', 'usernameEmail');
+    const identity = input('text', 'Email or username', 'usernameEmail');
     identity.autocomplete = 'username';
     const password = input('password', 'Password', 'password');
     password.autocomplete = 'current-password';
@@ -94,7 +96,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     avatar.className = 'avatar-button';
     avatar.setAttribute('aria-label', 'Account');
     avatar.textContent = initials(displayName);
-    avatar.addEventListener('click', () => selectTab('profile'));
+    avatar.addEventListener('click', () => void selectTab('profile'));
 
     topbar.append(brand, avatar);
 
@@ -116,18 +118,18 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       button.className = 'tab-button';
       button.dataset.tab = tab.id;
       button.textContent = tab.label;
-      button.addEventListener('click', () => selectTab(tab.id));
+      button.addEventListener('click', () => void selectTab(tab.id));
       buttons.set(tab.id, button);
       nav.append(button);
     }
 
-    function selectTab(tab: string): void {
+    async function selectTab(tab: string): Promise<void> {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
       content.replaceChildren();
 
       if (tab === 'home') {
         content.append(screenTitle(`Hi, ${displayName}`));
-        content.append(paragraph('Your local ChatPalez app shell is active. The social feed will be connected through the approved API/web-module path next.'));
+        content.append(paragraph('Your local ChatPalez app shell is active. The social feed remains on the controlled migration path while API coverage is finalized.'));
         const webFeed = secondaryButton('Open current feed');
         webFeed.addEventListener('click', () => handlers.onOpenWebModule('/'));
         content.append(webFeed);
@@ -136,13 +138,42 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
       if (tab === 'messages') {
         content.append(screenTitle('Messages'));
-        content.append(paragraph('The fresh Sngine API supports conversations, messages, typing, seen state and reactions. This screen is ready for API wiring.'));
+        const loading = paragraph('Loading conversations…');
+        content.append(loading);
+
+        try {
+          const conversations = await handlers.onLoadConversations();
+          content.replaceChildren(screenTitle('Messages'));
+          if (conversations.length === 0) {
+            content.append(paragraph('No conversations yet.'));
+            return;
+          }
+
+          const list = element('div', 'conversation-list');
+          for (const conversation of conversations) {
+            const item = element('button', 'conversation-item');
+            item.type = 'button';
+            const name = String(conversation.name || conversation.name_list || 'Conversation');
+            const title = elementWithText('strong', name);
+            const meta = elementWithText('span', conversation.user_is_online ? 'Online' : 'Open conversation');
+            item.append(title, meta);
+            item.addEventListener('click', () => handlers.onOpenWebModule(`/messages/${conversation.conversation_id}`));
+            list.append(item);
+          }
+          content.append(list);
+        } catch (error) {
+          content.replaceChildren(screenTitle('Messages'));
+          content.append(paragraph(error instanceof Error ? error.message : 'Unable to load conversations.'));
+          const retry = secondaryButton('Try again');
+          retry.addEventListener('click', () => void selectTab('messages'));
+          content.append(retry);
+        }
         return;
       }
 
       if (tab === 'notifications') {
         content.append(screenTitle('Notifications'));
-        content.append(paragraph('Native push routing is available. The notification-list API mapping is the next backend capability check.'));
+        content.append(paragraph('Native push routing is available. The notification-list API mapping remains the next API capability gap.'));
         return;
       }
 
@@ -162,7 +193,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     layout.append(topbar, content, nav);
     root.append(layout);
-    selectTab('home');
+    void selectTab('home');
   };
 
   const setBusy = (busy: boolean, message = 'Please wait…'): void => {
