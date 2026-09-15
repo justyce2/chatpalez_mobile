@@ -28,7 +28,8 @@ const config: CapacitorConfig = {
     backgroundColor: '#ffffff',
     contentInset: 'automatic',
     preferredContentMode: 'mobile',
-    allowsLinkPreview: false
+    allowsLinkPreview: false,
+    handleApplicationNotifications: false
   },
   plugins: {
     SplashScreen: {
