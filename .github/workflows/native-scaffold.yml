@@ -61,10 +61,16 @@ jobs:
       - name: Sync Android project
         run: CAP_APP_ID="${EXPECTED_APP_ID}" npx cap sync android
 
-      - name: Verify Android identity
+      - name: Verify Android identity and security policy
         run: |
           grep -q "namespace = \"${EXPECTED_APP_ID}\"" android/app/build.gradle
           grep -q "applicationId \"${EXPECTED_APP_ID}\"" android/app/build.gradle
+          grep -q 'android:allowBackup="false"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:usesCleartextTraffic="false"' android/app/src/main/AndroidManifest.xml
+          if grep -q 'android.permission.ACCESS_FINE_LOCATION\|android.permission.ACCESS_COARSE_LOCATION' android/app/src/main/AndroidManifest.xml; then
+            echo "Unexpected Android location permission detected."
+            exit 1
+          fi
 
       - name: Compile Android debug and release variants
         working-directory: android
