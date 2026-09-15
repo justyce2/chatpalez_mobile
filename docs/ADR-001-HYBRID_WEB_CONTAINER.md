@@ -1,28 +1,49 @@
 # ADR-001 — Hybrid Web Container Strategy
 
-**Status:** Accepted  
+**Status:** Accepted — revised after native bridge validation  
 **Date:** 2026-09-15
 
 ## Context
 
 ChatPalez is a server-rendered PHP/Smarty social network. Its mobile experience is not a separately built SPA that can simply be copied into Capacitor's `webDir`.
 
-Capacitor provides `server.url` and `server.allowNavigation`, but its v8 documentation explicitly describes those options as intended for live-reload/development and not production. The production app therefore must not depend on those options as its permanent architecture.
+Capacitor v8 documents `server.url` as primarily intended for live-reload/development and not as its preferred production architecture. We initially planned to load the remote ChatPalez origin after a local Capacitor shell started.
+
+During implementation we verified an important runtime constraint: Capacitor injects its JavaScript/native bridge for the configured application origin. Loading an unrelated remote origin after the bridge starts can leave that page without reliable Capacitor plugin bindings. That would undermine native share, push, lifecycle and other features we are specifically adding.
 
 ## Decision
 
-The mobile app will use a local Capacitor application shell plus a controlled native web-container integration for the existing ChatPalez mobile experience.
+For the initial ChatPalez hybrid release we will deliberately use a single, controlled HTTPS remote application origin as Capacitor's configured app origin:
 
-The native shell owns:
+`https://chatpalez.com`
+
+This is an intentional exception to Capacitor's preferred bundled-web-assets model because the existing product is server-rendered and a full frontend rewrite is outside the two-week scope.
+
+We will **not** use `server.allowNavigation` to create a broad navigation whitelist. Same-origin ChatPalez navigation remains inside the container; third-party navigation should leave the app through controlled external-link behavior.
+
+The native project also retains bundled local assets for an error/fallback page.
+
+## Production Identity
+
+- Android application ID: `com.chatpalez`
+- App display name: `ChatPalez`
+- Production origin: `https://chatpalez.com`
+- Official-shell user-agent token: `ChatPalezMobile/1.0`
+
+The Android application ID intentionally matches the existing Google Play application so this work can upgrade the current app rather than create an unrelated listing.
+
+## Responsibility Split
+
+The native/Capacitor layer owns:
 
 - application lifecycle
 - Android hardware back behavior
 - deep-link entry
 - notification routing
-- native share/haptics/device integrations
-- native error/offline presentation
-- trusted-origin policy
-- release configuration and store identity
+- native share/device integrations
+- error/offline fallback behavior
+- app/store identity
+- native permissions and signing
 
 The ChatPalez backend owns:
 
@@ -30,43 +51,48 @@ The ChatPalez backend owns:
 - server-rendered social-network UI
 - feed, profile, messages, groups/pages and settings workflows
 - server-side authorization and CSRF controls
-- a small official-mobile-app bridge script when the request is from the official shell
+- the official-mobile-app bridge script and app-specific presentation hooks
 
 ## Identification
 
-The official app will append a stable user-agent token:
+The official app appends:
 
 `ChatPalezMobile/1.0`
 
-The backend may use that token only to alter presentation/integration behavior. It must never treat the token as proof of authentication or authorization.
+The backend also exposes an `$is_chatpalez_mobile_app` presentation flag. Neither the user-agent token nor that flag is authorization. Authentication and authorization remain server-controlled.
 
 ## Bridge Contract
 
-The bridge is versioned. Web pages may emit custom events for supported native actions and may listen for app lifecycle/navigation events.
+Capacitor injects its native runtime into the configured ChatPalez origin. The server-rendered application exposes a compatibility wrapper:
 
-Initial bridge namespace:
+`window.ChatPalezMobileWeb`
 
-`window.ChatPalezMobile`
+Current bridge capabilities include:
 
-Initial capabilities:
-
-- `isNativeApp()`
+- `isOfficialShell()`
 - `platform()`
-- `bridgeVersion`
 - `share(payload)`
 - `openExternal(url)`
-- `notifyRouteChanged(url)`
+- `notifyRouteChanged()`
 
-Unsupported actions must fail safely and leave normal web behavior available.
+The bridge may use directly injected Capacitor plugin APIs when present and must retain browser-safe fallbacks.
 
 ## Security Rules
 
-1. Only HTTPS ChatPalez production/staging origins may be treated as internal.
-2. `javascript:`, `data:`, unapproved custom schemes and untrusted HTTP(S) hosts must never be loaded as internal content.
-3. Authentication remains server-controlled. The native shell must not fabricate login state.
-4. The mobile user-agent token is identification, not authorization.
-5. Secrets must not be embedded in Vite/JavaScript configuration.
+1. Production app content uses the verified HTTPS origin `https://chatpalez.com`.
+2. No broad `allowNavigation` pattern or wildcard is configured.
+3. `javascript:`, `data:` and other unsafe schemes are never treated as trusted application navigation.
+4. Authentication remains server-controlled; the mobile marker never grants privilege.
+5. Privileged credentials must never be embedded in Vite variables or committed native configuration.
+6. Third-party web destinations should open outside the main social-network container unless a specific reviewed integration requires otherwise.
+7. The remote-origin exception must not become a mechanism for silently replacing the native product with unrelated remotely delivered functionality.
+
+## Store/Review Mitigation
+
+Because a remote web origin can look like a thin website wrapper, the release must contain meaningful installed-app value beyond the website itself. The v1 scope therefore includes native push notifications, deep-link routing, native share, lifecycle/back handling, device/media integration where needed, app-specific safe-area/keyboard behavior and store-compliant permissions.
 
 ## Consequences
 
-This approach preserves the existing mobile web product and avoids a full React Native/Flutter rewrite inside the two-week window. It does require a thin integration layer in the ChatPalez backend and platform-specific web-container verification on Android and iOS.
+This decision preserves the existing mobile web product and keeps the two-week delivery target realistic while retaining Capacitor plugin binding. The trade-off is that ChatPalez availability remains dependent on the web service and the architecture requires stricter regression testing when backend UI changes are deployed.
+
+A future standalone SPA/native frontend remains possible, but it is not required for this initial Android/iOS hybrid release.
