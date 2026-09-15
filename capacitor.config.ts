@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize } from '@capacitor/keyboard';
 
 const appId = process.env.CAP_APP_ID ?? 'com.chatpalez';
 const appName = process.env.CAP_APP_NAME ?? 'ChatPalez';
@@ -39,6 +40,11 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       overlaysWebView: false
+    },
+    Keyboard: {
+      resize: KeyboardResize.Native,
+      resizeOnFullScreen: true,
+      autoBackdropColor: 'auto'
     }
   }
 };
