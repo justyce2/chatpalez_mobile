@@ -24,6 +24,12 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>ChatPalez uses the camera when you choose to take photos or use video features.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ChatPalez uses the microphone when you choose to record audio or make voice and video calls.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ChatPalez accesses your photo library only when you choose media to upload or share.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
