@@ -21,7 +21,7 @@ Do not infer capability from the legacy top-level `api.php`. The current/fresh A
 
 | Capability | Classification | Confirmed official API surface | v1 direction |
 |---|---|---|---|
-| Sign in | API Ready | `POST /auth/signin` | Local/API-driven |
+| Sign in | API Ready | `POST /auth/signin` returns `{ token, user }` | Local/API-driven |
 | Sign up | API Ready | `POST /auth/signup` | Local/API-driven |
 | Account activation | API Ready | activation / resend / reset routes | Local/API-driven |
 | Getting started/onboarding | API Ready | update + finish routes | Local/API-driven |
@@ -50,7 +50,7 @@ Do not infer capability from the legacy top-level `api.php`. The current/fresh A
 | Message reactions | API Ready / UI Work | react + who-reacts | Local messaging migration candidate |
 | Chat contacts | API Ready / UI Work | `GET /chat/contacts` | Local messaging candidate |
 | Calls data | Partial / Audit Required | `GET /chat/calls` | Existing call UI first; native/local call architecture separate |
-| Full current-user/profile retrieval | Partial / Audit Required | Some user/app data exists; complete read contract not yet mapped | Audit before local profile completion |
+| Full current-user/profile retrieval | Partial / Audit Required | Signin returns a secured user object; complete dedicated read contract not yet mapped | Use signin result for shell/profile summary; audit deeper profile needs |
 | Full profile editing | Partial / Audit Required | Some user endpoints exist | Audit before implementation |
 | Notification list/read state | Not Yet Proven | No complete route set confirmed yet | Audit; web-backed fallback allowed |
 | Main timeline/feed | Not Yet Proven | `/data/load` currently confirmed only for `new_people` | Web-backed v1 unless further routes found |
@@ -61,6 +61,45 @@ Do not infer capability from the legacy top-level `api.php`. The current/fresh A
 | Pages | Not Yet Proven | no complete page API confirmed | Web-backed v1 allowed |
 | Search | Not Yet Proven | no complete search API confirmed | Web-backed v1 allowed |
 | Full privacy/settings | Partial / Audit Required | blocked/delete/static/app settings exist | Local shell + controlled web fallback |
+
+## Authentication transport — confirmed
+
+The fresh Sngine API authentication model is now understood:
+
+- `POST /auth/signin` calls Sngine `sign_in(..., from_web=false, device_info)`;
+- Sngine creates a normal server-side user session and returns a signed JWT plus secured user data;
+- the JWT payload contains `uid` and the server session token;
+- subsequent API requests can authenticate through `x-auth-token`;
+- `User::__construct()` decodes `x-auth-token` with `system_jwt_key` and verifies the embedded session token against `users_sessions`;
+- logout invalidates the underlying Sngine session through the official signout flow.
+
+### Important API-secret finding
+
+The stock fresh API also requires every request to pass `valid_api_request()`, which checks:
+
+- `x-api-key`;
+- a timestamp no older than five minutes;
+- an HMAC SHA-256 signature produced using `system_api_secret`.
+
+A mobile application must **not embed `system_api_secret` in its bundle** because it can be extracted from a distributed client.
+
+To preserve Sngine's official routes without shipping the server API secret, `sngine-fresh` now contains a first-party ChatPalez mobile adapter in `apis/php/utils/functions.php` (backend commit `8233cfd9...`). It keeps Sngine's original HMAC path for server-to-server callers and additionally allows:
+
+- selected public auth/bootstrap endpoints for requests marked `x-mobile-client: chatpalez-mobile-v1`;
+- protected requests only when a valid signed Sngine JWT is supplied as `x-auth-token`.
+
+The normal `User` construction still performs the definitive user/session validation.
+
+## Local ↔ retained-web session bridge
+
+`sngine-fresh` also contains `mobile-session.php` (backend commit `376c2dc8...`). Its intended role is:
+
+1. receive a POST from the official mobile client;
+2. validate the Sngine JWT server-side;
+3. create Sngine's standard web session cookies (`c_user`, `xs`, `user_jwt`);
+4. redirect only to a trusted internal path.
+
+This avoids putting a JWT into a URL and gives the progressive-hybrid app a path for authenticated transitions into retained web modules. Client wiring still requires runtime validation and is not yet marked complete.
 
 ## Confirmed source files
 
@@ -73,36 +112,18 @@ Do not infer capability from the legacy top-level `api.php`. The current/fresh A
 - `apis/php/modules/data/router.php`
 - `apis/php/modules/data/controller.php`
 - `apis/php/modules/chat/router.php`
+- `apis/php/modules/chat/controller.php`
 - `apis/php/utils/functions.php`
-
-## Authentication transport still to verify
-
-Before the mobile API client commits to a storage strategy, trace the exact successful `sign_in()` return and subsequent authenticated-request mechanism.
-
-Already known:
-
-- all API requests pass `checkAPIRequest()` / `valid_api_request()`;
-- protected endpoints require the Sngine user context to be logged in;
-- public bootstrap/auth routes are explicitly excluded from user-auth enforcement;
-- API response envelopes are standardized.
-
-Still required:
-
-- exact API-key request format/headers expected by `valid_api_request()`;
-- exact signin response structure;
-- session cookie and/or token issued after signin;
-- persistence/renewal behavior;
-- logout invalidation behavior;
-- how to maintain auth when moving into a retained web-backed module.
-
-Do not implement ad-hoc token or cookie injection before this is known.
+- `includes/class-user.php`
+- `includes/traits/chat.php`
+- `mobile-session.php` (ChatPalez adapter)
 
 ## Messaging decision
 
-Messaging should now be treated as an **API-driven migration candidate**, not automatically as a permanent WebView feature. The official chat API is broad enough to justify a local client after the common auth/API service layer is complete.
+Messaging is now an **API-driven migration candidate**, not a permanent WebView feature. The official chat API covers conversations, message retrieval/send/delete, typing, seen state, reactions, contacts and calls history. `chatpalez_mobile/develop` now contains `src/api/chat.ts` as the typed messaging service foundation.
 
-For schedule safety, the existing web messaging UI remains the v1 fallback until the local chat experience is runtime-accepted.
+The existing web messaging UI remains a fallback until the local conversation/message UI is runtime-accepted.
 
 ## Update rule
 
-Whenever a new official endpoint is confirmed or a missing capability is proven, update this matrix and the corresponding `BACKLOG.md` task immediately. Do not rely on conversational memory.
+Whenever a new official endpoint is confirmed or a missing capability is proven, update this matrix and the corresponding implementation checkpoint/backlog immediately. Do not rely on conversational memory.
