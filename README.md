@@ -121,6 +121,7 @@ The active implementation includes:
 - bounded privacy-safe diagnostics
 - Android emulator/instrumentation smoke coverage
 - Android unsigned release-AAB generation in CI
+- traceable CI build metadata artifact
 
 The matching server-side bridge remains isolated in `justyce2/chatpalez-backend-2` on the `mobile-app-integration` branch/draft PR until runtime acceptance is complete.
 
@@ -150,6 +151,10 @@ The app does **not** automatically prompt on first launch. The user explicitly e
 The current generated Android `versionCode 1` and iOS build `1` are development placeholders. Because ChatPalez has an existing Android identity, the final Android version code must be strictly higher than the highest version already uploaded to Google Play. Do not guess this number.
 
 See `docs/RELEASE_INPUTS.md` before producing a final signed release.
+
+## CI Notes
+
+`develop` commits trigger both the lightweight Mobile CI workflow and the heavier native validation workflow. When several implementation commits are pushed close together, GitHub may queue newer runs while Android emulator/macOS runners finish earlier work. A queued run is not treated as a failure, and release status is promoted only after the relevant validation job actually completes successfully.
 
 ## Branch Strategy
 
