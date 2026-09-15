@@ -67,6 +67,7 @@ jobs:
           grep -q "applicationId \"${EXPECTED_APP_ID}\"" android/app/build.gradle
           grep -q 'android:allowBackup="false"' android/app/src/main/AndroidManifest.xml
           grep -q 'android:usesCleartextTraffic="false"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:scheme="chatpalez" android:host="open"' android/app/src/main/AndroidManifest.xml
           if grep -q 'android.permission.ACCESS_FINE_LOCATION\|android.permission.ACCESS_COARSE_LOCATION' android/app/src/main/AndroidManifest.xml; then
             echo "Unexpected Android location permission detected."
             exit 1
@@ -163,8 +164,14 @@ jobs:
       - name: Sync iOS project
         run: CAP_APP_ID="${EXPECTED_APP_ID}" npx cap sync ios
 
-      - name: Verify iOS identity
-        run: grep -q "PRODUCT_BUNDLE_IDENTIFIER = ${EXPECTED_APP_ID};" ios/App/App.xcodeproj/project.pbxproj
+      - name: Verify iOS identity and deep link scheme
+        run: |
+          grep -q "PRODUCT_BUNDLE_IDENTIFIER = ${EXPECTED_APP_ID};" ios/App/App.xcodeproj/project.pbxproj
+          grep -q '<string>chatpalez</string>' ios/App/App/Info.plist
+          if grep -q '<key>NSAllowsArbitraryLoads</key>' ios/App/App/Info.plist; then
+            echo "Unexpected iOS App Transport Security override detected."
+            exit 1
+          fi
 
       - name: Validate Xcode project without signing
         run: xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
