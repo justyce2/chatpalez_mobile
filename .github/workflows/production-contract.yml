@@ -1,0 +1,59 @@
+name: Production Mobile Contract
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - .github/workflows/production-contract.yml
+      - capacitor.config.ts
+      - android/app/src/androidTest/**
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  production-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify ordinary browser response stays web-only
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --max-time 30 \
+            -A 'Mozilla/5.0 ChatPalezContractWeb/1.0' \
+            https://chatpalez.com/ > normal.html
+
+          if grep -q 'mobile-app-bridge.js' normal.html; then
+            echo 'Mobile bridge leaked into ordinary browser response.'
+            exit 1
+          fi
+
+      - name: Verify official mobile-shell response exposes native bridge
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --max-time 30 \
+            -A 'Mozilla/5.0 ChatPalezMobile/1.0' \
+            https://chatpalez.com/ > mobile.html
+
+          grep -q 'ChatPalezMobile/1.0' mobile.html
+          grep -q 'mobile-diagnostics.js' mobile.html
+          grep -q 'mobile-app-bridge.js' mobile.html
+          grep -q 'mobile-native-ui.js' mobile.html
+
+      - name: Verify mobile bridge assets are publicly reachable
+        run: |
+          set -euo pipefail
+          for asset in \
+            mobile-diagnostics.js \
+            mobile-app-bridge.js \
+            mobile-native-ui.js
+          do
+            curl --fail --silent --show-error --location \
+              --max-time 30 \
+              "https://chatpalez.com/includes/assets/js/core/${asset}" > "/tmp/${asset}"
+            test -s "/tmp/${asset}"
+          done
