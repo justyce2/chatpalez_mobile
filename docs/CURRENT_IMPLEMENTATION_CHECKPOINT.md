@@ -20,9 +20,10 @@ Read this together with `ARCHITECTURE_AND_SCOPE.md`, `API_CAPABILITY_MATRIX.md`,
 
 - first-party mobile API security adapter: `8233cfd9d3ff0b9c0f5d1fe44c170ca049817062`;
 - JWT-to-web session bootstrap endpoint (`mobile-session.php`): `376c2dc8cd1ec30130278ffbefa7d3d7012abcbe`;
-- Notifications API module: `887891555bca1afc1f9bdf59992b6489bdd94cf4`, `aa0379e629c06f92890ee260bc018ebcdbff335c`, `851e7f667a7647e645b0bd5ca48ee139aa5eef16`.
+- Notifications API module: `887891555bca1afc1f9bdf59992b6489bdd94cf4`, `aa0379e629c06f92890ee260bc018ebcdbff335c`, `851e7f667a7647e645b0bd5ca48ee139aa5eef16`;
+- mobile signup/onboarding request-body fix: `81519e014bb7a65cf96380c0b6d35436210e8588`.
 
-The backend adapter keeps server-side HMAC/API-secret support for normal API clients while allowing the first-party app to authenticate protected requests with Sngine's signed JWT/session model.
+The auth adapter now passes the API request body directly into Sngine signup/getting-started methods and no longer returns undefined onboarding response variables.
 
 ## Mobile foundation already implemented
 
@@ -32,36 +33,31 @@ The backend adapter keeps server-side HMAC/API-secret support for normal API cli
 - local app shell with Home / Messages / Alerts / Profile;
 - native lifecycle, status bar, deep-link groundwork and existing Capacitor integrations remain in place.
 
-## Major milestone — local authentication lifecycle
+## Major milestone — local authentication and registration lifecycle
 
-The app no longer depends on the website for basic account entry/recovery.
+The app no longer depends on the website for basic account entry, recovery, registration, activation or getting-started onboarding.
 
 Implemented:
 
-- API login;
-- API logout;
-- forgot-password email request;
-- reset-code confirmation;
-- new-password submission;
-- local success/return-to-login UX;
-- explicit Sngine 2FA challenge detection;
-- local 2FA code screen;
-- successful 2FA completion into the normal JWT session.
+- API login and logout;
+- forgot-password request, reset-code confirmation and password replacement;
+- explicit Sngine 2FA challenge detection and local 2FA UI;
+- signup metadata loading from `/app/settings`, `/app/genders`, `/app/countries`, `/app/custom_fields` and `/app/user_groups`;
+- local account creation through `POST /auth/signup`;
+- local activation-code verification and resend;
+- local getting-started profile form and finish route;
+- incomplete registration resumes after app restart/login when `user_activated` or `user_started` is false;
+- registration API contract tests added.
 
-Relevant commits:
+Registration milestone commits on `develop`:
 
-- password recovery service: `55b1a69d9bf9d24acd70cbc570b16dec9b5cd01e`;
-- local recovery UI: `a326f63c173ef78fbecb8fe6265e73afaf2d05a9`;
-- recovery wiring: `7fac56794de5dbe5e1afec5ea311e48ef65cf47a`;
-- recovery styling: `5c04436475555c5f82cbf7fa0be8adc1c77ca2d5`;
-- recovery service tests: `8a3350c9a36012a71552fb774982fd9d6ee0f9e2`;
-- 2FA-aware auth service: `4a9db7de75a7918dc9b1c891c1e1550bcc7bf006`;
-- local 2FA UI: `b51548667a9c1d73681662a916c3423429e3b299`;
-- 2FA wiring into app bootstrap/login: `daa6bfa43431eae095bb472eb19b3e22cdc1a095`.
+- registration/onboarding API service: `9ae1334c8f6b272985d8d204793f3d77b2715c3f`;
+- local signup/activation/getting-started flow: `193fde0353b8b18b79d9054edf63c90d545ba4bb`;
+- app bootstrap wiring: `20d1a60452ba91a9de0cea338ccacd770a056d96`;
+- registration API tests: `e50cd10e6b13523a1489f002ff086b35a525bc40`;
+- resumable incomplete-registration lifecycle: `67dc56df4b42ed05873fd330177792db7f561845`, `fbf3575d8b626b28313bee4aba52646d34a87178`.
 
-Sngine behavior verified in `sngine-fresh`: non-web `sign_in()` returns `{ '2FA': true, user_id, method }` when required; `/auth/two_factor_authentication` returns the normal `{ token, user }` mobile session after successful verification.
-
-Signup/activation/getting-started onboarding remains to be implemented.
+Earlier auth milestone commits remain documented in repository history for password recovery and 2FA.
 
 ## Major milestone — local/API messaging
 
@@ -80,8 +76,6 @@ Implemented behavior:
 9. New Message contact picker;
 10. create a one-to-one conversation through Sngine's existing message endpoint with JSON-encoded recipients;
 11. Sngine privacy/blocking/paid-chat rules remain authoritative.
-
-Relevant commits include `19fa9ff50f822189ee9b6fafc14a48edc2bcd231`, `3cb2365171662cf2873c0af0b8a9d75d854118e0`, `3c4bfad3aeef7b97b7e03c8cd326ffc6395798f0`, `a1f5ea8b994bb3f4bae2db731391e2b7766d2873`, `b0c4df2e41eaa2452cb3a4f3f73f3a25e96943f1`, `2196812464a47cd0d7cdd84dc75a170ca712e4dd`, `04c230a48d155767f9228cd7415f88dbdab1227b`, `94d8ecd3f4ef091ed2b6ce0670b8898dde0b1133`.
 
 Chat API contract tests: `99665f905c22ba3c5c5d8b9bfcc2577caa595ee6`.
 
@@ -109,26 +103,24 @@ Implemented:
 - password-confirmed account deletion;
 - mobile session clear after deletion.
 
-User API service commit: `b4c5faea9980c23e7add58255f9451a6aec0dfaf`.
-
 ## Current validation state
 
-All current progressive-hybrid work is **implemented / Testing** until the updated `sngine-fresh` backend is deployed and exercised from Android/iOS.
+All current progressive-hybrid work, including signup/activation/onboarding, is **implemented / Testing** until the updated `sngine-fresh` backend is deployed and exercised from Android/iOS.
 
-Do not claim runtime-passed login, recovery, 2FA, messaging, notifications, account deletion or retained-web session continuity yet.
+Do not claim runtime-passed signup, activation, onboarding, login, recovery, 2FA, messaging, notifications, account deletion or retained-web session continuity yet.
+
+Local build execution could not be performed from the current tool runtime because that runner cannot resolve GitHub to clone/install the repository. Source/contract validation was performed and GitHub Actions remain intentionally disabled.
 
 ## Exact next implementation order
 
-1. Audit `/app/settings`, genders, countries, custom fields and user-group metadata needed for signup.
-2. Implement local API signup + activation + getting-started onboarding.
-3. Complete the safe POST client transition into `mobile-session.php` for retained web modules; never expose JWTs in URLs.
-4. Deploy/merge `sngine-fresh` to a reachable ChatPalez environment.
-5. Run manual Android/iOS validation for login, 2FA, recovery, logout, expiry, new/existing chats, typing/seen, Alerts, blocked users and deletion.
-6. Replace interim `sessionStorage` JWT handling with a native secure-storage implementation.
-7. Reconnect OneSignal identity through official `/user/onesignal` under the new JWT auth lifecycle.
-8. Add local notification-permission controls to Settings.
-9. Continue feed/posts/profile-editing/groups/pages/search API mapping and decide the v1 Home/feed boundary.
-10. Add chat media/attachment support after text-chat runtime acceptance.
+1. Complete the safe POST client transition into `mobile-session.php` for retained web modules; never expose JWTs in URLs.
+2. Deploy/merge `sngine-fresh` to a reachable ChatPalez environment.
+3. Run manual Android/iOS validation for signup, activation, onboarding, login, 2FA, recovery, logout, expiry, new/existing chats, typing/seen, Alerts, blocked users and deletion.
+4. Replace interim `sessionStorage` JWT handling with a native secure-storage implementation.
+5. Reconnect OneSignal identity through official `/user/onesignal` under the new JWT auth lifecycle.
+6. Add local notification-permission controls to Settings.
+7. Continue feed/posts/profile-editing/groups/pages/search API mapping and decide the v1 Home/feed boundary.
+8. Add chat media/attachment support after text-chat runtime acceptance.
 
 ## Handoff rule
 
