@@ -18,7 +18,7 @@ export type AppShellHandlers = {
   onLoadContacts?: (query: string) => Promise<ChatContact[]>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
   onLoadMessages?: (conversationId: number | string) => Promise<MessagesResult>;
-  onSendMessage?: (conversationId: number | string, message: string) => Promise<void>;
+  onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<void>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
   onLoadNotifications?: () => Promise<NotificationItem[]>;
@@ -448,7 +448,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       text.setAttribute('aria-label', 'Message');
       const send = actionButton('Send');
       send.type = 'submit';
-      composer.append(text, send);
+      const photo = document.createElement('input');
+      photo.type = 'file';
+      photo.accept = 'image/*';
+      photo.setAttribute('aria-label', 'Attach photo');
+      composer.append(text, photo, send);
       content.append(composer);
       let typingTimer: number | undefined;
 
@@ -496,13 +500,15 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       composer.addEventListener('submit', (event) => {
         event.preventDefault();
         const message = text.value.trim();
-        if (!message || !handlers.onSendMessage) return;
+        const selectedPhoto = photo.files?.[0];
+        if ((!message && !selectedPhoto) || !handlers.onSendMessage) return;
         send.disabled = true;
         send.textContent = 'Sending…';
         setTyping(false);
-        void handlers.onSendMessage(conversationId, message)
+        void handlers.onSendMessage(conversationId, message, selectedPhoto)
           .then(async () => {
             text.value = '';
+            photo.value = '';
             await refreshThread();
           })
           .catch((error: unknown) => {
