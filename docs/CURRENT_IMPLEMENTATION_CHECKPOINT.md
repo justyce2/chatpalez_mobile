@@ -169,3 +169,8 @@ Implemented on `develop`:
 - no backend route, Sngine theme, JWT bridge or API contract was modified.
 
 **Status:** Testing — requires `npm install`, `npx cap sync`, Android/iOS build and real-device cold-start/logout verification. The next independent implementation work remains official-API audit/OneSignal lifecycle integration; do not add custom backend code before that audit.
+
+
+## Upgrade customization register
+
+The API-first exception register is now maintained in `docs/UPGRADE_CUSTOMIZATION_REGISTER.md`. Before modifying the backend or upgrading Sngine, audit each listed item against the fresh official API and update its retain/remove decision and test outcome.
