@@ -1,6 +1,6 @@
 # ChatPalez Mobile — Current Implementation Checkpoint
 
-**Date:** 2026-09-15  
+**Date:** 2026-09-16  
 **Mobile repo:** `justyce2/chatpalez_mobile`  
 **Mobile branch:** `develop`  
 **Backend repo:** `justyce2/chatpalez-backend-2`  
@@ -19,6 +19,10 @@ ChatPalez Mobile is a **progressive hybrid Capacitor application**:
 5. `sngine-fresh` is the backend/API source that is expected to become production `master`.
 
 Do not return to the previous architecture where Capacitor boots directly into `https://chatpalez.com`.
+
+## Owner instruction — GitHub Actions
+
+GitHub Actions are disabled for this project. **Do not recreate, enable or trigger Actions on normal pushes.** Continue with direct commits and manual/runtime validation unless the project owner explicitly reverses this instruction.
 
 ## Backend implementation (`chatpalez-backend-2/sngine-fresh`)
 
@@ -70,45 +74,63 @@ The installed app boots bundled local assets. Remote `server.url` is no longer t
 
 The local shell provides Home / Messages / Alerts / Profile and API-driven login/logout.
 
-### Messaging is now API-driven in the mobile implementation
+## Major milestone — local/API messaging is now functionally broad
 
-Service foundation: `19fa9ff50f822189ee9b6fafc14a48edc2bcd231`.
+Original service foundation: `19fa9ff50f822189ee9b6fafc14a48edc2bcd231`.
 
-Current wiring:
+Earlier wiring:
 
-- `3cb2365171662cf2873c0af0b8a9d75d854118e0` — conversation list connected to the real Sngine chat API;
-- `3c4bfad3aeef7b97b7e03c8cd326ffc6395798f0` — local conversation detail + composer UI;
-- `a1f5ea8b994bb3f4bae2db731391e2b7766d2873` — message retrieval + send-message handlers connected;
-- `b92de4c34d910912bd7e142db74454eb77d5ec3f` — local thread/composer styling.
+- `3cb2365171662cf2873c0af0b8a9d75d854118e0` — conversation list connected to Sngine API;
+- `3c4bfad3aeef7b97b7e03c8cd326ffc6395798f0` — local conversation detail + composer;
+- `a1f5ea8b994bb3f4bae2db731391e2b7766d2873` — message retrieval + send-message handlers;
+- `b92de4c34d910912bd7e142db74454eb77d5ec3f` — thread/composer styling.
+
+Current milestone commits:
+
+- `b0c4df2e41eaa2452cb3a4f3f73f3a25e96943f1` — typing state, seen/read state hooks and local account/settings UI groundwork;
+- `cda66806349beb8afd2a6bb10b74aa50a5a80a35` — wires typing, seen, blocked users and deletion handlers;
+- `2196812464a47cd0d7cdd84dc75a170ca712e4dd` — adds contacts and official Sngine new-conversation creation support;
+- `04c230a48d155767f9228cd7415f88dbdab1227b` — local New Message/contact picker/first-message flow;
+- `94d8ecd3f4ef091ed2b6ce0670b8898dde0b1133` — wires contact search and start-conversation handlers;
+- `c84289ccb45887c96d03842540265c8ff4046884`, `624e3316317ef79de577cdc8e02f18d79a470561` — Settings/chat/contact mobile UI styling.
 
 Current local Messages behavior in source:
 
-1. load conversations from `GET /chat/conversations`;
-2. open a conversation locally rather than handing it to the website;
-3. load messages from `GET /chat/messages`;
-4. send text through `POST /chat/message`;
-5. refresh the local thread after send.
+1. load conversations through `GET /chat/conversations`;
+2. open conversation detail locally;
+3. load thread data through `GET /chat/messages`;
+4. send messages through `POST /chat/message`;
+5. send typing state through `POST /chat/actions/typing`;
+6. mark loaded messages seen through `POST /chat/actions/seen`;
+7. display online/typing/last-seen state returned by Sngine;
+8. search contacts through `GET /chat/contacts`;
+9. start a new one-to-one conversation locally by calling Sngine's existing `post_conversation_message()` path with recipients and no existing conversation ID;
+10. rely on Sngine's existing privacy, blocking and paid-chat checks when a conversation is created.
 
-Typing, seen state, reactions, contacts and calls remain available in the Sngine API and can be layered onto the local chat UI next.
+Messaging is no longer planned as an automatically web-backed v1 surface. The API/local implementation is now the preferred v1 path, subject to runtime acceptance.
 
-### User/account API service
+### Local Profile / Account / Settings milestone
 
-Commit: `b4c5faea9980c23e7add58255f9451a6aec0dfaf`.
+User service foundation: `b4c5faea9980c23e7add58255f9451a6aec0dfaf`.
 
-Provides client methods for:
+The local Profile/Settings experience now includes:
 
-- blocked users;
-- password-confirmed account deletion;
-- OneSignal session association.
+- local account identity summary;
+- local navigation from Profile into Account & Settings;
+- blocked-user retrieval from `GET /user/blocked`;
+- blocked-user list rendered inside the app;
+- local sign-out;
+- password-confirmed account deletion through `POST /user/delete`;
+- local session cleared after successful deletion.
 
-The local Settings UI still needs to consume these methods.
+Account deletion still requires runtime/device acceptance before it is marked complete for store compliance.
 
-### Notifications are now API-driven in the mobile implementation
+### Notifications are API-driven in the mobile implementation
 
 - client service: `be327cd02fef872a01927cf412c62654c4995d48`;
 - local Alerts renderer: `7e81faa878256462dc44ef0cdf56a327b04de169`;
-- service wiring in application bootstrap: `f48a7c76bf6bf7d4e7f7e957928acec9eb683e66`;
-- mobile notification-list styling: `07d426fa237a6b7c888d817dc150f5bccf1cb707`.
+- service wiring: `f48a7c76bf6bf7d4e7f7e957928acec9eb683e66`;
+- notification-list styling: `07d426fa237a6b7c888d817dc150f5bccf1cb707`.
 
 Current local Alerts behavior in source:
 
@@ -124,12 +146,12 @@ Notification destination taps still depend on the pending JWT-to-web session tra
 Fresh Sngine authentication is JWT-based for non-web clients:
 
 - `/auth/signin` creates a server-side user session;
-- the response contains `{ token, user }`;
-- the token is a signed JWT containing the user ID and session token;
+- response contains `{ token, user }`;
+- token is a signed JWT containing the user ID and session token;
 - protected API requests send it as `x-auth-token`;
-- `User::__construct()` validates both JWT signature and the session token against `users_sessions`.
+- `User::__construct()` validates JWT signature and session token against `users_sessions`.
 
-This is the approved mobile auth model.
+This remains the approved mobile auth model.
 
 ## Security rules that must not be violated
 
@@ -142,23 +164,23 @@ This is the approved mobile auth model.
 
 ## Current validation status
 
-GitHub Actions are disabled by owner instruction and must remain disabled unless explicitly reversed.
+GitHub Actions remain disabled by owner instruction and must remain disabled unless explicitly reversed.
 
-The available execution environment previously could not resolve GitHub for a local clone/build. Therefore code committed in this implementation wave is **implemented / Testing**, not runtime-complete.
+The implementation environment has not yet completed a real Android/iOS runtime pass against a deployed `sngine-fresh`. Therefore this milestone is **implemented / Testing**, not runtime-complete.
 
-Do not claim Android/iOS API login, chat or notifications as runtime-passed until `sngine-fresh` is deployed to a reachable server and exercised from the app.
+Do not claim Android/iOS login, chat, notifications, account deletion or retained-web session continuity as runtime-passed until the fresh backend is reachable and exercised from the app.
 
 ## Exact next implementation steps
 
-1. Build local Settings using confirmed `/user/blocked`, `/user/delete`, and native notification-permission controls.
-2. Add typing + seen state to local Messages, followed by contacts/new-conversation UX.
-3. Complete the safe POST transition from local/API UI to `mobile-session.php`; never put JWT in a URL.
-4. Deploy/merge `sngine-fresh` so the new API stack, first-party adapter, notifications endpoint and session bootstrap exist on the reachable ChatPalez server.
-5. Runtime-test login, 2FA, logout, session expiry, conversations, thread loading, send message, notifications, and API error handling.
-6. Replace interim `sessionStorage` JWT persistence with native secure storage.
+1. Complete the safe POST transition from local/API UI to `mobile-session.php`; never put JWT in a URL.
+2. Deploy/merge `sngine-fresh` so the first-party adapter, notifications endpoint and session bootstrap exist on the reachable ChatPalez server.
+3. Runtime-test login, 2FA, logout, session expiry, conversations, new conversation, thread loading, send message, typing, seen state, notifications, blocked users and account deletion.
+4. Replace interim `sessionStorage` JWT persistence with native secure storage.
+5. Re-test OneSignal identity association against JWT auth using official `/user/onesignal`.
+6. Add notification permission controls into local Settings and verify Android/iOS permission UX.
 7. Continue endpoint mapping for feed/posts/profile editing/groups/pages/search.
-8. Re-test OneSignal identity association against JWT auth using the official `/user/onesignal` route.
-9. Add notification read/reset behavior if required after runtime verification of existing Sngine counters.
+8. Decide whether the home/feed stays retained-web for v1 or receives a limited API/local implementation.
+9. Add messaging media/attachment support after runtime text-chat acceptance.
 10. Keep documentation synchronized after each material milestone.
 
 ## Backend branch policy
