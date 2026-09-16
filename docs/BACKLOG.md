@@ -340,3 +340,8 @@ Exit condition: native integrations, compliance, device regression and signing/r
 ## Change decision — API-first and upgrade-safe customization (2026-09-16)
 
 Before any further backend modification, complete an API-versus-custom audit against `sngine-fresh`. Reuse official Sngine APIs and business logic whenever sufficient. The mobile API adapter remains client-side only. Use official `POST /user/onesignal`; re-audit the notification adapter; retain feed/posts/groups/pages/search as web-backed v1 where official coverage remains unproven. A custom backend extension is admissible only for a documented, minimal security/session gap (server-only API-secret protection or JWT-to-standard-web-session transition). Preserve the stock theme; put app-only web presentation in a separately named duplicate theme selected only for official app requests. Maintain an upgrade-customization register for every retained extension.
+
+
+## Implementation update — native secure JWT storage (2026-09-16)
+
+The interim browser `sessionStorage` session has been replaced in source by in-memory state plus native protected persistence through Capacitor 8 secure storage. iOS uses a device-only unlocked Keychain item with iCloud sync disabled; Android uses Keystore-backed storage. Browser builds intentionally do not persist JWTs. Status: **Testing** pending dependency install, Capacitor sync, Android/iOS build and real-device cold-start/logout validation. No Sngine backend, API route, session bridge or theme modification was made.
