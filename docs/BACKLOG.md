@@ -140,7 +140,7 @@
 | G-06 | Associate subscription with logged-in user | Testing | OneSignal identity tracks authenticated ChatPalez user | Auth,G-04 | Revisit against new API auth state |
 | G-07 | Handle foreground notifications | Testing | Foreground behavior defined | G-04 | Device test pending |
 | G-08 | Handle background notifications | Planned | Background push reliable | G-02,G-03 | Device test needed |
-| G-09 | Implement notification-click routing | Testing | Tap opens correct local or web-backed destination | G-04,N-03 | Router must understand both navigation surfaces |
+| G-09 | Implement notification-click routing | Testing | OneSignal click accepts only trusted internal paths and enters protected web bridge | G-04,N-03 | Device test must validate foreground/background tap behavior |
 | G-10 | Implement deep-link parsing/validation | Testing | Only valid routes open | C-02 | Custom scheme exists; router integration remains |
 | G-11 | Configure badges | Planned | Badge behavior predictable | G-04 | Later polish |
 
@@ -358,3 +358,8 @@ Native OneSignal integration is now **Testing**: optional public app-ID configur
 ## Implementation decision — feed API audit (2026-09-16)
 
 Fresh Sngine API modules were re-audited before further backend work. Only data/load?get=new_people supports discovery; the official API provides no feed/timeline, post CRUD, non-chat reactions/comments, groups, pages or social-search contract. I-01 and N-09 are now **Testing** with a deliberate protected retained-web v1 path. No custom backend API is authorized for these modules.
+
+
+## Implementation update — trusted notification taps (2026-09-16)
+
+OneSignal click events now accept only same-origin ChatPalez URLs (or relative internal paths), normalize them, and pass them through the existing authenticated POST session bridge. External, malformed, and alternate-port URLs are ignored. Unit coverage was added; physical Android/iOS notification-tap validation remains required.
