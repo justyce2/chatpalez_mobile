@@ -160,7 +160,7 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| I-01 | Feed/home decision and regression | Planned | API-driven feed or retained-web feed selected and validated | N-01 | Prefer API if coverage/time is strong |
+| I-01 | Feed/home decision and regression | Testing | Retained-web v1 path selected; validate authenticated WebView feed | N-01 | Official audit found no timeline/post API; no custom endpoint authorized |
 | I-02 | Post creation regression | Planned | Text/media posting works through selected path | I-01,F | Web-backed acceptable for v1 |
 | I-03 | Reactions/comments regression | Planned | Interactions work | I-01 | Selected path |
 | I-04 | Profile/account regression | Planned | Local summary + deeper profile path work | N-06 | Progressive hybrid target |
@@ -233,7 +233,7 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| N-01 | Audit existing Sngine/ChatPalez API coverage | Planned | Matrix covers auth, user, notifications, feed, posts, comments, media, messages, social graph, groups/pages/search, settings/safety | Backend/API access | **Next implementation task** |
+| N-01 | Audit existing Sngine/ChatPalez API coverage | Testing | Matrix documents confirmed/absent official contracts and v1 boundaries | Backend/API access | Feed/posts/comments/groups/pages/search audit complete; profile/social graph remains partial |
 | N-02 | Build typed API/service layer | Planned | Central API client, config, auth/error normalization and reusable services exist | N-01 | Keep UI independent of raw API details |
 | N-03 | Build local mobile navigation shell | Planned | App opens into local shell with mobile-first primary navigation | B-03 | Bottom-tab/app-bar design; web modules become destinations |
 | N-04 | Implement local login/onboarding | Planned | Authentication occurs through local UI using supported API/auth model | D-01,N-02 | High App Store differentiation value |
@@ -241,7 +241,7 @@
 | N-06 | Implement API-driven profile/account summary | Planned | Local account identity/profile summary works | N-01,N-02,N-04 | Deeper profile may remain web-backed initially |
 | N-07 | Implement local/API settings shell | Planned | Settings shell exposes native permissions + key account options | N-01,N-02,N-04 | Link to retained safety/account flows as needed |
 | N-08 | Create local↔web module router/session bridge | Planned | Users move between local and retained web modules without broken auth/navigation | D-03,N-03 | Critical progressive-hybrid boundary |
-| N-09 | Decide whether feed migrates in v1 | Planned | API coverage/effort decision documented and implemented accordingly | N-01,N-08 | API-driven if schedule permits; otherwise retained web for v1 |
+| N-09 | Decide whether feed migrates in v1 | Testing | Retained-web v1 decision documented and entry point implemented | N-01,N-08 | Official fresh API lacks feed/post contract; validate bridge on devices |
 
 ---
 
@@ -255,10 +255,10 @@
 | Notifications | API-driven local |
 | Profile/account summary | API-driven local |
 | Settings shell | Local/API-driven |
-| Feed | API-driven if practical; otherwise retained web |
-| Post/media composer | Retained web initially unless API path is straightforward |
+| Feed | Controlled retained web module; official API audit found no feed/post contract |
+| Post/media composer | Controlled retained web module; no official post contract |
 | Messaging | Retained web initially |
-| Groups/pages/search | Retained web initially |
+| Groups/pages/search | Controlled retained web modules; no official API contracts |
 | Calls | Existing implementation first; remediate separately |
 
 ---
@@ -353,3 +353,8 @@ The interim browser `sessionStorage` session has been replaced in source by in-m
 ## Implementation update — official OneSignal lifecycle (2026-09-16)
 
 Native OneSignal integration is now **Testing**: optional public app-ID configuration, authenticated external-user login, existing official `POST /user/onesignal` synchronization, logout/deletion disassociation, and a user-initiated Settings permission control are implemented. It requires FCM/APNs + physical Android/iOS validation before acceptance. No custom backend route was created.
+
+
+## Implementation decision — feed API audit (2026-09-16)
+
+Fresh Sngine API modules were re-audited before further backend work. Only data/load?get=new_people supports discovery; the official API provides no feed/timeline, post CRUD, non-chat reactions/comments, groups, pages or social-search contract. I-01 and N-09 are now **Testing** with a deliberate protected retained-web v1 path. No custom backend API is authorized for these modules.
