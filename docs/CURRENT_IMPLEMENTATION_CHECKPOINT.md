@@ -141,3 +141,18 @@ Local build execution could not be performed from the current tool runtime becau
 ## Handoff rule
 
 A new developer/session should start from this file, then read the architecture and API matrix before changing code. Do not infer missing API behavior from conversational memory; verify it in `sngine-fresh` first.
+
+
+## Resolution — API-first and upgrade-safe customization policy (2026-09-16)
+
+Before retaining or adding any custom backend/mobile integration, audit the official Sngine API and existing server functionality first. Use official routes and business logic whenever they satisfy the requirement; do not duplicate them in a parallel ChatPalez API.
+
+- The mobile TypeScript API adapter is client-side only. It normalizes calls to official Sngine routes and is **not** a new backend API.
+- Use the official Sngine route `POST /user/onesignal` for authenticated OneSignal user/device association. Do not create a custom OneSignal identity endpoint unless an audit proves an incompatible provider requirement.
+- Existing custom notification support must be re-audited against fresh Sngine before it is retained; remove or reduce it if stock coverage is sufficient.
+- Keep feed, posts, comments, groups, pages and search web-backed for v1 unless the official API audit proves complete, practical coverage. Do not create broad custom endpoints to force their migration.
+- The only custom backend work that may remain is the smallest isolated extension required to: (a) prevent the mobile app from containing Sngine's server-only HMAC secret, and (b) establish a standard Sngine web session when an authenticated local user enters a retained web module. Both must be documented, runtime-tested and kept outside stock theme presentation code where practical.
+- Preserve the stock Sngine core/default theme. Any app-specific retained-web presentation belongs in a separately named duplicate theme (for example, `chatpalez_mobile`) and must be selected only for official mobile-app requests, not made the global website default.
+- Maintain an upgrade-customization register for every retained custom backend extension: upstream file/function, requirement, why the official API was insufficient, minimal contract, isolation location and upgrade/retest steps.
+
+**Immediate gate:** complete the official-API-versus-custom-extension audit before any further backend modification. This decision does not itself mark existing bridge/API work runtime-accepted; it remains Testing until deployed Android/iOS validation.
