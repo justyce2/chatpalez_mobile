@@ -121,7 +121,7 @@
 | F-01 | Test profile/avatar upload on Android | Planned | Camera/gallery/file upload succeeds | Auth | Local/API profile may change path |
 | F-02 | Test profile/avatar upload on iOS | Planned | Camera/gallery upload succeeds | Auth | Local/API profile may change path |
 | F-03 | Test feed/post media upload | Planned | Image/video upload works | Feed decision | API or retained-web path |
-| F-04 | Test messaging attachments | Planned | Attachments can be selected/sent | Messaging | Web-backed initially |
+| F-04 | Test messaging attachments | Testing | Local photo can be selected, uploaded and sent through official API | Messaging | Runtime device validation pending; video/voice deferred |
 | F-05 | Add native camera/gallery bridge if required | Planned | Native fallback only where needed | F-01–F-04 | Avoid unnecessary plugin complexity |
 | F-06 | Configure permission descriptions | Testing | Camera/photo/mic reasons accurate | Native builds | Declarations committed |
 | F-07 | Implement download/file-open handling | Planned | Supported downloads usable | C-03 | Add only after real download flow audit |
@@ -368,3 +368,8 @@ OneSignal click events now accept only same-origin ChatPalez URLs (or relative i
 ## Implementation decision — profile/social API audit (2026-09-16)
 
 The official user module audit is complete: it lacks profile-read/update and social-graph retrieval routes. N-01 is now **Completed** as an API capability audit. Deep profile editing and friends/followers remain protected retained-web modules for v1; no custom backend API is authorized.
+
+
+## Major milestone — local chat photo attachment (2026-09-16)
+
+Photo selection, multipart upload and send are implemented through official Sngine data/chat routes. This remains **Testing** until deployment and physical-device validation confirm upload permissions, server limits, message rendering and failure recovery.
