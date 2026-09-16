@@ -69,10 +69,30 @@ The installed app boots bundled local assets. Remote `server.url` is no longer t
 
 - typed API client: `6aadf360677a2918c23962fce94102b8d275ebb7`;
 - temporary JWT session state: `8b1f61815d6b1abb5a6d4ca95b69ce07d956cc5e`;
-- API auth service: `b4aa7fa91eaa43e1860aa24f30f4ff0aac6b28a2`;
+- initial API auth service: `b4aa7fa91eaa43e1860aa24f30f4ff0aac6b28a2`;
 - local shell/login/navigation groundwork: `5ba74dc70094dd551843250ce079bffae7abfb08`, `0ee1867c4e6d1c2689ccde84b2dde5db59294d86`, `b3cb7ef53e090c635eaf91420422b88c6bd50110`.
 
 The local shell provides Home / Messages / Alerts / Profile and API-driven login/logout.
+
+### Major milestone — local account entry and recovery lifecycle
+
+New commits:
+
+- `55b1a69d9bf9d24acd70cbc570b16dec9b5cd01e` — password-recovery API service using Sngine's official `forget_password`, `forget_password_confirm`, and `forget_password_reset` routes;
+- `a326f63c173ef78fbecb8fe6265e73afaf2d05a9` — modular local password-recovery UI;
+- `7fac56794de5dbe5e1afec5ea311e48ef65cf47a` — recovery flow wired into the local login lifecycle;
+- `5c04436475555c5f82cbf7fa0be8adc1c77ca2d5` — recovery/success styling;
+- `8a3350c9a36012a71552fb774982fd9d6ee0f9e2` — password-recovery service contract tests.
+
+Current unauthenticated lifecycle in source now supports:
+
+1. local API-driven sign-in;
+2. forgot-password request by email;
+3. reset-code confirmation;
+4. new-password + confirmation submission;
+5. return to local sign-in with success feedback.
+
+Signup/onboarding and explicit 2FA UI remain the next unauthenticated/authentication lifecycle gaps.
 
 ## Major milestone — local/API messaging is now functionally broad
 
@@ -89,10 +109,11 @@ Current milestone commits:
 
 - `b0c4df2e41eaa2452cb3a4f3f73f3a25e96943f1` — typing state, seen/read state hooks and local account/settings UI groundwork;
 - `cda66806349beb8afd2a6bb10b74aa50a5a80a35` — wires typing, seen, blocked users and deletion handlers;
-- `2196812464a47cd0d7cdd84dc75a170ca712e4dd` — adds contacts and official Sngine new-conversation creation support;
+- `2196812464a47cd0d7cdd84dc75a170ca712e4dd` — contacts and official Sngine new-conversation creation support;
 - `04c230a48d155767f9228cd7415f88dbdab1227b` — local New Message/contact picker/first-message flow;
-- `94d8ecd3f4ef091ed2b6ce0670b8898dde0b1133` — wires contact search and start-conversation handlers;
-- `c84289ccb45887c96d03842540265c8ff4046884`, `624e3316317ef79de577cdc8e02f18d79a470561` — Settings/chat/contact mobile UI styling.
+- `94d8ecd3f4ef091ed2b6ce0670b8898dde0b1133` — contact search/start-conversation handlers;
+- `c84289ccb45887c96d03842540265c8ff4046884`, `624e3316317ef79de577cdc8e02f18d79a470561` — Settings/chat/contact mobile UI styling;
+- `99665f905c22ba3c5c5d8b9bfcc2577caa595ee6` — chat API contract tests, including JSON recipient encoding required by Sngine.
 
 Current local Messages behavior in source:
 
@@ -104,7 +125,7 @@ Current local Messages behavior in source:
 6. mark loaded messages seen through `POST /chat/actions/seen`;
 7. display online/typing/last-seen state returned by Sngine;
 8. search contacts through `GET /chat/contacts`;
-9. start a new one-to-one conversation locally by calling Sngine's existing `post_conversation_message()` path with recipients and no existing conversation ID;
+9. start a new one-to-one conversation locally with recipients encoded in the format expected by Sngine;
 10. rely on Sngine's existing privacy, blocking and paid-chat checks when a conversation is created.
 
 Messaging is no longer planned as an automatically web-backed v1 surface. The API/local implementation is now the preferred v1 path, subject to runtime acceptance.
@@ -166,21 +187,21 @@ This remains the approved mobile auth model.
 
 GitHub Actions remain disabled by owner instruction and must remain disabled unless explicitly reversed.
 
-The implementation environment has not yet completed a real Android/iOS runtime pass against a deployed `sngine-fresh`. Therefore this milestone is **implemented / Testing**, not runtime-complete.
+The implementation environment has not yet completed a real Android/iOS runtime pass against a deployed `sngine-fresh`. Therefore these milestones are **implemented / Testing**, not runtime-complete.
 
-Do not claim Android/iOS login, chat, notifications, account deletion or retained-web session continuity as runtime-passed until the fresh backend is reachable and exercised from the app.
+Do not claim Android/iOS login, recovery, chat, notifications, account deletion or retained-web session continuity as runtime-passed until the fresh backend is reachable and exercised from the app.
 
 ## Exact next implementation steps
 
-1. Complete the safe POST transition from local/API UI to `mobile-session.php`; never put JWT in a URL.
-2. Deploy/merge `sngine-fresh` so the first-party adapter, notifications endpoint and session bootstrap exist on the reachable ChatPalez server.
-3. Runtime-test login, 2FA, logout, session expiry, conversations, new conversation, thread loading, send message, typing, seen state, notifications, blocked users and account deletion.
-4. Replace interim `sessionStorage` JWT persistence with native secure storage.
-5. Re-test OneSignal identity association against JWT auth using official `/user/onesignal`.
-6. Add notification permission controls into local Settings and verify Android/iOS permission UX.
-7. Continue endpoint mapping for feed/posts/profile editing/groups/pages/search.
-8. Decide whether the home/feed stays retained-web for v1 or receives a limited API/local implementation.
-9. Add messaging media/attachment support after runtime text-chat acceptance.
+1. Implement explicit local 2FA challenge handling for API sign-in.
+2. Audit/implement signup + getting-started onboarding from `/auth/signup`, `/auth/getting_started_update`, and `/auth/getting_started_finish`, using `/app/*` bootstrap metadata for dynamic fields.
+3. Complete the safe POST transition from local/API UI to `mobile-session.php`; never put JWT in a URL.
+4. Deploy/merge `sngine-fresh` so the first-party adapter, notifications endpoint and session bootstrap exist on the reachable ChatPalez server.
+5. Runtime-test login, recovery, 2FA, logout, session expiry, conversations, new conversation, thread loading, send message, typing, seen state, notifications, blocked users and account deletion.
+6. Replace interim `sessionStorage` JWT persistence with native secure storage.
+7. Re-test OneSignal identity association against JWT auth using official `/user/onesignal`.
+8. Add notification permission controls into local Settings and verify Android/iOS permission UX.
+9. Continue endpoint mapping for feed/posts/profile editing/groups/pages/search and decide the v1 home/feed strategy.
 10. Keep documentation synchronized after each material milestone.
 
 ## Backend branch policy
