@@ -124,8 +124,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.replaceChildren();
       if (tab === 'home') {
         content.append(screenTitle(`Hi, ${displayName}`));
-        content.append(paragraph('Your local ChatPalez app shell is active. The social feed remains on the controlled migration path while API coverage is finalized.'));
-        const webFeed = secondaryButton('Open current feed');
+        content.append(paragraph('Your local ChatPalez app shell is active. The existing feed remains a protected web module for v1 because the official API does not provide a complete feed and post contract.'));
+        const webFeed = secondaryButton('Open feed');
         webFeed.addEventListener('click', () => handlers.onOpenWebModule('/'));
         content.append(webFeed);
         return;
