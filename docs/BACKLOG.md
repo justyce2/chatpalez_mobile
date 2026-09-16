@@ -378,3 +378,8 @@ Photo selection, multipart upload and send are implemented through official Sngi
 ## Implementation update — safe chat photo rendering (2026-09-16)
 
 The local message thread now renders validated ChatPalez-hosted photo attachments and rejects unsafe media paths. F-04 remains **Testing** pending real API/device validation.
+
+
+## Major milestone — local conversation management (2026-09-16)
+
+Conversation leave/delete, message Like reaction, and own-message deletion are implemented through the existing official chat API. Runtime acceptance remains pending.
