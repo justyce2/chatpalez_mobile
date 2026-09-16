@@ -1,4 +1,4 @@
-import type { ChatPalezApiClient } from './client';
+import type { ApiPage, ChatPalezApiClient } from './client';
 
 export type ConversationRecipient = {
   user_id: number | string;
@@ -60,11 +60,19 @@ export class ChatService {
   constructor(private readonly api: ChatPalezApiClient) {}
 
   async getConversations(offset = 0): Promise<Conversation[]> {
-    return this.api.get<Conversation[]>('chat/conversations', { offset });
+    return (await this.getConversationsPage(offset)).data;
+  }
+
+  async getConversationsPage(offset = 0): Promise<ApiPage<Conversation[]>> {
+    return this.api.getPage<Conversation[]>('chat/conversations', { offset });
   }
 
   async getContacts(query = '', offset = 0): Promise<ChatContact[]> {
-    return this.api.get<ChatContact[]>('chat/contacts', { query, offset });
+    return (await this.getContactsPage(query, offset)).data;
+  }
+
+  async getContactsPage(query = '', offset = 0): Promise<ApiPage<ChatContact[]>> {
+    return this.api.getPage<ChatContact[]>('chat/contacts', { query, offset });
   }
 
   async getMessages(conversationId: number | string, offset = 0, lastMessageId = 0): Promise<MessagesResult> {
