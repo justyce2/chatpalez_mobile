@@ -126,17 +126,16 @@ All current progressive-hybrid work is **implemented / Testing** until the updat
 
 Do not claim runtime-passed signup, activation, onboarding, login, recovery, 2FA, messaging, notifications, account deletion or retained-web session continuity yet.
 
-Local build execution could not be performed from the current tool runtime because that runner cannot resolve GitHub to clone/install the repository. Source/contract validation was performed and GitHub Actions remain intentionally disabled.
+Source validation completed on 2026-09-16: `npm run build` passed (TypeScript + Vite production build) and `npm test` passed (37 tests). GitHub Actions remain intentionally disabled. Native Capacitor sync/build and physical-device acceptance are still required.
 
 ## Exact next implementation order
 
 1. Install dependencies, run `npx cap sync`, then validate the native protected session store on Android/iOS: cold start, logout, deletion, corrupt-store recovery and no browser-storage fallback.
 2. Deploy/merge `sngine-fresh` to a reachable ChatPalez environment.
 3. Run manual Android/iOS validation for signup, activation, onboarding, login, 2FA, recovery, retained-web POST/cookie continuity, logout, expiry, new/existing chats, typing/seen, Alerts, blocked users and deletion.
-4. Reconnect OneSignal identity through official `/user/onesignal` under the new JWT auth lifecycle.
-5. Add local notification-permission controls to Settings.
-6. Continue the official API audit for feed/posts/profile-editing/groups/pages/search and decide the v1 Home/feed boundary without adding custom backend APIs.
-7. Add chat media/attachment support after text-chat runtime acceptance.
+4. Configure the public `VITE_ONESIGNAL_APP_ID`, then run `npx cap sync` and validate native OneSignal delivery/identity using the official `/user/onesignal` route: login, logout, permission grant/denial, foreground/background and notification click.
+5. Continue the official API audit for feed/posts/profile-editing/groups/pages/search and decide the v1 Home/feed boundary without adding custom backend APIs.
+6. Add chat media/attachment support after text-chat runtime acceptance.
 
 ## Handoff rule
 
@@ -174,3 +173,18 @@ Implemented on `develop`:
 ## Upgrade customization register
 
 The API-first exception register is now maintained in `docs/UPGRADE_CUSTOMIZATION_REGISTER.md`. Before modifying the backend or upgrading Sngine, audit each listed item against the fresh official API and update its retain/remove decision and test outcome.
+
+
+## Implementation update — official OneSignal native lifecycle (2026-09-16)
+
+Implemented on `develop` without any backend modification:
+
+- added optional public `VITE_ONESIGNAL_APP_ID` configuration; no OneSignal secret is included in the app;
+- initializes the installed native OneSignal Capacitor SDK only on Android/iOS and only when that public ID is present;
+- logs the authenticated ChatPalez user ID in as the OneSignal external ID, then sends the OneSignal user ID through the existing official `POST /user/onesignal` API;
+- logs out the native OneSignal identity on ChatPalez logout and account deletion;
+- adds a local Settings control that requests notification permission only after an explicit user tap; it does not prompt on application launch;
+- app build and test validation passed: `npm run build`; `npm test` — 37 tests;
+- no custom OneSignal endpoint, Sngine business-logic change, session bridge change or theme change was made.
+
+**Status:** Testing — requires public app-ID/FCM/APNs configuration, `npx cap sync`, Android/iOS native builds, and physical-device delivery/click validation.
