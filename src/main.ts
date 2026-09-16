@@ -9,6 +9,7 @@ import { ChatService } from './api/chat';
 import { NotificationsService } from './api/notifications';
 import { UserService } from './api/user';
 import { clearSession, getAuthToken, getSession, setSession } from './auth/session';
+import { installPasswordRecovery } from './auth/password-recovery';
 import { getAppConfig } from './config';
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
 import { registerNativeLifecycle } from './native-lifecycle';
@@ -23,6 +24,15 @@ const auth = new AuthService(api);
 const chat = new ChatService(api);
 const notifications = new NotificationsService(api);
 const users = new UserService(api);
+
+function renderLogin(error?: string): void {
+  shell.showLogin(error);
+  installPasswordRecovery({
+    root,
+    auth,
+    onReturnToLogin: () => renderLogin()
+  });
+}
 
 const shell = createAppShell(root, {
   onLogin: async ({ usernameEmail, password }) => {
@@ -53,7 +63,7 @@ const shell = createAppShell(root, {
     } finally {
       clearSession();
       shell.setBusy(false);
-      shell.showLogin();
+      renderLogin();
     }
   },
   onOpenWebModule: (path) => {
@@ -108,7 +118,7 @@ const shell = createAppShell(root, {
     await users.deleteAccount(password);
     clearSession();
     logInfo('Account deletion completed');
-    shell.showLogin('Your account has been deleted.');
+    renderLogin('Your account has been deleted.');
   }
 });
 
@@ -150,7 +160,7 @@ async function bootstrap(): Promise<void> {
       logInfo('Restored in-process mobile API session', { userId: session.user.user_id });
       shell.showAuthenticated(session);
     } else {
-      shell.showLogin();
+      renderLogin();
     }
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'The app could not start.';
