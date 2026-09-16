@@ -58,6 +58,23 @@ describe('ChatService', () => {
     });
   });
 
+  it('sends an official uploaded photo reference with a message', async () => {
+    const post = vi.fn().mockResolvedValue({ conversation_id: 9 });
+    const api = { get: vi.fn(), post } as unknown as ChatPalezApiClient;
+    const chat = new ChatService(api);
+
+    await chat.sendMessage(9, 'See this', 'photos/2026/09/photo.jpg');
+
+    expect(post).toHaveBeenCalledWith('chat/message', {
+      conversation_id: 9,
+      message: 'See this',
+      photo: 'photos/2026/09/photo.jpg',
+      video: '',
+      voice_note: '',
+      recipients: ''
+    });
+  });
+
   it('sends typing and seen state through official chat actions', async () => {
     const post = vi.fn().mockResolvedValue(undefined);
     const api = { get: vi.fn(), post } as unknown as ChatPalezApiClient;
