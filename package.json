@@ -28,7 +28,8 @@
     "@capacitor/share": "^8.0.0",
     "@capacitor/splash-screen": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
-    "@onesignal/capacitor-plugin": "^1.1.12"
+    "@onesignal/capacitor-plugin": "^1.1.12",
+    "@aparajita/capacitor-secure-storage": "^8.0.0"
   },
   "devDependencies": {
     "@capacitor/android": "^8.0.0",
