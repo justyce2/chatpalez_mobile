@@ -130,12 +130,12 @@ Local build execution could not be performed from the current tool runtime becau
 
 ## Exact next implementation order
 
-1. Deploy/merge `sngine-fresh` to a reachable ChatPalez environment.
-2. Run manual Android/iOS validation for signup, activation, onboarding, login, 2FA, recovery, retained-web POST/cookie continuity, logout, expiry, new/existing chats, typing/seen, Alerts, blocked users and deletion.
-3. Replace interim `sessionStorage` JWT handling with a native secure-storage implementation.
+1. Install dependencies, run `npx cap sync`, then validate the native protected session store on Android/iOS: cold start, logout, deletion, corrupt-store recovery and no browser-storage fallback.
+2. Deploy/merge `sngine-fresh` to a reachable ChatPalez environment.
+3. Run manual Android/iOS validation for signup, activation, onboarding, login, 2FA, recovery, retained-web POST/cookie continuity, logout, expiry, new/existing chats, typing/seen, Alerts, blocked users and deletion.
 4. Reconnect OneSignal identity through official `/user/onesignal` under the new JWT auth lifecycle.
 5. Add local notification-permission controls to Settings.
-6. Continue feed/posts/profile-editing/groups/pages/search API mapping and decide the v1 Home/feed boundary.
+6. Continue the official API audit for feed/posts/profile-editing/groups/pages/search and decide the v1 Home/feed boundary without adding custom backend APIs.
 7. Add chat media/attachment support after text-chat runtime acceptance.
 
 ## Handoff rule
