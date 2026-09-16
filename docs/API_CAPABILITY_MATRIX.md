@@ -127,3 +127,20 @@ The existing web messaging UI remains a fallback until the local conversation/me
 ## Update rule
 
 Whenever a new official endpoint is confirmed or a missing capability is proven, update this matrix and the corresponding implementation checkpoint/backlog immediately. Do not rely on conversational memory.
+
+
+## Resolution — custom-extension admission rule (2026-09-16)
+
+The official Sngine API is the default implementation surface. A custom backend extension is permitted only after the matrix records the exact official-route/function audit and proves that it cannot safely meet the requirement.
+
+| Need | Decision |
+|---|---|
+| Mobile UI API adapter | Client-side only; call official Sngine routes. |
+| OneSignal association | Use official `POST /user/onesignal`; no custom identity endpoint. |
+| Signup/onboarding/chat/account actions/uploads/reporting | Use confirmed official API routes. |
+| Feed/posts/groups/pages/search with unproven coverage | Retain web-backed v1; do not invent broad custom APIs. |
+| Mobile access to API requiring `system_api_secret` | A minimal isolated server-side boundary may be justified because the secret cannot ship in the app. Audit/isolate/document it. |
+| JWT to ordinary Sngine web session for retained web modules | A minimal backend bridge may be justified because the official API does not provide this transition. Audit/isolate/document it. |
+| App-specific web presentation | Duplicate theme only; not part of API/JWT bridge code. |
+
+Every retained exception must be entered in the upgrade-customization register with its upstream dependency and retest procedure.
