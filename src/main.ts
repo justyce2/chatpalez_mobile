@@ -24,8 +24,9 @@ import { registerNativeLifecycle } from './native-lifecycle';
 import { openAuthenticatedWebModule } from './web-session';
 import './styles.css';
 
-const root = document.querySelector<HTMLElement>('#app');
-if (!root) throw new Error('ChatPalez app root was not found.');
+const appRoot = document.querySelector<HTMLElement>('#app');
+if (!appRoot) throw new Error('ChatPalez app root was not found.');
+const root: HTMLElement = appRoot;
 
 const config = getAppConfig();
 const api = new ChatPalezApiClient({ config, getAuthToken });
