@@ -32,6 +32,28 @@ export class AuthService {
     return data;
   }
 
+  async requestPasswordReset(email: string): Promise<void> {
+    await this.api.post<unknown>('auth/forget_password', {
+      email: email.trim()
+    });
+  }
+
+  async confirmPasswordResetCode(email: string, resetKey: string): Promise<void> {
+    await this.api.post<unknown>('auth/forget_password_confirm', {
+      email: email.trim(),
+      reset_key: resetKey.trim()
+    });
+  }
+
+  async resetPassword(email: string, resetKey: string, password: string, confirm: string): Promise<void> {
+    await this.api.post<unknown>('auth/forget_password_reset', {
+      email: email.trim(),
+      reset_key: resetKey.trim(),
+      password,
+      confirm
+    });
+  }
+
   async signOut(): Promise<void> {
     await this.api.post<unknown>('auth/signout', {});
   }
