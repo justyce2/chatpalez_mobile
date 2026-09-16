@@ -60,7 +60,7 @@ The backend already exposes the configured public OneSignal App ID to the offici
 3. Configure Android platform with FCM credentials.
 4. Configure iOS platform with APNs credentials.
 5. Verify OneSignal external-user identity uses the authenticated ChatPalez user ID.
-6. Validate foreground, background and notification-click behavior on physical devices.
+6. Validate foreground, background and notification-click behavior on physical devices. Notification click URLs must be relative/internal ChatPalez routes; external URLs are deliberately ignored.
 
 The mobile source accepts the public identifier through `VITE_ONESIGNAL_APP_ID`; set it in the build environment, not in a committed `.env` file. The installed app logs in with the authenticated ChatPalez user ID as its external identity and syncs the OneSignal user ID through the existing official `POST /user/onesignal` route. OneSignal REST/API secrets must never be exposed to the app bundle or web page.
 
