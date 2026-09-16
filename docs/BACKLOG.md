@@ -383,3 +383,8 @@ The local message thread now renders validated ChatPalez-hosted photo attachment
 ## Major milestone — local conversation management (2026-09-16)
 
 Conversation leave/delete, message Like reaction, and own-message deletion are implemented through the existing official chat API. Runtime acceptance remains pending.
+
+
+## Implementation update — paged messaging service (2026-09-16)
+
+Conversation and contact services now retain official pagination metadata instead of discarding it. UI pagination remains the next client task.
