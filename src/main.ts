@@ -228,7 +228,7 @@ async function bootstrap(): Promise<void> {
     const session = await restoreSession();
     if (session) {
       logInfo('Restored in-process mobile API session', { userId: session.user.user_id });
-      completeAuthenticatedSession(session);
+      await completeAuthenticatedSession(session);
     } else {
       renderLogin();
     }
