@@ -9,11 +9,16 @@ import { ChatService } from './api/chat';
 import { NotificationsService } from './api/notifications';
 import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
-import { clearSession, getAuthToken, restoreSession, setSession, type AuthSession } from './auth/session';
+import { clearSession, getAuthToken, getSession, restoreSession, setSession, type AuthSession } from './auth/session';
 import { installPasswordRecovery } from './auth/password-recovery';
 import { installRegistration, needsRegistrationCompletion, resumeRegistration, type RegistrationOptions } from './auth/registration';
 import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
+import {
+  initializeNativeNotifications,
+  logoutNativeNotifications,
+  requestNativeNotificationPermission
+} from './notifications/native';
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
 import { registerNativeLifecycle } from './native-lifecycle';
 import { openAuthenticatedWebModule } from './web-session';
@@ -62,6 +67,11 @@ async function showAuthenticatedSession(session: AuthSession): Promise<void> {
   await setSession(session);
   logInfo('Mobile authentication completed', { userId: session.user.user_id });
   shell.showAuthenticated(session);
+  void initializeNativeNotifications(config, users, session.user.user_id).catch((error) => {
+    logWarn('Native notification identity could not be initialized', {
+      detail: error instanceof Error ? error.message : String(error ?? '')
+    });
+  });
 }
 
 async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
@@ -136,12 +146,22 @@ const shell = createAppShell(root, {
         detail: error instanceof Error ? error.message : String(error ?? '')
       });
     } finally {
+      await logoutNativeNotifications().catch((error) => {
+        logWarn('Native notification identity could not be cleared', {
+          detail: error instanceof Error ? error.message : String(error ?? '')
+        });
+      });
       await clearSession();
       shell.setBusy(false);
       renderLogin();
     }
   },
   onOpenWebModule: openWebModule,
+  onManageNotifications: async () => {
+    const session = getSession();
+    if (!session) throw new Error('Your session has expired. Sign in again to continue.');
+    return requestNativeNotificationPermission(config, users, session.user.user_id);
+  },
   onLoadConversations: async () => {
     const conversations = await chat.getConversations();
     logInfo('Conversation list loaded', { count: conversations.length });
@@ -187,6 +207,11 @@ const shell = createAppShell(root, {
   },
   onDeleteAccount: async (password) => {
     await users.deleteAccount(password);
+    await logoutNativeNotifications().catch((error) => {
+      logWarn('Native notification identity could not be cleared after account deletion', {
+        detail: error instanceof Error ? error.message : String(error ?? '')
+      });
+    });
     await clearSession();
     logInfo('Account deletion completed');
     renderLogin('Your account has been deleted.');
