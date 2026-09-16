@@ -345,3 +345,6 @@ Before any further backend modification, complete an API-versus-custom audit aga
 ## Implementation update — native secure JWT storage (2026-09-16)
 
 The interim browser `sessionStorage` session has been replaced in source by in-memory state plus native protected persistence through Capacitor 8 secure storage. iOS uses a device-only unlocked Keychain item with iCloud sync disabled; Android uses Keystore-backed storage. Browser builds intentionally do not persist JWTs. Status: **Testing** pending dependency install, Capacitor sync, Android/iOS build and real-device cold-start/logout validation. No Sngine backend, API route, session bridge or theme modification was made.
+
+
+**Next implementation order revised:** validate the new native secure store first, then continue with the official `/user/onesignal` lifecycle and remaining API audit. No backend modification is authorized by this mobile-only change.
