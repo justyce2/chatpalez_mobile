@@ -21,6 +21,10 @@ export type AppShellHandlers = {
   onLoadMessages?: (conversationId: number | string) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<void>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
+  onLeaveConversation?: (conversationId: number | string) => Promise<void>;
+  onDeleteConversation?: (conversationId: number | string) => Promise<void>;
+  onReactToMessage?: (messageId: number | string, reaction: string) => Promise<void>;
+  onDeleteMessage?: (messageId: number | string) => Promise<void>;
   onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
   onLoadNotifications?: () => Promise<NotificationItem[]>;
   onLoadBlockedUsers?: () => Promise<BlockedUser[]>;
@@ -429,6 +433,21 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       back.classList.add('compact-button');
       back.addEventListener('click', () => void showConversationList());
       header.append(back, screenTitle(titleText));
+      if (handlers.onLeaveConversation || handlers.onDeleteConversation) {
+        const manage = secondaryButton('Manage');
+        manage.classList.add('compact-button');
+        manage.addEventListener('click', () => {
+          const deleteConversation = window.confirm('Delete this conversation from your inbox?');
+          const operation = deleteConversation ? handlers.onDeleteConversation : handlers.onLeaveConversation;
+          if (!operation) return;
+          manage.disabled = true;
+          void operation(conversationId)
+            .then(() => showConversationList())
+            .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update this conversation.'))
+            .finally(() => { manage.disabled = false; });
+        });
+        header.append(manage);
+      }
       content.append(header);
       const presence = element('p', 'conversation-presence');
       presence.textContent = conversation.user_is_online ? 'Online' : '';
@@ -485,7 +504,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
             thread.append(paragraph('No messages yet.'));
             return;
           }
-          for (const message of messages) thread.append(messageBubble(message, session, handlers.resolveChatPhotoUrl));
+          for (const message of messages) thread.append(messageBubble(message, session, handlers.resolveChatPhotoUrl, handlers.onReactToMessage, handlers.onDeleteMessage, refreshThread));
           const ids = messages
             .map((message) => message.message_id)
             .filter((id): id is number | string => id !== undefined && id !== null);
@@ -550,7 +569,7 @@ function conversationList(conversations: Conversation[], onOpen: (conversation: 
   return list;
 }
 
-function messageBubble(message: Message, session: AuthSession, resolvePhotoUrl?: (source: string) => string | null): HTMLDivElement {
+function messageBubble(message: Message, session: AuthSession, resolvePhotoUrl?: (source: string) => string | null, onReact?: (messageId: number | string, reaction: string) => Promise<void>, onDelete?: (messageId: number | string) => Promise<void>, onRefresh?: () => Promise<void>): HTMLDivElement {
   const bubble = element('div', 'message-bubble');
   const senderId = String(message.user_id ?? message.sender_id ?? '');
   if (senderId && senderId === String(session.user.user_id ?? '')) bubble.classList.add('is-mine');
@@ -567,6 +586,30 @@ function messageBubble(message: Message, session: AuthSession, resolvePhotoUrl?:
   }
   if (!body && !photoUrl) bubble.append(elementWithText('div', 'Attachment'));
   if (message.time) bubble.append(elementWithText('small', String(message.time)));
+  if (message.message_id && onReact) {
+    const like = secondaryButton('Like');
+    like.classList.add('compact-button');
+    like.addEventListener('click', () => {
+      like.disabled = true;
+      void onReact(message.message_id!, 'like').catch((error: unknown) => {
+        window.alert(error instanceof Error ? error.message : 'Unable to react to this message.');
+      }).finally(() => { like.disabled = false; });
+    });
+    bubble.append(like);
+  }
+  if (message.message_id && senderId && senderId === String(session.user.user_id ?? '') && onDelete) {
+    const remove = secondaryButton('Delete');
+    remove.classList.add('compact-button');
+    remove.addEventListener('click', () => {
+      if (!window.confirm('Delete this message?')) return;
+      remove.disabled = true;
+      void onDelete(message.message_id!)
+        .then(() => onRefresh?.())
+        .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to delete this message.'))
+        .finally(() => { remove.disabled = false; });
+    });
+    bubble.append(remove);
+  }
   return bubble;
 }
 
