@@ -18,6 +18,11 @@ export class ApiError extends Error {
   }
 }
 
+export type ApiPage<T> = {
+  data: T;
+  hasMore: boolean;
+};
+
 export type ApiClientOptions = {
   config: AppConfig;
   getAuthToken: () => string | null;
@@ -35,6 +40,12 @@ export class ChatPalezApiClient {
   async get<T>(path: string, query?: Record<string, string | number | boolean | undefined>): Promise<T> {
     const url = this.buildUrl(path, query);
     return this.request<T>(url, { method: 'GET' });
+  }
+
+  async getPage<T>(path: string, query?: Record<string, string | number | boolean | undefined>): Promise<ApiPage<T>> {
+    const url = this.buildUrl(path, query);
+    const envelope = await this.requestEnvelope<T>(url, { method: 'GET' });
+    return { data: envelope.data as T, hasMore: Boolean(envelope.has_more) };
   }
 
   async post<T>(path: string, body?: unknown): Promise<T> {
@@ -67,6 +78,11 @@ export class ChatPalezApiClient {
   }
 
   private async request<T>(url: URL, init: RequestInit): Promise<T> {
+    const envelope = await this.requestEnvelope<T>(url, init);
+    return envelope.data as T;
+  }
+
+  private async requestEnvelope<T>(url: URL, init: RequestInit): Promise<ApiEnvelope<T>> {
     const headers = new Headers(init.headers);
     headers.set('Accept', 'application/json');
     headers.set('x-mobile-client', 'chatpalez-mobile-v1');
@@ -102,6 +118,6 @@ export class ChatPalezApiClient {
       throw new ApiError('ChatPalez returned an unexpected response.', response.status);
     }
 
-    return envelope.data as T;
+    return envelope;
   }
 }
