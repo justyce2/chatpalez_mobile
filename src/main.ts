@@ -198,6 +198,18 @@ const shell = createAppShell(root, {
   onTyping: async (conversationId, isTyping) => {
     await chat.setTyping(conversationId, isTyping);
   },
+  onLeaveConversation: async (conversationId) => {
+    await chat.leaveConversation(conversationId);
+  },
+  onDeleteConversation: async (conversationId) => {
+    await chat.deleteConversation(conversationId);
+  },
+  onReactToMessage: async (messageId, reaction) => {
+    await chat.reactToMessage(messageId, reaction);
+  },
+  onDeleteMessage: async (messageId) => {
+    await chat.deleteMessage(messageId);
+  },
   onMarkSeen: async (ids) => {
     await chat.markSeen(ids);
   },
