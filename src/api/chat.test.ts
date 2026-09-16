@@ -75,6 +75,23 @@ describe('ChatService', () => {
     });
   });
 
+  it('uses official conversation and message management routes', async () => {
+    const post = vi.fn().mockResolvedValue(undefined);
+    const del = vi.fn().mockResolvedValue(undefined);
+    const api = { get: vi.fn(), post, delete: del } as unknown as ChatPalezApiClient;
+    const chat = new ChatService(api);
+
+    await chat.leaveConversation(9);
+    await chat.deleteConversation(9);
+    await chat.reactToMessage(12, 'like');
+    await chat.deleteMessage(12);
+
+    expect(post).toHaveBeenNthCalledWith(1, 'chat/actions/leave', { conversation_id: 9 });
+    expect(post).toHaveBeenNthCalledWith(2, 'chat/reactions/react', { do: 'react', message_id: 12, reaction: 'like' });
+    expect(del).toHaveBeenNthCalledWith(1, 'chat/conversation/9');
+    expect(del).toHaveBeenNthCalledWith(2, 'chat/message/12');
+  });
+
   it('sends typing and seen state through official chat actions', async () => {
     const post = vi.fn().mockResolvedValue(undefined);
     const api = { get: vi.fn(), post } as unknown as ChatPalezApiClient;
