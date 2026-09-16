@@ -3,7 +3,7 @@
 **Reference backend repo:** `justyce2/chatpalez-backend-2`  
 **Reference branch:** `sngine-fresh`  
 **API root in source:** `apis/php/`  
-**Status date:** 2026-09-15
+**Status date:** 2026-09-16
 
 This matrix is the implementation reference for deciding whether a ChatPalez Mobile surface should be local/API-driven, needs a minimal backend adapter, or remains web-backed for v1.
 
@@ -53,13 +53,13 @@ Do not infer capability from the legacy top-level `api.php`. The current/fresh A
 | Full current-user/profile retrieval | Partial / Audit Required | Signin returns a secured user object; complete dedicated read contract not yet mapped | Use signin result for shell/profile summary; audit deeper profile needs |
 | Full profile editing | Partial / Audit Required | Some user endpoints exist | Audit before implementation |
 | Notification list/read state | Not Yet Proven | No complete route set confirmed yet | Audit; web-backed fallback allowed |
-| Main timeline/feed | Not Yet Proven | `/data/load` currently confirmed only for `new_people` | Web-backed v1 unless further routes found |
-| Post CRUD | Not Yet Proven | Not yet confirmed in official modules inspected | Web-backed v1 unless found |
-| Non-chat comments/reactions | Not Yet Proven | Not yet confirmed | Web-backed v1 unless found |
+| Main timeline/feed | Not API Ready — confirmed | Full fresh-module audit found `/data/load?get=new_people` only; no timeline route | **Retained web module for v1** |
+| Post CRUD | Not API Ready — confirmed | No official posts module/route in fresh API subsystem | **Retained web module for v1** |
+| Non-chat comments/reactions | Not API Ready — confirmed | No official non-chat comment/reaction route | **Retained web module for v1** |
 | Friends/follow graph retrieval | Partial / Audit Required | connect action exists; retrieval coverage not fully mapped | Audit |
-| Groups | Not Yet Proven | app metadata has user groups but social group feature routes not proven | Web-backed v1 allowed |
-| Pages | Not Yet Proven | no complete page API confirmed | Web-backed v1 allowed |
-| Search | Not Yet Proven | no complete search API confirmed | Web-backed v1 allowed |
+| Groups | Not API Ready — confirmed | `app/user_groups` is account-plan metadata, not social groups; no group route | **Retained web module for v1** |
+| Pages | Not API Ready — confirmed | Static/legal page routes exist, but no social-pages API | **Retained web module for v1** |
+| Search | Not API Ready — confirmed | No official social/global-search route | **Retained web module for v1** |
 | Full privacy/settings | Partial / Audit Required | blocked/delete/static/app settings exist | Local shell + controlled web fallback |
 
 ## Authentication transport — confirmed
@@ -144,3 +144,10 @@ The official Sngine API is the default implementation surface. A custom backend 
 | App-specific web presentation | Duplicate theme only; not part of API/JWT bridge code. |
 
 Every retained exception must be entered in the upgrade-customization register with its upstream dependency and retest procedure.
+
+
+## Feed/Home decision — completed official-route audit (2026-09-16)
+
+The fresh API route inventory is limited to the app, auth, chat, data, monetization, and user modules. The data controller implements only GET /data/load?get=new_people; it does not expose timeline loading. No official posts module exists, and no feed/post/comment/reaction/group/social-page/search contract was found in that subsystem.
+
+**Decision:** retain Home/feed, composer, non-chat engagement, groups, pages and search as controlled web modules for v1. The local Home screen remains the app-owned entry point and opens the existing feed through the already implemented POST-only JWT-to-web session bridge. This is a deliberate API-first/upgradable decision, not a missing implementation. No custom backend endpoint is authorized for these surfaces unless a future fresh-Sngine audit finds a supported extension point and the upgrade-customization register records a new exception.
