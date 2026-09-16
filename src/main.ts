@@ -7,9 +7,11 @@ import { ChatPalezApiClient, ApiError } from './api/client';
 import { AuthService, type TwoFactorChallenge } from './api/auth';
 import { ChatService } from './api/chat';
 import { NotificationsService } from './api/notifications';
+import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
 import { clearSession, getAuthToken, getSession, setSession, type AuthSession } from './auth/session';
 import { installPasswordRecovery } from './auth/password-recovery';
+import { installRegistration } from './auth/registration';
 import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
@@ -24,6 +26,7 @@ const api = new ChatPalezApiClient({ config, getAuthToken });
 const auth = new AuthService(api);
 const chat = new ChatService(api);
 const notifications = new NotificationsService(api);
+const registration = new RegistrationService(api);
 const users = new UserService(api);
 
 function renderLogin(error?: string): void {
@@ -32,6 +35,19 @@ function renderLogin(error?: string): void {
     root,
     auth,
     onReturnToLogin: () => renderLogin()
+  });
+  installRegistration({
+    root,
+    registration,
+    onSessionCreated: (session) => {
+      setSession(session);
+      logInfo('Mobile registration session created', { userId: session.user.user_id });
+    },
+    onComplete: completeAuthenticatedSession,
+    onReturnToLogin: () => {
+      clearSession();
+      renderLogin();
+    }
   });
 }
 
