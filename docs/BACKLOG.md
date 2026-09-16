@@ -163,7 +163,7 @@
 | I-01 | Feed/home decision and regression | Testing | Retained-web v1 path selected; validate authenticated WebView feed | N-01 | Official audit found no timeline/post API; no custom endpoint authorized |
 | I-02 | Post creation regression | Planned | Text/media posting works through selected path | I-01,F | Web-backed acceptable for v1 |
 | I-03 | Reactions/comments regression | Planned | Interactions work | I-01 | Selected path |
-| I-04 | Profile/account regression | Planned | Local summary + deeper profile path work | N-06 | Progressive hybrid target |
+| I-04 | Profile/account regression | Testing | Local summary works; validate deeper profile/edit path through protected WebView | N-06 | Official API has no full profile-read/update contract |
 | I-05 | Messaging regression | Planned | Send/receive/composer work | Auth,F | Web-backed initially |
 | I-06 | Notifications regression | Planned | Local notifications + push interactions work | N-05,G | API-driven target |
 | I-07 | Search/friends/groups/pages regression | Planned | Primary community flows work | Auth | Web-backed initially |
@@ -233,7 +233,7 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| N-01 | Audit existing Sngine/ChatPalez API coverage | Testing | Matrix documents confirmed/absent official contracts and v1 boundaries | Backend/API access | Feed/posts/comments/groups/pages/search audit complete; profile/social graph remains partial |
+| N-01 | Audit existing Sngine/ChatPalez API coverage | Completed | Matrix documents confirmed/absent official contracts and v1 boundaries | Backend/API access | Feed/posts/comments/groups/pages/search/profile/social graph audit complete |
 | N-02 | Build typed API/service layer | Planned | Central API client, config, auth/error normalization and reusable services exist | N-01 | Keep UI independent of raw API details |
 | N-03 | Build local mobile navigation shell | Planned | App opens into local shell with mobile-first primary navigation | B-03 | Bottom-tab/app-bar design; web modules become destinations |
 | N-04 | Implement local login/onboarding | Planned | Authentication occurs through local UI using supported API/auth model | D-01,N-02 | High App Store differentiation value |
@@ -363,3 +363,8 @@ Fresh Sngine API modules were re-audited before further backend work. Only data/
 ## Implementation update — trusted notification taps (2026-09-16)
 
 OneSignal click events now accept only same-origin ChatPalez URLs (or relative internal paths), normalize them, and pass them through the existing authenticated POST session bridge. External, malformed, and alternate-port URLs are ignored. Unit coverage was added; physical Android/iOS notification-tap validation remains required.
+
+
+## Implementation decision — profile/social API audit (2026-09-16)
+
+The official user module audit is complete: it lacks profile-read/update and social-graph retrieval routes. N-01 is now **Completed** as an API capability audit. Deep profile editing and friends/followers remain protected retained-web modules for v1; no custom backend API is authorized.
