@@ -333,3 +333,10 @@ Exit condition: native integrations, compliance, device regression and signing/r
 | 2026-09-15 | Backend mobile bridge merged to backend `master`; later architecture review clarified that new mobile presentation should avoid unnecessary backend-template dependency. |
 | 2026-09-15 | GitHub Actions disabled by project-owner instruction; workflow files removed from mobile and backend repositories. |
 | 2026-09-15 | **Architecture pivot approved:** adopted progressive hybrid architecture. Added Epic N for API audit/service layer/local shell/local login/notifications/profile/settings/session bridge. Existing web-backed modules are retained selectively rather than defining the entire app experience. |
+
+
+---
+
+## Change decision — API-first and upgrade-safe customization (2026-09-16)
+
+Before any further backend modification, complete an API-versus-custom audit against `sngine-fresh`. Reuse official Sngine APIs and business logic whenever sufficient. The mobile API adapter remains client-side only. Use official `POST /user/onesignal`; re-audit the notification adapter; retain feed/posts/groups/pages/search as web-backed v1 where official coverage remains unproven. A custom backend extension is admissible only for a documented, minimal security/session gap (server-only API-secret protection or JWT-to-standard-web-session transition). Preserve the stock theme; put app-only web presentation in a separately named duplicate theme selected only for official app requests. Maintain an upgrade-customization register for every retained extension.
