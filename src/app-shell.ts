@@ -2,6 +2,7 @@ import type { ChatContact, Conversation, Message, MessagesResult } from './api/c
 import type { NotificationItem } from './api/notifications';
 import type { BlockedUser } from './api/user';
 import type { AuthSession } from './auth/session';
+import type { NativeNotificationStatus } from './notifications/native';
 
 export type LoginCredentials = {
   usernameEmail: string;
@@ -12,6 +13,7 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string) => void;
+  onManageNotifications?: () => Promise<NativeNotificationStatus>;
   onLoadConversations?: () => Promise<Conversation[]>;
   onLoadContacts?: (query: string) => Promise<ChatContact[]>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
@@ -167,6 +169,34 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       account.append(elementWithText('strong', displayName));
       if (user.user_email) account.append(elementWithText('span', String(user.user_email)));
       content.append(account);
+
+      const push = element('section', 'settings-card');
+      push.append(elementWithText('h3', 'Push notifications'));
+      const pushStatus = paragraph('Enable notifications for messages and account activity on this device.');
+      push.append(pushStatus);
+      if (handlers.onManageNotifications) {
+        const enablePush = secondaryButton('Enable notifications');
+        enablePush.addEventListener('click', () => {
+          enablePush.disabled = true;
+          enablePush.textContent = 'Checking…';
+          void handlers.onManageNotifications!()
+            .then((status) => {
+              pushStatus.textContent = nativeNotificationStatusMessage(status);
+              enablePush.textContent = status === 'enabled' ? 'Notifications enabled' : 'Manage notifications';
+            })
+            .catch((error: unknown) => {
+              pushStatus.textContent = error instanceof Error ? error.message : 'Unable to update notification permission.';
+              enablePush.textContent = 'Try again';
+            })
+            .finally(() => {
+              enablePush.disabled = false;
+            });
+        });
+        push.append(enablePush);
+      } else {
+        pushStatus.textContent = 'Native notification controls are not available in this build.';
+      }
+      content.append(push);
 
       const blockedSection = element('section', 'settings-card');
       blockedSection.append(elementWithText('h3', 'Blocked users'));
@@ -542,3 +572,17 @@ function secondaryButton(text: string): HTMLButtonElement { const button = eleme
 function input(type: string, placeholder: string, name: string): HTMLInputElement { const node = document.createElement('input'); node.type = type; node.placeholder = placeholder; node.name = name; node.required = true; return node; }
 function field(label: string, control: HTMLInputElement): HTMLLabelElement { const node = element('label', 'field'); node.append(elementWithText('span', label), control); return node; }
 function initials(name: string): string { return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || 'C'; }
+
+
+function nativeNotificationStatusMessage(status: NativeNotificationStatus): string {
+  switch (status) {
+    case 'enabled':
+      return 'Notifications are enabled for this device.';
+    case 'disabled':
+      return 'Notifications are currently disabled. You can enable them in your device settings.';
+    case 'not-configured':
+      return 'Notifications are not configured for this app build yet.';
+    case 'unsupported':
+      return 'Native notifications are available in the installed Android or iOS app.';
+  }
+}
