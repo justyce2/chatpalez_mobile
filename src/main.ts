@@ -16,6 +16,7 @@ import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
 import { registerNativeLifecycle } from './native-lifecycle';
+import { openAuthenticatedWebModule } from './web-session';
 import './styles.css';
 
 const root = document.querySelector<HTMLElement>('#app');
@@ -71,6 +72,26 @@ function completeAuthenticatedSession(session: AuthSession): void {
   showAuthenticatedSession(session);
 }
 
+function openWebModule(path: string): void {
+  const token = getAuthToken();
+  if (!token) {
+    clearSession();
+    renderLogin('Your session has expired. Sign in again to continue.');
+    return;
+  }
+
+  try {
+    logInfo('Authenticated retained-web transition requested', { path });
+    openAuthenticatedWebModule({ config, token, path });
+  } catch (error) {
+    logWarn('Retained-web transition was blocked', {
+      path,
+      detail: error instanceof Error ? error.message : String(error ?? '')
+    });
+    window.alert(error instanceof Error ? error.message : 'Unable to open this ChatPalez section.');
+  }
+}
+
 function renderTwoFactor(challenge: TwoFactorChallenge): void {
   logInfo('Two-factor challenge required', { userId: challenge.userId, method: challenge.method });
   renderTwoFactorChallenge({
@@ -116,11 +137,7 @@ const shell = createAppShell(root, {
       renderLogin();
     }
   },
-  onOpenWebModule: (path) => {
-    const destination = new URL(path, config.origin);
-    logInfo('Web-backed module requested', { url: destination.toString() });
-    window.alert('This web-backed section is waiting for the API-to-web session bridge. Your mobile API session remains signed in.');
-  },
+  onOpenWebModule: openWebModule,
   onLoadConversations: async () => {
     const conversations = await chat.getConversations();
     logInfo('Conversation list loaded', { count: conversations.length });
@@ -191,9 +208,8 @@ async function bootstrap(): Promise<void> {
 
   try {
     await registerNativeLifecycle(config, (route) => {
-      const destination = new URL(route, config.origin);
-      logInfo('Trusted native route received', { url: destination.toString() });
-      window.alert('This link will open after the local-to-web session bridge is enabled.');
+      logInfo('Trusted native route received', { path: route });
+      openWebModule(route);
     });
 
     const network = await Network.getStatus();
