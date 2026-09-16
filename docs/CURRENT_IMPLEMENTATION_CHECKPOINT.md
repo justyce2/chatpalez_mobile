@@ -134,8 +134,9 @@ Source validation completed on 2026-09-16: `npm run build` passed (TypeScript + 
 2. Deploy/merge `sngine-fresh` to a reachable ChatPalez environment.
 3. Run manual Android/iOS validation for signup, activation, onboarding, login, 2FA, recovery, retained-web POST/cookie continuity, logout, expiry, new/existing chats, typing/seen, Alerts, blocked users and deletion.
 4. Configure the public `VITE_ONESIGNAL_APP_ID`, then run `npx cap sync` and validate native OneSignal delivery/identity using the official `/user/onesignal` route: login, logout, permission grant/denial, foreground/background and notification click.
-5. Continue the official API audit for feed/posts/profile-editing/groups/pages/search and decide the v1 Home/feed boundary without adding custom backend APIs.
-6. Add chat media/attachment support after text-chat runtime acceptance.
+5. Validate retained feed/home, post composer, comments/reactions, groups, pages and search through the protected WebView session bridge on Android/iOS.
+6. Audit the remaining partial profile-editing/social-graph routes before local migration; keep deeper screens web-backed where the contract is incomplete.
+7. Add chat media/attachment support after text-chat runtime acceptance.
 
 ## Handoff rule
 
@@ -188,3 +189,8 @@ Implemented on `develop` without any backend modification:
 - no custom OneSignal endpoint, Sngine business-logic change, session bridge change or theme change was made.
 
 **Status:** Testing — requires public app-ID/FCM/APNs configuration, `npx cap sync`, Android/iOS native builds, and physical-device delivery/click validation.
+
+
+## Decision — Home/feed remains a controlled web module for v1 (2026-09-16)
+
+The official fresh-Sngine API audit is complete for the Home/feed boundary. Its API exposes discovery new_people only; it has no official timeline, post CRUD, non-chat comment/reaction, social-group, social-page or global-search route. ChatPalez will therefore retain those surfaces in the existing mobile web experience, opened only through the protected POST JWT-to-standard-web-session bridge. The local app shell, auth, messages, Alerts, profile summary and Settings remain native/API-driven. This requires no custom backend code or theme modification.
