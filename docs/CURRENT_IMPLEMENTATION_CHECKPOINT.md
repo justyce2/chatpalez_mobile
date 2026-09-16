@@ -219,3 +219,8 @@ Local conversation threads now render a message photo only when its server path 
 ## Major milestone — local conversation management (2026-09-16)
 
 Local messaging now supports official Sngine leave/delete conversation actions, Like reactions, and deletion of a sender's own message. Server-side authorization remains authoritative. No backend route or theme change was added. Status: **Testing** pending deployed Android/iOS validation.
+
+
+## Implementation update — messaging pagination foundation (2026-09-16)
+
+The API client now preserves Sngine's official `has_more` metadata for paged conversation/contact requests; ChatService exposes page-aware methods alongside its existing simple list calls. Status: **Testing**; use this foundation for local Load More UI after runtime API validation.
