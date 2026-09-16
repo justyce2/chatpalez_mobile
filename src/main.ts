@@ -15,6 +15,7 @@ import { installPasswordRecovery } from './auth/password-recovery';
 import { installRegistration, needsRegistrationCompletion, resumeRegistration, type RegistrationOptions } from './auth/registration';
 import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
+import { getChatPhotoUrl } from './media';
 import {
   initializeNativeNotifications,
   logoutNativeNotifications,
@@ -160,6 +161,7 @@ const shell = createAppShell(root, {
     }
   },
   onOpenWebModule: openWebModule,
+  resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
   onManageNotifications: async () => {
     const session = getSession();
     if (!session) throw new Error('Your session has expired. Sign in again to continue.');
