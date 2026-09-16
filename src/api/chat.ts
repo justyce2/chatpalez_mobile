@@ -97,6 +97,22 @@ export class ChatService {
     });
   }
 
+  async leaveConversation(conversationId: number | string): Promise<void> {
+    await this.api.post<unknown>('chat/actions/leave', { conversation_id: conversationId });
+  }
+
+  async deleteConversation(conversationId: number | string): Promise<void> {
+    await this.api.delete<unknown>(`chat/conversation/${conversationId}`);
+  }
+
+  async reactToMessage(messageId: number | string, reaction: string): Promise<void> {
+    await this.api.post<unknown>('chat/reactions/react', { do: 'react', message_id: messageId, reaction });
+  }
+
+  async deleteMessage(messageId: number | string): Promise<void> {
+    await this.api.delete<unknown>(`chat/message/${messageId}`);
+  }
+
   async setTyping(conversationId: number | string, isTyping: boolean): Promise<void> {
     await this.api.post<unknown>('chat/actions/typing', {
       conversation_id: conversationId,
