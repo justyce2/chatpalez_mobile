@@ -521,3 +521,20 @@ At the end of each meaningful implementation block, update this file with:
 - external input required.
 
 This prevents future sessions from depending on hidden conversational context.
+
+
+---
+
+## 21. API-first and upgrade-safe customization resolution (2026-09-16)
+
+The project owner has confirmed the following decision before further implementation:
+
+1. Audit the official Sngine API and existing Sngine server capability before every backend change.
+2. Reuse official API routes, business logic and OneSignal integration whenever sufficient; the mobile TypeScript API adapter is client-side code, not a substitute backend API.
+3. Do not retain or add a custom route simply because a local app screen needs data. If official coverage is incomplete, keep that feature web-backed for v1 unless a minimal, documented backend gap is genuinely required.
+4. The only potential exceptions are an isolated server-side mobile access boundary that prevents disclosure of `system_api_secret`, and a JWT-to-standard-web-session bridge for deliberately retained web modules. Both are backend tools, never theme code, and must remain as small, documented and upgrade-retestable as possible.
+5. Use official `POST /user/onesignal` for OneSignal association; no custom OneSignal identity endpoint without a proven incompatibility.
+6. Preserve the untouched Sngine core/default theme. App-only retained-web presentation belongs in a separately named duplicate theme (for example, `chatpalez_mobile`), selected only for official mobile-app requests, never as the global browser theme.
+7. Keep an upgrade-customization register for each retained custom backend extension: upstream dependency, proven gap, reason, contract, isolation location and upgrade/test procedure.
+
+**Implementation gate:** complete and record the API-versus-custom audit before further backend modification. Re-audit the existing notification adapter and mobile bridge; remove or reduce any part covered by stock Sngine.
