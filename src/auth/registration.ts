@@ -22,14 +22,33 @@ export function installRegistration(options: RegistrationOptions): void {
   form.append(button);
 }
 
+export function needsRegistrationCompletion(session: AuthSession): boolean {
+  return isFalseLike(session.user.user_activated) || isFalseLike(session.user.user_started);
+}
+
+export async function resumeRegistration(options: RegistrationOptions, session: AuthSession): Promise<void> {
+  const card = authCard('Finish setting up ChatPalez', 'Loading your remaining account setup steps…');
+  options.root.replaceChildren(card);
+  try {
+    const metadata = await options.registration.getMetadata();
+    continueAfterRegistration(options, metadata, session);
+  } catch (reason) {
+    const error = errorBox();
+    showError(error, reason, 'Unable to resume account setup.');
+    card.append(error, linkButton('Back to sign in', options.onReturnToLogin));
+  }
+}
+
 async function renderSignUp(options: RegistrationOptions): Promise<void> {
   const card = authCard('Create your ChatPalez account', 'Join ChatPalez from the mobile app.');
   const loading = message('Loading registration options…');
+  loading.dataset.registrationLoading = 'true';
   card.append(loading);
   options.root.replaceChildren(card);
 
   try {
     const metadata = await options.registration.getMetadata();
+    loading.remove();
     renderSignUpForm(options, metadata, card);
   } catch (reason) {
     loading.className = 'form-error';
@@ -40,7 +59,6 @@ async function renderSignUp(options: RegistrationOptions): Promise<void> {
 }
 
 function renderSignUpForm(options: RegistrationOptions, metadata: RegistrationMetadata, card: HTMLElement): void {
-  card.querySelector('p:last-child')?.remove();
   const form = document.createElement('form');
   form.className = 'auth-form';
 
@@ -141,6 +159,8 @@ function renderActivation(options: RegistrationOptions, metadata: RegistrationMe
     setSubmitting(submit, true, 'Verifying…');
     void options.registration.activate(code.value)
       .then(() => {
+        session.user.user_activated = '1';
+        options.onSessionCreated(session);
         if (isFalseLike(session.user.user_started)) renderGettingStarted(options, metadata, session);
         else options.onComplete(session);
       })
@@ -194,7 +214,11 @@ function renderGettingStarted(options: RegistrationOptions, metadata: Registrati
       educationSchool: educationSchool.value,
       educationClass: educationClass.value
     }).then(() => options.registration.finishGettingStarted())
-      .then(() => options.onComplete(session))
+      .then(() => {
+        session.user.user_started = '1';
+        options.onSessionCreated(session);
+        options.onComplete(session);
+      })
       .catch((reason: unknown) => showError(error, reason, 'Unable to finish account setup.'))
       .finally(() => setSubmitting(submit, false, 'Finish setup'));
   });
