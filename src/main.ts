@@ -11,7 +11,7 @@ import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
 import { clearSession, getAuthToken, getSession, setSession, type AuthSession } from './auth/session';
 import { installPasswordRecovery } from './auth/password-recovery';
-import { installRegistration } from './auth/registration';
+import { installRegistration, needsRegistrationCompletion, resumeRegistration, type RegistrationOptions } from './auth/registration';
 import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
@@ -29,6 +29,22 @@ const notifications = new NotificationsService(api);
 const registration = new RegistrationService(api);
 const users = new UserService(api);
 
+function registrationOptions(): RegistrationOptions {
+  return {
+    root,
+    registration,
+    onSessionCreated: (session) => {
+      setSession(session);
+      logInfo('Mobile registration session stored', { userId: session.user.user_id });
+    },
+    onComplete: showAuthenticatedSession,
+    onReturnToLogin: () => {
+      clearSession();
+      renderLogin();
+    }
+  };
+}
+
 function renderLogin(error?: string): void {
   shell.showLogin(error);
   installPasswordRecovery({
@@ -36,25 +52,23 @@ function renderLogin(error?: string): void {
     auth,
     onReturnToLogin: () => renderLogin()
   });
-  installRegistration({
-    root,
-    registration,
-    onSessionCreated: (session) => {
-      setSession(session);
-      logInfo('Mobile registration session created', { userId: session.user.user_id });
-    },
-    onComplete: completeAuthenticatedSession,
-    onReturnToLogin: () => {
-      clearSession();
-      renderLogin();
-    }
-  });
+  installRegistration(registrationOptions());
 }
 
-function completeAuthenticatedSession(session: AuthSession): void {
+function showAuthenticatedSession(session: AuthSession): void {
   setSession(session);
   logInfo('Mobile authentication completed', { userId: session.user.user_id });
   shell.showAuthenticated(session);
+}
+
+function completeAuthenticatedSession(session: AuthSession): void {
+  if (needsRegistrationCompletion(session)) {
+    setSession(session);
+    logInfo('Mobile account requires registration completion', { userId: session.user.user_id });
+    void resumeRegistration(registrationOptions(), session);
+    return;
+  }
+  showAuthenticatedSession(session);
 }
 
 function renderTwoFactor(challenge: TwoFactorChallenge): void {
@@ -194,7 +208,7 @@ async function bootstrap(): Promise<void> {
     const session = getSession();
     if (session) {
       logInfo('Restored in-process mobile API session', { userId: session.user.user_id });
-      shell.showAuthenticated(session);
+      completeAuthenticatedSession(session);
     } else {
       renderLogin();
     }
