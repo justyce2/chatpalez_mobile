@@ -1,4 +1,5 @@
 const rawOrigin = import.meta.env.VITE_CHATPALEZ_ORIGIN?.trim();
+const rawOneSignalAppId = import.meta.env.VITE_ONESIGNAL_APP_ID?.trim();
 const allowedHosts = (import.meta.env.VITE_ALLOWED_HOSTS ?? '')
   .split(',')
   .map((host: string) => host.trim().toLowerCase())
@@ -7,6 +8,7 @@ const allowedHosts = (import.meta.env.VITE_ALLOWED_HOSTS ?? '')
 export type AppConfig = {
   origin: URL;
   allowedHosts: ReadonlySet<string>;
+  oneSignalAppId?: string;
 };
 
 export function getAppConfig(): AppConfig {
@@ -24,7 +26,8 @@ export function getAppConfig(): AppConfig {
 
   return {
     origin,
-    allowedHosts: hosts
+    allowedHosts: hosts,
+    oneSignalAppId: rawOneSignalAppId || undefined
   };
 }
 
