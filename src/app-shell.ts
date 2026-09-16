@@ -1,4 +1,4 @@
-import type { Conversation, Message, MessagesResult } from './api/chat';
+import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
 import type { NotificationItem } from './api/notifications';
 import type { BlockedUser } from './api/user';
 import type { AuthSession } from './auth/session';
@@ -13,6 +13,8 @@ export type AppShellHandlers = {
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string) => void;
   onLoadConversations?: () => Promise<Conversation[]>;
+  onLoadContacts?: (query: string) => Promise<ChatContact[]>;
+  onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
   onLoadMessages?: (conversationId: number | string) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string) => Promise<void>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
@@ -270,7 +272,16 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showConversationList(): Promise<void> {
-      content.replaceChildren(screenTitle('Messages'));
+      content.replaceChildren();
+      const headingRow = element('div', 'section-heading-row');
+      headingRow.append(screenTitle('Messages'));
+      if (handlers.onLoadContacts && handlers.onStartConversation) {
+        const compose = secondaryButton('New message');
+        compose.classList.add('compact-button');
+        compose.addEventListener('click', () => void showNewConversation());
+        headingRow.append(compose);
+      }
+      content.append(headingRow);
       if (!handlers.onLoadConversations) {
         content.append(paragraph('Messaging is not wired yet.'));
         return;
@@ -278,19 +289,104 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.append(paragraph('Loading conversations…'));
       try {
         const conversations = await handlers.onLoadConversations();
-        content.replaceChildren(screenTitle('Messages'));
+        const status = content.querySelector('p');
+        status?.remove();
         if (conversations.length === 0) {
-          content.append(paragraph('No conversations yet.'));
+          content.append(paragraph('No conversations yet. Start a new message.'));
           return;
         }
         content.append(conversationList(conversations, (conversation) => void showConversation(conversation)));
       } catch (error) {
-        content.replaceChildren(screenTitle('Messages'));
         content.append(paragraph(error instanceof Error ? error.message : 'Unable to load conversations.'));
         const retry = secondaryButton('Try again');
         retry.addEventListener('click', () => void showConversationList());
         content.append(retry);
       }
+    }
+
+    async function showNewConversation(): Promise<void> {
+      content.replaceChildren();
+      const header = element('div', 'conversation-header');
+      const back = secondaryButton('Back');
+      back.classList.add('compact-button');
+      back.addEventListener('click', () => void showConversationList());
+      header.append(back, screenTitle('New message'));
+      content.append(header);
+
+      const searchForm = document.createElement('form');
+      searchForm.className = 'contact-search';
+      const query = input('search', 'Search contacts', 'contactSearch');
+      query.required = false;
+      const search = actionButton('Search');
+      search.type = 'submit';
+      searchForm.append(query, search);
+      content.append(searchForm);
+      const results = element('div', 'contact-list');
+      content.append(results);
+
+      const loadContacts = async (): Promise<void> => {
+        if (!handlers.onLoadContacts) return;
+        results.replaceChildren(paragraph('Loading contacts…'));
+        try {
+          const contacts = await handlers.onLoadContacts(query.value.trim());
+          results.replaceChildren();
+          if (contacts.length === 0) {
+            results.append(paragraph('No matching contacts.'));
+            return;
+          }
+          for (const contact of contacts) {
+            const button = element('button', 'contact-item');
+            button.type = 'button';
+            const name = String(contact.user_fullname || contact.user_firstname || contact.user_name || `User ${contact.user_id}`);
+            button.append(elementWithText('strong', name));
+            if (contact.user_name) button.append(elementWithText('span', `@${String(contact.user_name)}`));
+            if (contact.user_is_online) button.append(elementWithText('small', 'Online'));
+            button.addEventListener('click', () => showInitialComposer(contact));
+            results.append(button);
+          }
+        } catch (error) {
+          results.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load contacts.'));
+        }
+      };
+
+      const showInitialComposer = (contact: ChatContact): void => {
+        const name = String(contact.user_fullname || contact.user_firstname || contact.user_name || 'Contact');
+        results.replaceChildren();
+        const selected = element('div', 'selected-contact');
+        selected.append(elementWithText('strong', name));
+        if (contact.user_name) selected.append(elementWithText('span', `@${String(contact.user_name)}`));
+        results.append(selected);
+        const form = document.createElement('form');
+        form.className = 'initial-message-form';
+        const text = document.createElement('textarea');
+        text.rows = 3;
+        text.placeholder = `Message ${name}…`;
+        text.required = true;
+        const send = actionButton('Send message');
+        send.type = 'submit';
+        form.append(text, send);
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const message = text.value.trim();
+          if (!message || !handlers.onStartConversation) return;
+          send.disabled = true;
+          send.textContent = 'Sending…';
+          void handlers.onStartConversation(contact.user_id, message)
+            .then((conversation) => showConversation(conversation))
+            .catch((error: unknown) => {
+              window.alert(error instanceof Error ? error.message : 'Unable to start conversation.');
+              send.disabled = false;
+              send.textContent = 'Send message';
+            });
+        });
+        results.append(form);
+      };
+
+      searchForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        void loadContacts();
+      });
+      await loadContacts();
     }
 
     async function showConversation(conversation: Conversation): Promise<void> {
