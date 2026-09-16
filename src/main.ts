@@ -7,6 +7,7 @@ import { ChatPalezApiClient, ApiError } from './api/client';
 import { AuthService } from './api/auth';
 import { ChatService } from './api/chat';
 import { NotificationsService } from './api/notifications';
+import { UserService } from './api/user';
 import { clearSession, getAuthToken, getSession, setSession } from './auth/session';
 import { getAppConfig } from './config';
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
@@ -21,6 +22,7 @@ const api = new ChatPalezApiClient({ config, getAuthToken });
 const auth = new AuthService(api);
 const chat = new ChatService(api);
 const notifications = new NotificationsService(api);
+const users = new UserService(api);
 
 const shell = createAppShell(root, {
   onLogin: async ({ usernameEmail, password }) => {
@@ -76,10 +78,27 @@ const shell = createAppShell(root, {
     await chat.sendMessage(conversationId, message);
     logInfo('Message sent', { conversationId });
   },
+  onTyping: async (conversationId, isTyping) => {
+    await chat.setTyping(conversationId, isTyping);
+  },
+  onMarkSeen: async (ids) => {
+    await chat.markSeen(ids);
+  },
   onLoadNotifications: async () => {
     const items = await notifications.getNotifications();
     logInfo('Notifications loaded', { count: items.length });
     return items;
+  },
+  onLoadBlockedUsers: async () => {
+    const blocked = await users.getBlockedUsers();
+    logInfo('Blocked-user list loaded', { count: blocked.length });
+    return blocked;
+  },
+  onDeleteAccount: async (password) => {
+    await users.deleteAccount(password);
+    clearSession();
+    logInfo('Account deletion completed');
+    shell.showLogin('Your account has been deleted.');
   }
 });
 
