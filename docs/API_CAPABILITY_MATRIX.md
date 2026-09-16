@@ -36,7 +36,7 @@ Do not infer capability from the legacy top-level `api.php`. The current/fresh A
 | OneSignal user/device association | API Ready | `POST /user/onesignal` | Prefer official API after auth model verified |
 | Account deletion | API Ready | `POST /user/delete` | Must remain accessible in app |
 | Blocked users | API Ready | `GET /user/blocked` | Local settings/safety candidate |
-| File/media upload | API Ready | `POST /data/upload` | Reusable by local profile/chat/media flows |
+| File/media upload | API Ready | multipart `POST /data/upload` with `file`, `name`, `guid`, type/handle | Local chat photo upload implemented |
 | Delete uploaded file | API Ready | `POST /data/delete` | Reusable service |
 | Content reporting | API Ready | `POST /data/report` | Local safety feature candidate |
 | Realtime counter reset | API Ready | `POST /data/reset` | Use as required |
