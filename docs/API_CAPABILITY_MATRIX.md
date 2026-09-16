@@ -50,13 +50,13 @@ Do not infer capability from the legacy top-level `api.php`. The current/fresh A
 | Message reactions | API Ready / UI Work | react + who-reacts | Local messaging migration candidate |
 | Chat contacts | API Ready / UI Work | `GET /chat/contacts` | Local messaging candidate |
 | Calls data | Partial / Audit Required | `GET /chat/calls` | Existing call UI first; native/local call architecture separate |
-| Full current-user/profile retrieval | Partial / Audit Required | Signin returns a secured user object; complete dedicated read contract not yet mapped | Use signin result for shell/profile summary; audit deeper profile needs |
-| Full profile editing | Partial / Audit Required | Some user endpoints exist | Audit before implementation |
+| Full current-user/profile retrieval | Not API Ready — confirmed | Signin/bootstrap return a secured summary; no dedicated profile-read route | Use local summary; retain deeper profile web-backed |
+| Full profile editing | Not API Ready — confirmed | User module exposes connect, image deletion, OneSignal, delete and blocked only; no profile-update route | Retain web-backed v1 |
 | Notification list/read state | Not Yet Proven | No complete route set confirmed yet | Audit; web-backed fallback allowed |
 | Main timeline/feed | Not API Ready — confirmed | Full fresh-module audit found `/data/load?get=new_people` only; no timeline route | **Retained web module for v1** |
 | Post CRUD | Not API Ready — confirmed | No official posts module/route in fresh API subsystem | **Retained web module for v1** |
 | Non-chat comments/reactions | Not API Ready — confirmed | No official non-chat comment/reaction route | **Retained web module for v1** |
-| Friends/follow graph retrieval | Partial / Audit Required | connect action exists; retrieval coverage not fully mapped | Audit |
+| Friends/follow graph retrieval | Not API Ready — confirmed | `POST /user/connect` exists, but no relationship-list/read route | Retain web-backed v1; use action only if a contained future UI needs it |
 | Groups | Not API Ready — confirmed | `app/user_groups` is account-plan metadata, not social groups; no group route | **Retained web module for v1** |
 | Pages | Not API Ready — confirmed | Static/legal page routes exist, but no social-pages API | **Retained web module for v1** |
 | Search | Not API Ready — confirmed | No official social/global-search route | **Retained web module for v1** |
@@ -151,3 +151,8 @@ Every retained exception must be entered in the upgrade-customization register w
 The fresh API route inventory is limited to the app, auth, chat, data, monetization, and user modules. The data controller implements only GET /data/load?get=new_people; it does not expose timeline loading. No official posts module exists, and no feed/post/comment/reaction/group/social-page/search contract was found in that subsystem.
 
 **Decision:** retain Home/feed, composer, non-chat engagement, groups, pages and search as controlled web modules for v1. The local Home screen remains the app-owned entry point and opens the existing feed through the already implemented POST-only JWT-to-web session bridge. This is a deliberate API-first/upgradable decision, not a missing implementation. No custom backend endpoint is authorized for these surfaces unless a future fresh-Sngine audit finds a supported extension point and the upgrade-customization register records a new exception.
+
+
+## Profile/social-graph audit — completed (2026-09-16)
+
+The fresh user module router/controller was reviewed in full. It exposes connect action, avatar/cover deletion, OneSignal association, account deletion, and blocked-user retrieval only. No dedicated profile-read, profile-update, follower/friend list, or relationship-read contract exists. The existing local account summary remains appropriate, while deeper profile editing and social-graph pages remain controlled web modules for v1.
