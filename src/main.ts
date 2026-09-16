@@ -66,6 +66,16 @@ const shell = createAppShell(root, {
     logInfo('Conversation list loaded', { count: conversations.length });
     return conversations;
   },
+  onLoadContacts: async (query) => {
+    const contacts = await chat.getContacts(query);
+    logDebug('Chat contacts loaded', { query, count: contacts.length });
+    return contacts;
+  },
+  onStartConversation: async (recipientId, message) => {
+    const conversation = await chat.startConversation(recipientId, message);
+    logInfo('Conversation started', { conversationId: conversation.conversation_id, recipientId });
+    return conversation;
+  },
   onLoadMessages: async (conversationId) => {
     const result = await chat.getMessages(conversationId);
     logDebug('Conversation messages loaded', {
