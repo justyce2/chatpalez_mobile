@@ -48,7 +48,8 @@ p { color: #64748b; line-height: 1.55; }
 .auth-form { display: grid; gap: 16px; }
 .field { display: grid; gap: 7px; color: #334155; font-size: .9rem; font-weight: 650; }
 .field input,
-.delete-account-form input {
+.delete-account-form input,
+.contact-search input {
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 14px;
@@ -58,7 +59,8 @@ p { color: #64748b; line-height: 1.55; }
   outline: none;
 }
 .field input:focus,
-.delete-account-form input:focus { border-color: #475569; box-shadow: 0 0 0 3px rgba(71, 85, 105, .12); }
+.delete-account-form input:focus,
+.contact-search input:focus { border-color: #475569; box-shadow: 0 0 0 3px rgba(71, 85, 105, .12); }
 .primary-button,
 .secondary-button { border: 0; border-radius: 14px; padding: 13px 16px; font-weight: 700; }
 .primary-button { background: #111827; color: #fff; }
@@ -100,6 +102,13 @@ p { color: #64748b; line-height: 1.55; }
 }
 .mobile-content { width: min(100%, 760px); margin: 0 auto; padding: 24px 18px 100px; }
 .screen-title { margin-bottom: 8px; font-size: 1.5rem; }
+.section-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.section-heading-row .screen-title { margin: 0; }
 .profile-card,
 .settings-card {
   display: grid;
@@ -125,9 +134,11 @@ p { color: #64748b; line-height: 1.55; }
 .danger-button { background: #991b1b; }
 
 .conversation-list,
-.notification-list { display: grid; gap: 10px; margin-top: 16px; }
+.notification-list,
+.contact-list { display: grid; gap: 10px; margin-top: 16px; }
 .conversation-item,
-.notification-item {
+.notification-item,
+.contact-item {
   width: 100%;
   display: grid;
   gap: 4px;
@@ -139,9 +150,40 @@ p { color: #64748b; line-height: 1.55; }
   color: #0f172a;
 }
 .conversation-item span,
-.notification-item span { color: #64748b; font-size: .85rem; }
-.notification-item small { color: #94a3b8; font-size: .75rem; }
+.notification-item span,
+.contact-item span { color: #64748b; font-size: .85rem; }
+.notification-item small,
+.contact-item small { color: #94a3b8; font-size: .75rem; }
 .notification-item:disabled { cursor: default; opacity: .85; }
+.contact-search {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+.selected-contact {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  background: #fff;
+}
+.selected-contact span { color: #64748b; font-size: .85rem; }
+.initial-message-form { display: grid; gap: 10px; margin-top: 12px; }
+.initial-message-form textarea {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 13px;
+  background: #fff;
+  color: #0f172a;
+  outline: none;
+}
+.initial-message-form textarea:focus { border-color: #475569; box-shadow: 0 0 0 3px rgba(71, 85, 105, .12); }
 
 .conversation-header {
   display: flex;
