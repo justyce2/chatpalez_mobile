@@ -10,6 +10,18 @@ export type ConversationRecipient = {
   [key: string]: unknown;
 };
 
+export type ChatContact = {
+  user_id: number | string;
+  user_name?: string;
+  user_firstname?: string;
+  user_lastname?: string;
+  user_fullname?: string;
+  user_picture?: string;
+  user_is_online?: boolean;
+  user_last_seen?: string;
+  [key: string]: unknown;
+};
+
 export type Conversation = {
   conversation_id: number | string;
   name?: string;
@@ -27,6 +39,8 @@ export type Conversation = {
 export type Message = {
   message_id?: number | string;
   conversation_id?: number | string;
+  user_id?: number | string;
+  sender_id?: number | string;
   message?: string;
   time?: string;
   [key: string]: unknown;
@@ -48,6 +62,10 @@ export class ChatService {
     return this.api.get<Conversation[]>('chat/conversations', { offset });
   }
 
+  async getContacts(query = '', offset = 0): Promise<ChatContact[]> {
+    return this.api.get<ChatContact[]>('chat/contacts', { query, offset });
+  }
+
   async getMessages(conversationId: number | string, offset = 0, lastMessageId = 0): Promise<MessagesResult> {
     return this.api.get<MessagesResult>('chat/messages', {
       conversation_id: conversationId,
@@ -63,7 +81,18 @@ export class ChatService {
       photo: '',
       video: '',
       voice_note: '',
-      recipients: []
+      recipients: ''
+    });
+  }
+
+  async startConversation(recipientId: number | string, message: string): Promise<Conversation> {
+    return this.api.post<Conversation>('chat/message', {
+      conversation_id: null,
+      message,
+      photo: '',
+      video: '',
+      voice_note: '',
+      recipients: JSON.stringify([recipientId])
     });
   }
 
