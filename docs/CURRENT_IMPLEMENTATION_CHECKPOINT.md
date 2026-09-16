@@ -214,3 +214,8 @@ Implemented using existing official Sngine behavior only: the mobile client send
 ## Implementation update — local chat photo rendering (2026-09-16)
 
 Local conversation threads now render a message photo only when its server path matches the expected Sngine `photos/YYYY/MM/file` form. The source is converted to the configured ChatPalez uploads origin; malformed, non-photo and external values are rejected. Status remains **Testing** pending deployed-device validation.
+
+
+## Major milestone — local conversation management (2026-09-16)
+
+Local messaging now supports official Sngine leave/delete conversation actions, Like reactions, and deletion of a sender's own message. Server-side authorization remains authoritative. No backend route or theme change was added. Status: **Testing** pending deployed Android/iOS validation.
