@@ -45,6 +45,11 @@ export class ChatPalezApiClient {
     });
   }
 
+  async postForm<T>(path: string, body: FormData): Promise<T> {
+    const url = this.buildUrl(path);
+    return this.request<T>(url, { method: 'POST', body });
+  }
+
   async delete<T>(path: string): Promise<T> {
     const url = this.buildUrl(path);
     return this.request<T>(url, { method: 'DELETE' });
@@ -66,7 +71,7 @@ export class ChatPalezApiClient {
     headers.set('Accept', 'application/json');
     headers.set('x-mobile-client', 'chatpalez-mobile-v1');
 
-    if (init.body !== undefined) headers.set('Content-Type', 'application/json');
+    if (init.body !== undefined && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
 
     const token = this.getAuthToken();
     if (token) headers.set('x-auth-token', token);
