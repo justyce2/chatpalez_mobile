@@ -156,3 +156,16 @@ Before retaining or adding any custom backend/mobile integration, audit the offi
 - Maintain an upgrade-customization register for every retained custom backend extension: upstream file/function, requirement, why the official API was insufficient, minimal contract, isolation location and upgrade/retest steps.
 
 **Immediate gate:** complete the official-API-versus-custom-extension audit before any further backend modification. This decision does not itself mark existing bridge/API work runtime-accepted; it remains Testing until deployed Android/iOS validation.
+
+
+## Implementation update — native secure JWT storage (2026-09-16)
+
+Implemented on `develop`:
+
+- replaced browser `sessionStorage` JWT/user persistence with an in-memory session plus native protected persistence;
+- added Capacitor 8 secure storage using iOS Keychain (`whenUnlockedThisDeviceOnly`, iCloud sync disabled) and Android Keystore-backed storage;
+- browser builds deliberately keep session state in memory only and never use the plugin's localStorage web fallback;
+- restored native sessions asynchronously during bootstrap; logout/deletion clear the protected store;
+- no backend route, Sngine theme, JWT bridge or API contract was modified.
+
+**Status:** Testing — requires `npm install`, `npx cap sync`, Android/iOS build and real-device cold-start/logout verification. The next independent implementation work remains official-API audit/OneSignal lifecycle integration; do not add custom backend code before that audit.
