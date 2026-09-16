@@ -135,7 +135,7 @@ Source validation completed on 2026-09-16: `npm run build` passed (TypeScript + 
 3. Run manual Android/iOS validation for signup, activation, onboarding, login, 2FA, recovery, retained-web POST/cookie continuity, logout, expiry, new/existing chats, typing/seen, Alerts, blocked users and deletion.
 4. Configure the public `VITE_ONESIGNAL_APP_ID`, then run `npx cap sync` and validate native OneSignal delivery/identity using the official `/user/onesignal` route: login, logout, permission grant/denial, foreground/background and notification click. Notification URLs must be internal ChatPalez paths.
 5. Validate retained feed/home, post composer, comments/reactions, groups, pages and search through the protected WebView session bridge on Android/iOS.
-6. Audit the remaining partial profile-editing/social-graph routes before local migration; keep deeper screens web-backed where the contract is incomplete.
+6. Validate deeper profile, profile editing, friends/followers and social-graph pages through the protected WebView bridge on Android/iOS; the official API has no sufficient read/update contract.
 7. Add chat media/attachment support after text-chat runtime acceptance.
 
 ## Handoff rule
@@ -199,3 +199,8 @@ The official fresh-Sngine API audit is complete for the Home/feed boundary. Its 
 ## Implementation update — trusted OneSignal notification routing (2026-09-16)
 
 A OneSignal notification click can now open only a relative or configured-same-origin ChatPalez URL. The route is normalized before entering the existing authenticated web-module bridge; external, malformed and alternate-port URLs are ignored. This keeps notification taps within the same trusted-navigation policy as deep links and retained-web buttons. Unit tests cover the route policy. Status: **Testing** pending native foreground/background click validation.
+
+
+## Decision — deeper profile and social graph remain web-backed for v1 (2026-09-16)
+
+The official fresh user API audit is complete. It does not include dedicated profile retrieval or update, nor friends/followers/relationship-list retrieval. The current local identity summary, blocked-user list and account deletion are retained; profile editing and social-graph pages stay behind the protected retained-web bridge. No custom backend API is authorized for these screens.
