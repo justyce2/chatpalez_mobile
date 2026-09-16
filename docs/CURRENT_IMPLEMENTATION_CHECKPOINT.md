@@ -204,3 +204,8 @@ A OneSignal notification click can now open only a relative or configured-same-o
 ## Decision — deeper profile and social graph remain web-backed for v1 (2026-09-16)
 
 The official fresh user API audit is complete. It does not include dedicated profile retrieval or update, nor friends/followers/relationship-list retrieval. The current local identity summary, blocked-user list and account deletion are retained; profile editing and social-graph pages stay behind the protected retained-web bridge. No custom backend API is authorized for these screens.
+
+
+## Major milestone — local chat photo attachments (2026-09-16)
+
+Implemented using existing official Sngine behavior only: the mobile client sends a multipart chat-photo upload to `POST /data/upload` (`type=photos`, `handle=chat`) and supplies the returned server path as the `photo` value to `POST /chat/message`. The conversation composer supports an optional image with or without text. No custom route, storage logic or theme change was added. Status: **Testing** pending deployed-backend and Android/iOS device upload/send/render validation.
