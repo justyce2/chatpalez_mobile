@@ -9,6 +9,7 @@ import { ChatService } from './api/chat';
 import { NotificationsService } from './api/notifications';
 import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
+import { UploadService } from './api/uploads';
 import { clearSession, getAuthToken, getSession, restoreSession, setSession, type AuthSession } from './auth/session';
 import { installPasswordRecovery } from './auth/password-recovery';
 import { installRegistration, needsRegistrationCompletion, resumeRegistration, type RegistrationOptions } from './auth/registration';
@@ -35,6 +36,7 @@ const chat = new ChatService(api);
 const notifications = new NotificationsService(api);
 const registration = new RegistrationService(api);
 const users = new UserService(api);
+const uploads = new UploadService(api);
 
 function registrationOptions(): RegistrationOptions {
   return {
@@ -186,8 +188,9 @@ const shell = createAppShell(root, {
     });
     return result;
   },
-  onSendMessage: async (conversationId, message) => {
-    await chat.sendMessage(conversationId, message);
+  onSendMessage: async (conversationId, message, photo) => {
+    const photoSource = photo ? await uploads.uploadChatPhoto(photo) : '';
+    await chat.sendMessage(conversationId, message, photoSource);
     logInfo('Message sent', { conversationId });
   },
   onTyping: async (conversationId, isTyping) => {
