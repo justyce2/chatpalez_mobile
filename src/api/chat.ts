@@ -43,6 +43,7 @@ export type Message = {
   sender_id?: number | string;
   message?: string;
   time?: string;
+  photo?: string;
   [key: string]: unknown;
 };
 
@@ -74,11 +75,11 @@ export class ChatService {
     });
   }
 
-  async sendMessage(conversationId: number | string, message: string): Promise<Conversation> {
+  async sendMessage(conversationId: number | string, message: string, photo = ''): Promise<Conversation> {
     return this.api.post<Conversation>('chat/message', {
       conversation_id: conversationId,
       message,
-      photo: '',
+      photo,
       video: '',
       voice_note: '',
       recipients: ''
