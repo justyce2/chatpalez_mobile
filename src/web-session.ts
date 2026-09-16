@@ -15,7 +15,7 @@ export function openAuthenticatedWebModule(options: WebSessionTransitionOptions)
   const token = options.token.trim();
   if (!token) throw new Error('Your ChatPalez session is unavailable. Please sign in again.');
 
-  const destination = normalizeInternalPath(options.config.origin, options.path);
+  const destination = normalizeInternalPath(options.config.origin.toString(), options.path);
   const action = new URL('/mobile-session.php', options.config.origin);
   const form = document.createElement('form');
   form.method = 'POST';
