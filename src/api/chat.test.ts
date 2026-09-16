@@ -14,6 +14,14 @@ describe('ChatService', () => {
     expect(get).toHaveBeenCalledWith('chat/conversations', { offset: 0 });
   });
 
+  it('preserves conversation pagination metadata', async () => {
+    const getPage = vi.fn().mockResolvedValue({ data: [{ conversation_id: 7 }], hasMore: true });
+    const api = { get: vi.fn(), getPage, post: vi.fn() } as unknown as ChatPalezApiClient;
+    const chat = new ChatService(api);
+    await expect(chat.getConversationsPage(2)).resolves.toEqual({ data: [{ conversation_id: 7 }], hasMore: true });
+    expect(getPage).toHaveBeenCalledWith('chat/conversations', { offset: 2 });
+  });
+
   it('loads contact search through the official contacts endpoint', async () => {
     const get = vi.fn().mockResolvedValue([]);
     const api = { get, post: vi.fn() } as unknown as ChatPalezApiClient;
