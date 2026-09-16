@@ -9,7 +9,7 @@ import { ChatService } from './api/chat';
 import { NotificationsService } from './api/notifications';
 import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
-import { clearSession, getAuthToken, getSession, setSession, type AuthSession } from './auth/session';
+import { clearSession, getAuthToken, restoreSession, setSession, type AuthSession } from './auth/session';
 import { installPasswordRecovery } from './auth/password-recovery';
 import { installRegistration, needsRegistrationCompletion, resumeRegistration, type RegistrationOptions } from './auth/registration';
 import { renderTwoFactorChallenge } from './auth/two-factor';
@@ -35,12 +35,14 @@ function registrationOptions(): RegistrationOptions {
     root,
     registration,
     onSessionCreated: (session) => {
-      setSession(session);
+      void setSession(session);
       logInfo('Mobile registration session stored', { userId: session.user.user_id });
     },
-    onComplete: showAuthenticatedSession,
+    onComplete: (session) => {
+      void showAuthenticatedSession(session);
+    },
     onReturnToLogin: () => {
-      clearSession();
+      void clearSession();
       renderLogin();
     }
   };
@@ -56,26 +58,26 @@ function renderLogin(error?: string): void {
   installRegistration(registrationOptions());
 }
 
-function showAuthenticatedSession(session: AuthSession): void {
-  setSession(session);
+async function showAuthenticatedSession(session: AuthSession): Promise<void> {
+  await setSession(session);
   logInfo('Mobile authentication completed', { userId: session.user.user_id });
   shell.showAuthenticated(session);
 }
 
-function completeAuthenticatedSession(session: AuthSession): void {
+async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
   if (needsRegistrationCompletion(session)) {
-    setSession(session);
+    await setSession(session);
     logInfo('Mobile account requires registration completion', { userId: session.user.user_id });
-    void resumeRegistration(registrationOptions(), session);
+    await resumeRegistration(registrationOptions(), session);
     return;
   }
-  showAuthenticatedSession(session);
+  await showAuthenticatedSession(session);
 }
 
 function openWebModule(path: string): void {
   const token = getAuthToken();
   if (!token) {
-    clearSession();
+    void clearSession();
     renderLogin('Your session has expired. Sign in again to continue.');
     return;
   }
@@ -98,7 +100,9 @@ function renderTwoFactor(challenge: TwoFactorChallenge): void {
     root,
     auth,
     challenge,
-    onSuccess: completeAuthenticatedSession,
+    onSuccess: (session) => {
+      void completeAuthenticatedSession(session);
+    },
     onCancel: () => renderLogin()
   });
 }
@@ -112,7 +116,7 @@ const shell = createAppShell(root, {
         renderTwoFactor(result);
         return;
       }
-      completeAuthenticatedSession(result);
+      await completeAuthenticatedSession(result);
     } catch (error) {
       logWarn('API sign-in failed', {
         status: error instanceof ApiError ? error.status : null,
@@ -132,7 +136,7 @@ const shell = createAppShell(root, {
         detail: error instanceof Error ? error.message : String(error ?? '')
       });
     } finally {
-      clearSession();
+      await clearSession();
       shell.setBusy(false);
       renderLogin();
     }
@@ -183,7 +187,7 @@ const shell = createAppShell(root, {
   },
   onDeleteAccount: async (password) => {
     await users.deleteAccount(password);
-    clearSession();
+    await clearSession();
     logInfo('Account deletion completed');
     renderLogin('Your account has been deleted.');
   }
@@ -221,7 +225,7 @@ async function bootstrap(): Promise<void> {
       return;
     }
 
-    const session = getSession();
+    const session = await restoreSession();
     if (session) {
       logInfo('Restored in-process mobile API session', { userId: session.user.user_id });
       completeAuthenticatedSession(session);
