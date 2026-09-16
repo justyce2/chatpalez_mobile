@@ -4,14 +4,14 @@ import type { ChatPalezApiClient } from './client';
 
 describe('ChatService', () => {
   it('loads conversations with a zero-based offset', async () => {
-    const get = vi.fn().mockResolvedValue([{ conversation_id: 7, name: 'Test' }]);
-    const api = { get, post: vi.fn() } as unknown as ChatPalezApiClient;
+    const getPage = vi.fn().mockResolvedValue({ data: [{ conversation_id: 7, name: 'Test' }], hasMore: false });
+    const api = { getPage, post: vi.fn() } as unknown as ChatPalezApiClient;
     const chat = new ChatService(api);
 
     const conversations = await chat.getConversations();
 
     expect(conversations).toHaveLength(1);
-    expect(get).toHaveBeenCalledWith('chat/conversations', { offset: 0 });
+    expect(getPage).toHaveBeenCalledWith('chat/conversations', { offset: 0 });
   });
 
   it('preserves conversation pagination metadata', async () => {
@@ -23,13 +23,13 @@ describe('ChatService', () => {
   });
 
   it('loads contact search through the official contacts endpoint', async () => {
-    const get = vi.fn().mockResolvedValue([]);
-    const api = { get, post: vi.fn() } as unknown as ChatPalezApiClient;
+    const getPage = vi.fn().mockResolvedValue({ data: [], hasMore: false });
+    const api = { getPage, post: vi.fn() } as unknown as ChatPalezApiClient;
     const chat = new ChatService(api);
 
     await chat.getContacts('Ada', 2);
 
-    expect(get).toHaveBeenCalledWith('chat/contacts', { query: 'Ada', offset: 2 });
+    expect(getPage).toHaveBeenCalledWith('chat/contacts', { query: 'Ada', offset: 2 });
   });
 
   it('encodes recipients as JSON when starting a new conversation', async () => {
