@@ -13,6 +13,7 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string) => void;
+  resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
   onLoadConversations?: () => Promise<Conversation[]>;
   onLoadContacts?: (query: string) => Promise<ChatContact[]>;
@@ -484,7 +485,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
             thread.append(paragraph('No messages yet.'));
             return;
           }
-          for (const message of messages) thread.append(messageBubble(message, session));
+          for (const message of messages) thread.append(messageBubble(message, session, handlers.resolveChatPhotoUrl));
           const ids = messages
             .map((message) => message.message_id)
             .filter((id): id is number | string => id !== undefined && id !== null);
@@ -549,12 +550,22 @@ function conversationList(conversations: Conversation[], onOpen: (conversation: 
   return list;
 }
 
-function messageBubble(message: Message, session: AuthSession): HTMLDivElement {
+function messageBubble(message: Message, session: AuthSession, resolvePhotoUrl?: (source: string) => string | null): HTMLDivElement {
   const bubble = element('div', 'message-bubble');
   const senderId = String(message.user_id ?? message.sender_id ?? '');
   if (senderId && senderId === String(session.user.user_id ?? '')) bubble.classList.add('is-mine');
   const body = String(message.message ?? '');
-  bubble.append(elementWithText('div', body || 'Attachment'));
+  if (body) bubble.append(elementWithText('div', body));
+  const photoUrl = resolvePhotoUrl?.(message.photo ?? '');
+  if (photoUrl) {
+    const photo = document.createElement('img');
+    photo.className = 'message-photo';
+    photo.src = photoUrl;
+    photo.alt = 'Shared photo';
+    photo.loading = 'lazy';
+    bubble.append(photo);
+  }
+  if (!body && !photoUrl) bubble.append(elementWithText('div', 'Attachment'));
   if (message.time) bubble.append(elementWithText('small', String(message.time)));
   return bubble;
 }
