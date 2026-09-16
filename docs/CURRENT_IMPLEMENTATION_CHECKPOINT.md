@@ -209,3 +209,8 @@ The official fresh user API audit is complete. It does not include dedicated pro
 ## Major milestone — local chat photo attachments (2026-09-16)
 
 Implemented using existing official Sngine behavior only: the mobile client sends a multipart chat-photo upload to `POST /data/upload` (`type=photos`, `handle=chat`) and supplies the returned server path as the `photo` value to `POST /chat/message`. The conversation composer supports an optional image with or without text. No custom route, storage logic or theme change was added. Status: **Testing** pending deployed-backend and Android/iOS device upload/send/render validation.
+
+
+## Implementation update — local chat photo rendering (2026-09-16)
+
+Local conversation threads now render a message photo only when its server path matches the expected Sngine `photos/YYYY/MM/file` form. The source is converted to the configured ChatPalez uploads origin; malformed, non-photo and external values are rejected. Status remains **Testing** pending deployed-device validation.
