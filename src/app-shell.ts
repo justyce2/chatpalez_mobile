@@ -1,5 +1,6 @@
 import type { Conversation, Message, MessagesResult } from './api/chat';
 import type { NotificationItem } from './api/notifications';
+import type { BlockedUser } from './api/user';
 import type { AuthSession } from './auth/session';
 
 export type LoginCredentials = {
@@ -14,7 +15,11 @@ export type AppShellHandlers = {
   onLoadConversations?: () => Promise<Conversation[]>;
   onLoadMessages?: (conversationId: number | string) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string) => Promise<void>;
+  onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
+  onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
   onLoadNotifications?: () => Promise<NotificationItem[]>;
+  onLoadBlockedUsers?: () => Promise<BlockedUser[]>;
+  onDeleteAccount?: (password: string) => Promise<void>;
 };
 
 export type AppShell = {
@@ -129,17 +134,97 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         await showNotifications();
         return;
       }
-      content.append(screenTitle('Profile'));
+      showProfile();
+    }
+
+    function showProfile(): void {
+      content.replaceChildren(screenTitle('Profile'));
       const profileCard = element('div', 'profile-card');
       profileCard.append(elementWithText('strong', displayName));
       if (user.user_email) profileCard.append(elementWithText('span', String(user.user_email)));
       if (user.user_name) profileCard.append(elementWithText('span', `@${String(user.user_name)}`));
       content.append(profileCard);
       const settings = secondaryButton('Account & settings');
-      settings.addEventListener('click', () => handlers.onOpenWebModule('/settings'));
+      settings.addEventListener('click', () => void showSettings());
       const logout = secondaryButton('Sign out');
       logout.addEventListener('click', () => void handlers.onLogout());
       content.append(settings, logout);
+    }
+
+    async function showSettings(): Promise<void> {
+      content.replaceChildren();
+      const header = element('div', 'conversation-header');
+      const back = secondaryButton('Back');
+      back.classList.add('compact-button');
+      back.addEventListener('click', showProfile);
+      header.append(back, screenTitle('Account & settings'));
+      content.append(header);
+
+      const account = element('section', 'settings-card');
+      account.append(elementWithText('h3', 'Account'));
+      account.append(elementWithText('strong', displayName));
+      if (user.user_email) account.append(elementWithText('span', String(user.user_email)));
+      content.append(account);
+
+      const blockedSection = element('section', 'settings-card');
+      blockedSection.append(elementWithText('h3', 'Blocked users'));
+      const blockedBody = element('div', 'settings-list');
+      blockedBody.append(paragraph('Loading blocked users…'));
+      blockedSection.append(blockedBody);
+      content.append(blockedSection);
+
+      if (handlers.onLoadBlockedUsers) {
+        try {
+          const blocked = await handlers.onLoadBlockedUsers();
+          blockedBody.replaceChildren();
+          if (blocked.length === 0) {
+            blockedBody.append(paragraph('You have not blocked anyone.'));
+          } else {
+            for (const blockedUser of blocked) {
+              const name = String(blockedUser.user_firstname || blockedUser.user_name || `User ${blockedUser.user_id}`);
+              const row = element('div', 'settings-row');
+              row.append(elementWithText('strong', name));
+              if (blockedUser.user_name) row.append(elementWithText('span', `@${String(blockedUser.user_name)}`));
+              blockedBody.append(row);
+            }
+          }
+        } catch (error) {
+          blockedBody.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load blocked users.'));
+        }
+      } else {
+        blockedBody.replaceChildren(paragraph('Blocked-user management is not available yet.'));
+      }
+
+      const danger = element('section', 'settings-card danger-card');
+      danger.append(elementWithText('h3', 'Delete account'));
+      danger.append(paragraph('Deleting your account is permanent. Enter your password to confirm.'));
+      const deleteForm = document.createElement('form');
+      deleteForm.className = 'delete-account-form';
+      const password = input('password', 'Current password', 'deletePassword');
+      password.autocomplete = 'current-password';
+      const deleteButton = actionButton('Delete my account');
+      deleteButton.type = 'submit';
+      deleteButton.classList.add('danger-button');
+      const deleteError = element('p', 'form-error');
+      deleteError.hidden = true;
+      deleteForm.append(password, deleteError, deleteButton);
+      deleteForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (!handlers.onDeleteAccount || !password.value) return;
+        const confirmed = window.confirm('Permanently delete your ChatPalez account? This cannot be undone.');
+        if (!confirmed) return;
+        deleteButton.disabled = true;
+        deleteButton.textContent = 'Deleting…';
+        deleteError.hidden = true;
+        void handlers.onDeleteAccount(password.value).catch((error: unknown) => {
+          deleteError.textContent = error instanceof Error ? error.message : 'Unable to delete account.';
+          deleteError.hidden = false;
+          deleteButton.disabled = false;
+          deleteButton.textContent = 'Delete my account';
+        });
+      });
+      danger.append(deleteForm);
+      content.append(danger);
     }
 
     async function showNotifications(): Promise<void> {
@@ -148,8 +233,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         content.append(paragraph('Notifications are not wired yet.'));
         return;
       }
-      const loading = paragraph('Loading notifications…');
-      content.append(loading);
+      content.append(paragraph('Loading notifications…'));
       try {
         const items = await handlers.onLoadNotifications();
         content.replaceChildren(screenTitle('Notifications'));
@@ -219,6 +303,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       back.addEventListener('click', () => void showConversationList());
       header.append(back, screenTitle(titleText));
       content.append(header);
+      const presence = element('p', 'conversation-presence');
+      presence.textContent = conversation.user_is_online ? 'Online' : '';
+      content.append(presence);
       const thread = element('div', 'message-thread');
       thread.append(paragraph('Loading messages…'));
       content.append(thread);
@@ -237,17 +324,43 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       send.type = 'submit';
       composer.append(text, send);
       content.append(composer);
+      let typingTimer: number | undefined;
+
+      const setTyping = (value: boolean): void => {
+        if (!handlers.onTyping) return;
+        void handlers.onTyping(conversationId, value).catch(() => undefined);
+      };
+
+      text.addEventListener('input', () => {
+        setTyping(true);
+        if (typingTimer) window.clearTimeout(typingTimer);
+        typingTimer = window.setTimeout(() => setTyping(false), 1200);
+      });
+      text.addEventListener('blur', () => setTyping(false));
 
       const refreshThread = async (): Promise<void> => {
         try {
           const result = await handlers.onLoadMessages?.(conversationId);
           thread.replaceChildren();
           const messages = result?.messages ?? [];
+          presence.textContent = result?.typing_name_list
+            ? `${result.typing_name_list} typing…`
+            : result?.user_is_online
+              ? 'Online'
+              : result?.user_last_seen
+                ? `Last seen ${String(result.user_last_seen)}`
+                : '';
           if (messages.length === 0) {
             thread.append(paragraph('No messages yet.'));
             return;
           }
           for (const message of messages) thread.append(messageBubble(message, session));
+          const ids = messages
+            .map((message) => message.message_id)
+            .filter((id): id is number | string => id !== undefined && id !== null);
+          if (ids.length > 0 && handlers.onMarkSeen) {
+            void handlers.onMarkSeen(ids).catch(() => undefined);
+          }
           thread.scrollTop = thread.scrollHeight;
         } catch (error) {
           thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
@@ -260,6 +373,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         if (!message || !handlers.onSendMessage) return;
         send.disabled = true;
         send.textContent = 'Sending…';
+        setTyping(false);
         void handlers.onSendMessage(conversationId, message)
           .then(async () => {
             text.value = '';
