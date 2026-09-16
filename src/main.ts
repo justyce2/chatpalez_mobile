@@ -4,12 +4,13 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { createAppShell } from './app-shell';
 import { ChatPalezApiClient, ApiError } from './api/client';
-import { AuthService } from './api/auth';
+import { AuthService, type TwoFactorChallenge } from './api/auth';
 import { ChatService } from './api/chat';
 import { NotificationsService } from './api/notifications';
 import { UserService } from './api/user';
-import { clearSession, getAuthToken, getSession, setSession } from './auth/session';
+import { clearSession, getAuthToken, getSession, setSession, type AuthSession } from './auth/session';
 import { installPasswordRecovery } from './auth/password-recovery';
+import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
 import { registerNativeLifecycle } from './native-lifecycle';
@@ -34,14 +35,33 @@ function renderLogin(error?: string): void {
   });
 }
 
+function completeAuthenticatedSession(session: AuthSession): void {
+  setSession(session);
+  logInfo('Mobile authentication completed', { userId: session.user.user_id });
+  shell.showAuthenticated(session);
+}
+
+function renderTwoFactor(challenge: TwoFactorChallenge): void {
+  logInfo('Two-factor challenge required', { userId: challenge.userId, method: challenge.method });
+  renderTwoFactorChallenge({
+    root,
+    auth,
+    challenge,
+    onSuccess: completeAuthenticatedSession,
+    onCancel: () => renderLogin()
+  });
+}
+
 const shell = createAppShell(root, {
   onLogin: async ({ usernameEmail, password }) => {
     shell.setBusy(true, 'Signing in…');
     try {
-      const session = await auth.signIn({ usernameEmail, password });
-      setSession(session);
-      logInfo('API sign-in completed', { userId: session.user.user_id });
-      shell.showAuthenticated(session);
+      const result = await auth.signIn({ usernameEmail, password });
+      if ('requiresTwoFactor' in result) {
+        renderTwoFactor(result);
+        return;
+      }
+      completeAuthenticatedSession(result);
     } catch (error) {
       logWarn('API sign-in failed', {
         status: error instanceof ApiError ? error.status : null,
