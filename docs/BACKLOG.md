@@ -373,3 +373,8 @@ The official user module audit is complete: it lacks profile-read/update and soc
 ## Major milestone — local chat photo attachment (2026-09-16)
 
 Photo selection, multipart upload and send are implemented through official Sngine data/chat routes. This remains **Testing** until deployment and physical-device validation confirm upload permissions, server limits, message rendering and failure recovery.
+
+
+## Implementation update — safe chat photo rendering (2026-09-16)
+
+The local message thread now renders validated ChatPalez-hosted photo attachments and rejects unsafe media paths. F-04 remains **Testing** pending real API/device validation.
