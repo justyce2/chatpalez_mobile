@@ -347,4 +347,9 @@ Before any further backend modification, complete an API-versus-custom audit aga
 The interim browser `sessionStorage` session has been replaced in source by in-memory state plus native protected persistence through Capacitor 8 secure storage. iOS uses a device-only unlocked Keychain item with iCloud sync disabled; Android uses Keystore-backed storage. Browser builds intentionally do not persist JWTs. Status: **Testing** pending dependency install, Capacitor sync, Android/iOS build and real-device cold-start/logout validation. No Sngine backend, API route, session bridge or theme modification was made.
 
 
-**Next implementation order revised:** validate the new native secure store first, then continue with the official `/user/onesignal` lifecycle and remaining API audit. No backend modification is authorized by this mobile-only change.
+**Next implementation order revised:** validate the new native secure store, configure the public OneSignal App ID and native credentials, then perform Android/iOS notification identity/delivery validation. Continue the remaining official API audit. No backend modification is authorized by this mobile-only work.
+
+
+## Implementation update — official OneSignal lifecycle (2026-09-16)
+
+Native OneSignal integration is now **Testing**: optional public app-ID configuration, authenticated external-user login, existing official `POST /user/onesignal` synchronization, logout/deletion disassociation, and a user-initiated Settings permission control are implemented. It requires FCM/APNs + physical Android/iOS validation before acceptance. No custom backend route was created.
