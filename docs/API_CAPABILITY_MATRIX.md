@@ -3,7 +3,7 @@
 **Reference backend repo:** `justyce2/chatpalez-backend-2`  
 **Reference branch:** `sngine-fresh`  
 **API root in source:** `apis/php/`  
-**Status date:** 2026-09-16
+**Status date:** 2026-09-17
 
 This matrix is the implementation reference for deciding whether a ChatPalez Mobile surface should be local/API-driven, needs a minimal backend adapter, or remains web-backed for v1.
 
@@ -41,18 +41,18 @@ Do not infer capability from the legacy top-level `api.php`. The current/fresh A
 | Content reporting | API Ready | `POST /data/report` | Local safety feature candidate |
 | Realtime counter reset | API Ready | `POST /data/reset` | Use as required |
 | New people/discovery subset | API Ready | `GET /data/load?get=new_people...` | Limited discovery support only |
-| Conversations | API Ready / UI Work | `GET /chat/conversations` | Local messaging migration candidate |
+| Conversations | API Ready / UI Work | `GET /chat/conversations` with `offset` / `has_more` | Local API-driven list implemented; runtime validation pending |
 | Conversation details | API Ready / UI Work | `GET /chat/conversation` | Local messaging migration candidate |
 | Delete/leave conversation | API Ready / UI Work | delete + leave routes | Local messaging migration candidate |
-| Messages | API Ready / UI Work | `GET /chat/messages`, `POST /chat/message`, delete message | Local messaging migration candidate |
+| Messages | API Ready / UI Work | `GET /chat/messages` offset history, `POST /chat/message`, delete message | Local send, photo attachment and older-history paging implemented; runtime validation pending |
 | Typing state | API Ready / UI Work | typing action | Local messaging migration candidate |
 | Seen/read state | API Ready / UI Work | seen action | Local messaging migration candidate |
 | Message reactions | API Ready / UI Work | react + who-reacts | Local messaging migration candidate |
-| Chat contacts | API Ready / UI Work | `GET /chat/contacts` | Local messaging candidate |
+| Chat contacts | API Ready / UI Work | `GET /chat/contacts` with `offset` / `has_more` | Local contact picker and paging implemented; runtime validation pending |
 | Calls data | Partial / Audit Required | `GET /chat/calls` | Existing call UI first; native/local call architecture separate |
 | Full current-user/profile retrieval | Not API Ready — confirmed | Signin/bootstrap return a secured summary; no dedicated profile-read route | Use local summary; retain deeper profile web-backed |
 | Full profile editing | Not API Ready — confirmed | User module exposes connect, image deletion, OneSignal, delete and blocked only; no profile-update route | Retain web-backed v1 |
-| Notification list/read state | Not Yet Proven | No complete route set confirmed yet | Audit; web-backed fallback allowed |
+| Notification list | API Ready / documented minimal adapter | `GET /notifications` delegates to Sngine notification retrieval | Local list implemented; adapter requires deployed acceptance and must not expand without a fresh audit |
 | Main timeline/feed | Not API Ready — confirmed | Full fresh-module audit found `/data/load?get=new_people` only; no timeline route | **Retained web module for v1** |
 | Post CRUD | Not API Ready — confirmed | No official posts module/route in fresh API subsystem | **Retained web module for v1** |
 | Non-chat comments/reactions | Not API Ready — confirmed | No official non-chat comment/reaction route | **Retained web module for v1** |
@@ -122,7 +122,7 @@ This avoids putting a JWT into a URL and gives the progressive-hybrid app a path
 
 Messaging is now an **API-driven migration candidate**, not a permanent WebView feature. The official chat API covers conversations, message retrieval/send/delete, typing, seen state, reactions, contacts and calls history. `chatpalez_mobile/develop` now contains `src/api/chat.ts` as the typed messaging service foundation.
 
-The existing web messaging UI remains a fallback until the local conversation/message UI is runtime-accepted.
+The existing web messaging UI remains a fallback until the local conversation/message UI is runtime-accepted. The local source now covers conversation/contact paging, offset-based older message history, text/photo send, typing/seen, reactions, leave/delete and own-message deletion. These use existing official chat/data routes only.
 
 ## Update rule
 
@@ -156,3 +156,8 @@ The fresh API route inventory is limited to the app, auth, chat, data, monetizat
 ## Profile/social-graph audit — completed (2026-09-16)
 
 The fresh user module router/controller was reviewed in full. It exposes connect action, avatar/cover deletion, OneSignal association, account deletion, and blocked-user retrieval only. No dedicated profile-read, profile-update, follower/friend list, or relationship-read contract exists. The existing local account summary remains appropriate, while deeper profile editing and social-graph pages remain controlled web modules for v1.
+
+
+## API implementation completion boundary (2026-09-17)
+
+All currently justified mobile API client work is implemented in source and covered by contract tests: authentication/recovery, registration/onboarding, chat, multipart photo upload, user blocking/deletion/OneSignal association, notifications, page metadata and authenticated transport. No further backend API is authorized at this boundary. The next work is deployed Android/iOS acceptance of these contracts and protected retained-web modules; only a new fresh-Sngine audit can reopen the custom-API decision.
