@@ -388,3 +388,8 @@ Conversation leave/delete, message Like reaction, and own-message deletion are i
 ## Implementation update — paged messaging service (2026-09-16)
 
 Conversation and contact services now retain official pagination metadata instead of discarding it. UI pagination remains the next client task.
+
+
+## Major milestone — conversation/contact Load More (2026-09-17)
+
+Local conversation and contact lists now page through the official API with explicit Load More controls. Runtime acceptance remains pending.
