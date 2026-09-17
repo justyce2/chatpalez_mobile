@@ -259,3 +259,15 @@ The bundled shell now activates the existing mobile bridge and binds retained-we
 The typed API client now invokes a single session-expiry handler only when a request made with an existing JWT receives HTTP 401. It clears protected session and native notification identity, then returns to the local sign-in flow. A public sign-in failure does not trigger this cleanup. The startup/offline screen now retries the real bootstrap pipeline rather than only displaying the login screen.
 
 **Verification:** fresh-clone native configuration check, web build and **63 unit tests** pass. This is source verification; Android/iOS device recovery scenarios remain manual acceptance items.
+
+
+## Reliability hardening — lifecycle, offline retained modules and release boundary (2026-09-17)
+
+Implemented on `develop`:
+
+- native lifecycle registration is now single-flight across startup retries, preventing duplicate deep-link, restoration, app-state and Android-back listeners;
+- retained web modules check connectivity before the protected POST session transition, so an offline device stays in the bundled shell instead of attempting a broken remote view;
+- native lifecycle unit coverage verifies browser no-op behavior, trusted deep-link routing, restored/app-state events, Android back behavior and iOS exclusion;
+- `npm run verify:native` now includes static release-boundary checks: no server API secret in the mobile source, no browser-storage JWT fallback, and the retained-web bridge's POST/no-JWT-query contract.
+
+**Verification:** `npm run verify:native` passed (**14 checks**), `npm run build` passed, and `npm test` passed (**67 tests**). Native runtime and deployed-backend acceptance remain the next external validation gate.
