@@ -252,3 +252,10 @@ No additional backend route, Sngine core file, stock theme, or JWT bridge behavi
 The bundled shell now activates the existing mobile bridge and binds retained-web share/external-event hooks before authentication begins. This does not alter any web/mobile theme or replace the current ChatPalez UI; it makes the already-designed hybrid controls available in the bundled shell. The bridge only accepts trusted internal route notifications, while the secure POST session handoff remains responsible for entering retained web modules.
 
 **Verification:** fresh-clone native configuration check, web build, and 61 unit tests must pass. Physical-device and deployed retained-web regression remain the next acceptance gate.
+
+
+## Reliability milestones — session expiry and startup recovery (2026-09-17)
+
+The typed API client now invokes a single session-expiry handler only when a request made with an existing JWT receives HTTP 401. It clears protected session and native notification identity, then returns to the local sign-in flow. A public sign-in failure does not trigger this cleanup. The startup/offline screen now retries the real bootstrap pipeline rather than only displaying the login screen.
+
+**Verification:** fresh-clone native configuration check, web build and **63 unit tests** pass. This is source verification; Android/iOS device recovery scenarios remain manual acceptance items.
