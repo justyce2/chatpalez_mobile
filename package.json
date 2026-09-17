@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
+    "verify:native": "node scripts/verify-native-config.mjs",
     "build:metadata": "node scripts/build-metadata.mjs",
     "preview": "vite preview",
     "cap:sync": "npm run build && cap sync",
