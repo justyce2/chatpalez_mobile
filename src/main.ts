@@ -35,7 +35,12 @@ const root: HTMLElement = appRoot;
 const config = getAppConfig();
 const mobileBridge = installMobileBridge(config);
 bindWebBridgeEvents(mobileBridge);
-const api = new ChatPalezApiClient({ config, getAuthToken });
+let handlingSessionExpiry = false;
+const api = new ChatPalezApiClient({
+  config,
+  getAuthToken,
+  onUnauthorized: () => { void handleSessionExpiry(); }
+});
 const auth = new AuthService(api);
 const chat = new ChatService(api);
 const notifications = new NotificationsService(api);
@@ -59,6 +64,18 @@ function registrationOptions(): RegistrationOptions {
       renderLogin();
     }
   };
+}
+
+async function handleSessionExpiry(): Promise<void> {
+  if (handlingSessionExpiry) return;
+  handlingSessionExpiry = true;
+  try {
+    await logoutNativeNotifications().catch(() => undefined);
+    await clearSession();
+    renderLogin('Your session has expired. Sign in again to continue.');
+  } finally {
+    handlingSessionExpiry = false;
+  }
 }
 
 function renderLogin(error?: string): void {
@@ -269,7 +286,7 @@ async function bootstrap(): Promise<void> {
       logWarn('Bootstrap paused because device is offline', {
         connectionType: network.connectionType
       });
-      shell.showStartup('You are offline', 'Connect to the internet, then reopen ChatPalez.');
+      shell.showStartup('You are offline', 'Connect to the internet, then try again.', true);
       return;
     }
 
@@ -283,7 +300,7 @@ async function bootstrap(): Promise<void> {
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'The app could not start.';
     logError('Progressive shell bootstrap failed', error, { platform: Capacitor.getPlatform() });
-    shell.showStartup('Unable to start', detail);
+    shell.showStartup('Unable to start', detail, true);
   } finally {
     if (Capacitor.isNativePlatform()) {
       await SplashScreen.hide().catch((error) => {
