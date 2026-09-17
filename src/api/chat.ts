@@ -75,7 +75,7 @@ export class ChatService {
     return this.api.getPage<ChatContact[]>('chat/contacts', { query, offset });
   }
 
-  async getMessages(conversationId: number | string, offset = 0, lastMessageId = 0): Promise<MessagesResult> {
+  async getMessages(conversationId: number | string, offset = 0, lastMessageId?: number | string): Promise<MessagesResult> {
     return this.api.get<MessagesResult>('chat/messages', {
       conversation_id: conversationId,
       offset,
