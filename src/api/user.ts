@@ -1,4 +1,4 @@
-import type { ChatPalezApiClient } from './client';
+import type { ApiPage, ChatPalezApiClient } from './client';
 
 export type BlockedUser = {
   user_id: number | string;
@@ -13,7 +13,11 @@ export class UserService {
   constructor(private readonly api: ChatPalezApiClient) {}
 
   async getBlockedUsers(offset = 0): Promise<BlockedUser[]> {
-    return this.api.get<BlockedUser[]>('user/blocked', { offset });
+    return (await this.getBlockedUsersPage(offset)).data;
+  }
+
+  async getBlockedUsersPage(offset = 0): Promise<ApiPage<BlockedUser[]>> {
+    return this.api.getPage<BlockedUser[]>('user/blocked', { offset });
   }
 
   async deleteAccount(password: string): Promise<void> {
