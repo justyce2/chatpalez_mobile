@@ -1,7 +1,9 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 import { KeyboardResize } from '@capacitor/keyboard';
 
-const appId = process.env.CAP_APP_ID ?? 'com.chatpalez';
+// This must remain the package already published in Google Play so the hybrid
+// Capacitor release is accepted as an update to the existing ChatPalez listing.
+const appId = process.env.CAP_APP_ID ?? 'chatpalez.app.webview';
 const appName = process.env.CAP_APP_NAME ?? 'ChatPalez';
 
 const config: CapacitorConfig = {
@@ -12,11 +14,11 @@ const config: CapacitorConfig = {
   loggingBehavior: 'debug',
   android: {
     allowMixedContent: false,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0066B2',
     initialFocus: true
   },
   ios: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0066B2',
     contentInset: 'automatic',
     preferredContentMode: 'mobile',
     allowsLinkPreview: false,
@@ -26,7 +28,7 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchAutoHide: false,
       showSpinner: false,
-      backgroundColor: '#FFFFFFFF'
+      backgroundColor: '#0066B2'
     },
     StatusBar: {
       overlaysWebView: false

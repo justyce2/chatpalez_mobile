@@ -7,7 +7,7 @@
 **Backend production/default branch:** `master`  
 **Fresh upstream/reference branch:** `sngine-fresh`  
 **Production site:** `https://chatpalez.com`  
-**Android package / intended iOS bundle ID:** `com.chatpalez`  
+**Android package / intended iOS bundle ID:** `chatpalez.app.webview`  
 **Architecture:** Progressive hybrid — Capacitor + local/API-driven screens + retained controlled web modules
 
 ---
@@ -276,7 +276,7 @@ Confirmed/previously implemented areas include:
 
 - Capacitor 8 TypeScript/Vite foundation;
 - Android and iOS native projects;
-- package/bundle identity `com.chatpalez` in source;
+- package/bundle identity `chatpalez.app.webview` in source;
 - controlled production origin configuration;
 - Android back/lifecycle/deep-link handling;
 - custom `chatpalez://open` deep-link scheme on Android/iOS;
@@ -299,12 +299,12 @@ Many of these items remain in `Testing` because device/runtime acceptance has no
 These are not reasons to stop implementation of local/API screens. Mark work that truly depends on them as Blocked/Awaiting response and continue elsewhere.
 
 - Apple Developer team / App Store Connect access.
-- Final confirmation/ownership of iOS `com.chatpalez` bundle ID.
+- Final confirmation/ownership of iOS `chatpalez.app.webview` bundle ID.
 - APNs configuration.
 - Firebase/FCM configuration.
 - OneSignal mobile platform configuration/access.
 - Google Play upload/signing credentials.
-- Highest existing Play Console `versionCode` for `com.chatpalez`.
+- Highest existing Play Console `versionCode` for `chatpalez.app.webview`.
 - Final store-ready icon/splash artwork.
 - Final privacy/support URLs/content verification.
 - Physical iOS/Android device acceptance where needed.

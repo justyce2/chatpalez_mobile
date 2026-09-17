@@ -7,8 +7,8 @@ This is the authoritative go/no-go checklist for the first Android/iOS Capacitor
 - [x] Capacitor 8 mobile project initialized.
 - [x] Android project builds in CI.
 - [x] iOS simulator project builds in CI without signing.
-- [x] Android package identity is `com.chatpalez`.
-- [ ] Apple Developer team confirms ownership/registration of `com.chatpalez`.
+- [x] Android package identity is `chatpalez.app.webview`.
+- [ ] Apple Developer team confirms ownership/registration of `chatpalez.app.webview`.
 - [x] Production origin is `https://chatpalez.com`.
 - [x] Android API 24+ / target 36 support policy documented.
 - [x] iOS 15+ support policy documented.
@@ -82,7 +82,7 @@ Execute `docs/RUNTIME_QA_MATRIX.md` against the release candidate.
 ## 5. Push Notifications
 
 - [ ] OneSignal mobile platform configuration confirmed.
-- [ ] Firebase Android app exists for `com.chatpalez`.
+- [ ] Firebase Android app exists for `chatpalez.app.webview`.
 - [ ] FCM credentials configured in OneSignal.
 - [ ] Apple APNs credentials configured in OneSignal.
 - [ ] Android device receives native push.
@@ -95,7 +95,7 @@ Execute `docs/RUNTIME_QA_MATRIX.md` against the release candidate.
 
 ## 6. Google Play Release
 
-- [ ] Existing Play Console listing/package `com.chatpalez` confirmed.
+- [ ] Existing Play Console listing/package `chatpalez.app.webview` confirmed.
 - [ ] Highest existing Google Play `versionCode` recorded.
 - [ ] New `versionCode` set strictly above the existing maximum.
 - [ ] Final user-facing Android `versionName` approved.
@@ -116,7 +116,7 @@ Engineering evidence already available: CI can build an **unsigned** release AAB
 - [ ] Active Apple Developer membership confirmed.
 - [ ] App Store Connect access confirmed.
 - [ ] Apple Team ID recorded.
-- [ ] Bundle ID `com.chatpalez` registered/owned by the team.
+- [ ] Bundle ID `chatpalez.app.webview` registered/owned by the team.
 - [ ] Existing App Store version/build history checked, if applicable.
 - [ ] New marketing version/build number set correctly.
 - [ ] Push Notifications capability enabled.

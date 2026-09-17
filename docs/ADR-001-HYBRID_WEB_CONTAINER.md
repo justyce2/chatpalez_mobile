@@ -25,7 +25,7 @@ The native project also retains bundled local assets for an error/fallback page.
 
 ## Production Identity
 
-- Android application ID: `com.chatpalez`
+- Android application ID: `chatpalez.app.webview`
 - App display name: `ChatPalez`
 - Production origin: `https://chatpalez.com`
 - Official-shell user-agent token: `ChatPalezMobile/1.0`

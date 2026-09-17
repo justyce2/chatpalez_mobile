@@ -1,21 +1,16 @@
 {
-	"appId": "com.chatpalez",
+	"appId": "chatpalez.app.webview",
 	"appName": "ChatPalez",
 	"webDir": "dist",
 	"appendUserAgent": " ChatPalezMobile/1.0",
 	"loggingBehavior": "debug",
-	"server": {
-		"url": "https://chatpalez.com",
-		"cleartext": false,
-		"errorPath": "error.html"
-	},
 	"android": {
 		"allowMixedContent": false,
-		"backgroundColor": "#ffffff",
+		"backgroundColor": "#0066B2",
 		"initialFocus": true
 	},
 	"ios": {
-		"backgroundColor": "#ffffff",
+		"backgroundColor": "#0066B2",
 		"contentInset": "automatic",
 		"preferredContentMode": "mobile",
 		"allowsLinkPreview": false,
@@ -25,7 +20,7 @@
 		"SplashScreen": {
 			"launchAutoHide": false,
 			"showSpinner": false,
-			"backgroundColor": "#FFFFFFFF"
+			"backgroundColor": "#0066B2"
 		},
 		"StatusBar": {
 			"overlaysWebView": false
@@ -46,6 +41,7 @@
 		"SharePlugin",
 		"SplashScreenPlugin",
 		"StatusBarPlugin",
-		"OneSignalCapacitorPlugin"
+		"OneSignalCapacitorPlugin",
+		"SecureStorage"
 	]
 }

@@ -46,8 +46,8 @@
 | A-01 | Inspect existing ChatPalez backend architecture | Completed | Backend/frontend architecture identified | Backend access | PHP/Smarty/Bootstrap architecture reviewed |
 | A-02 | Define mobile architecture and scope | Completed | Architecture, scope, phases, risks and DoD documented | A-01 | Progressive hybrid architecture now approved |
 | A-03 | Validate production/staging origin strategy | Completed | Approved URL/SSL/environment approach documented | Backend URL | Production origin `https://chatpalez.com` verified |
-| A-04 | Confirm Android application ID | Completed | Existing store package identity preserved | Existing Android listing | `com.chatpalez` |
-| A-05 | Confirm iOS bundle identifier | Blocked | Bundle ID owned/approved in Apple Developer account | Apple Developer account | Native project currently uses `com.chatpalez` |
+| A-04 | Confirm Android application ID | Completed | Existing store package identity preserved | Existing Android listing | `chatpalez.app.webview` |
+| A-05 | Confirm iOS bundle identifier | Blocked | Bundle ID owned/approved in Apple Developer account | Apple Developer account | Native project currently uses `chatpalez.app.webview` |
 | A-06 | Confirm app display name and branding assets | Blocked | Final name/icon/splash approved | Client assets | Display name ChatPalez; authoritative store artwork still required |
 | A-07 | Confirm minimum Android/iOS support targets | Completed | Support versions documented | Product decision | Android API 24+ / target+compile 36; iOS 15+ |
 
@@ -60,8 +60,8 @@
 | B-01 | Initialize Node/TypeScript project | Completed | TypeScript/Vite project committed | None | Foundation exists on `develop` |
 | B-02 | Install/configure Capacitor | Completed | Capacitor initialized with valid config | B-01 | Capacitor 8 configured |
 | B-03 | Create local application shell | Testing | Local startup/loading/error/offline shell works | B-02 | Must now evolve into primary progressive-hybrid shell |
-| B-04 | Add Android project | Completed | Android project builds | B-02 | `com.chatpalez` |
-| B-05 | Add iOS project | Completed | iOS project builds without signing | B-02 | Bundle currently `com.chatpalez` |
+| B-04 | Add Android project | Completed | Android project builds | B-02 | `chatpalez.app.webview` |
+| B-05 | Add iOS project | Completed | iOS project builds without signing | B-02 | Bundle currently `chatpalez.app.webview` |
 | B-06 | Add environment/config abstraction | Completed | Origins/non-secret config separated | B-02 | Secrets excluded |
 | B-07 | Add `.gitignore` and secret-safety rules | Completed | Sensitive/native artifacts excluded | B-01 | APNs/Firebase/signing/env exclusions present |
 | B-08 | Add README/build instructions | Completed | Fresh developer can understand setup | B-01–B-07 | Current instructions documented |
@@ -269,7 +269,7 @@
 |---|---|---|
 | Production ChatPalez URL | API/web-module integration | Verified: `https://chatpalez.com` |
 | Existing API documentation/coverage | Progressive hybrid implementation | Audit required under N-01 |
-| Android application ID | Existing Play identity | Verified `com.chatpalez` |
+| Android application ID | Existing Play identity | Verified `chatpalez.app.webview` |
 | Android version history | Play update | Need highest existing `versionCode` |
 | iOS bundle ID ownership | App Store identity | Awaiting Apple confirmation |
 | Apple Developer/App Store Connect | Signing/APNs/TestFlight | Blocked |

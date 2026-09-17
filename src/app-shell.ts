@@ -685,7 +685,14 @@ function elementWithText<K extends keyof HTMLElementTagNameMap>(tag: K, text: st
 function heading(text: string): HTMLHeadingElement { return elementWithText('h1', text); }
 function paragraph(text: string): HTMLParagraphElement { return elementWithText('p', text); }
 function screenTitle(text: string): HTMLHeadingElement { const title = elementWithText('h2', text); title.className = 'screen-title'; return title; }
-function brandMark(size?: 'small'): HTMLDivElement { const mark = elementWithText('div', 'C'); mark.className = size === 'small' ? 'brand-mark brand-mark-small' : 'brand-mark'; mark.setAttribute('aria-hidden', 'true'); return mark; }
+function brandMark(size?: 'small'): HTMLImageElement {
+  const mark = document.createElement('img');
+  mark.className = size === 'small' ? 'brand-mark brand-mark-small' : 'brand-mark';
+  mark.src = '/brand/chatpalez-app-icon.png';
+  mark.alt = '';
+  mark.setAttribute('aria-hidden', 'true');
+  return mark;
+}
 function actionButton(text: string): HTMLButtonElement { const button = elementWithText('button', text); button.type = 'button'; button.className = 'primary-button'; return button; }
 function secondaryButton(text: string): HTMLButtonElement { const button = elementWithText('button', text); button.type = 'button'; button.className = 'secondary-button'; return button; }
 function input(type: string, placeholder: string, name: string): HTMLInputElement { const node = document.createElement('input'); node.type = type; node.placeholder = placeholder; node.name = name; node.required = true; return node; }

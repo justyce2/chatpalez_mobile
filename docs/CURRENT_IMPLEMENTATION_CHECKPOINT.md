@@ -271,3 +271,9 @@ Implemented on `develop`:
 - `npm run verify:native` now includes static release-boundary checks: no server API secret in the mobile source, no browser-storage JWT fallback, and the retained-web bridge's POST/no-JWT-query contract.
 
 **Verification:** `npm run verify:native` passed (**14 checks**), `npm run build` passed, and `npm test` passed (**67 tests**). Native runtime and deployed-backend acceptance remain the next external validation gate.
+
+## Branding and published Android identity — assets provisioned (2026-09-17)
+
+The Android application ID is now fixed to **`chatpalez.app.webview`**, the existing Google Play identity specified for this product. The Android Gradle namespace/application ID, Java package, generated Capacitor configuration, release documents and iOS project identifier were aligned before release preparation. The existing Android upload/signing identity must still be used for Play Console acceptance.
+
+The supplied ChatPalez logo has been converted into a native icon master and used to provision Android launcher/adaptive-icon density assets, iOS app icon assets, portrait/landscape Android splash screens and iOS splash screens. The bundled local startup/login experience now displays the ChatPalez icon and uses its blue brand colour; retained web UI and stock theme were not modified.

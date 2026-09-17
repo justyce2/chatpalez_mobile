@@ -14,8 +14,8 @@ This document lists external values/accounts required to complete Android/iOS re
 | Item | Current value | Status |
 |---|---|---|
 | App name | ChatPalez | Working/final-name confirmation still recommended |
-| Android application ID | `com.chatpalez` | Confirmed from existing Android identity |
-| iOS bundle ID in Xcode project | `com.chatpalez` | Must be registered/owned in client Apple Developer team |
+| Android application ID | `chatpalez.app.webview` | Confirmed from existing Android identity |
+| iOS bundle ID in Xcode project | `chatpalez.app.webview` | Must be registered/owned in client Apple Developer team |
 | Production origin | `https://chatpalez.com` | Confirmed |
 | Native shell user-agent marker | `ChatPalezMobile/1.0` | Implemented |
 | Custom app deep-link scheme | `chatpalez://open` | Registered on Android/iOS; trusted-target validation implemented |
@@ -25,7 +25,7 @@ This document lists external values/accounts required to complete Android/iOS re
 Required before final signed AAB:
 
 1. Google Play Console access to the existing ChatPalez app, if an existing listing is being upgraded.
-2. Confirm Play package name is exactly `com.chatpalez`.
+2. Confirm Play package name is exactly `chatpalez.app.webview`.
 3. **Read the highest version code already uploaded/published in Google Play.** The new Android `versionCode` must be strictly higher. The generated project currently uses `versionCode 1` only as a development placeholder and this must not be treated as release-ready for an existing listing.
 4. Confirm the desired user-facing release `versionName` (for example `1.0`, `1.1`, or the next existing product version) so Android and iOS marketing versions can be aligned intentionally.
 5. Determine whether **Play App Signing** is already enabled.
@@ -44,7 +44,7 @@ Current engineering state: CI already compiles an unsigned release `.aab`; signi
 Required:
 
 1. Firebase project controlled by client/project owner.
-2. Android Firebase app registered for package `com.chatpalez`.
+2. Android Firebase app registered for package `chatpalez.app.webview`.
 3. `google-services.json` generated for the Android app if required by the selected OneSignal setup.
 4. FCM credentials configured in OneSignal according to the current OneSignal/Firebase integration method.
 5. Test device registration and delivery verified after credentials are configured.
@@ -70,7 +70,7 @@ Required:
 
 1. Active Apple Developer Program membership.
 2. Access to the client team in Apple Developer and App Store Connect.
-3. Register/confirm bundle identifier `com.chatpalez`.
+3. Register/confirm bundle identifier `chatpalez.app.webview`.
 4. If an existing iOS listing/build exists, read the current App Store marketing version and highest build number. New `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` values must advance correctly; the generated `1.0` / build `1` values are development placeholders until this is confirmed.
 5. Enable capabilities required by the final app, including Push Notifications when native push is enabled.
 6. Configure signing through Xcode automatic signing or managed certificates/profiles.
@@ -87,7 +87,7 @@ Preferred input where supported:
 - APNs authentication key (`.p8`)
 - Key ID
 - Apple Team ID
-- Bundle/topic `com.chatpalez`
+- Bundle/topic `chatpalez.app.webview`
 
 Alternative certificate-based APNs setup can be used if the client already operates that model.
 

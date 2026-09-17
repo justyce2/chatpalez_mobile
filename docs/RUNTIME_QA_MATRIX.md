@@ -3,8 +3,8 @@
 **Purpose:** Repeatable acceptance coverage for the Capacitor Android/iOS client before release.
 
 **Production origin:** `https://chatpalez.com`  
-**Android application ID:** `com.chatpalez`  
-**iOS bundle ID in project:** `com.chatpalez` (Apple ownership/signing confirmation still required)
+**Android application ID:** `chatpalez.app.webview`  
+**iOS bundle ID in project:** `chatpalez.app.webview` (Apple ownership/signing confirmation still required)
 
 ## Test Environments
 

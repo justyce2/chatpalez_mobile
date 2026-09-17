@@ -28,7 +28,7 @@
       <key>CFBundleTypeRole</key>
       <string>Editor</string>
       <key>CFBundleURLName</key>
-      <string>com.chatpalez</string>
+      <string>chatpalez.app.webview</string>
       <key>CFBundleURLSchemes</key>
       <array>
         <string>chatpalez</string>

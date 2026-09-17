@@ -1,4 +1,4 @@
-package com.chatpalez.mobile;
+package chatpalez.app.webview;
 
 import com.getcapacitor.BridgeActivity;
 

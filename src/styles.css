@@ -1,14 +1,14 @@
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #111827;
-  background: #f8fafc;
+  color: #12324d;
+  background: #f4f9fd;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
 
 * { box-sizing: border-box; }
 html, body, #app { width: 100%; min-height: 100%; margin: 0; }
-body { min-height: 100vh; min-height: 100dvh; background: #f8fafc; }
+body { min-height: 100vh; min-height: 100dvh; background: #f4f9fd; }
 button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 .app-shell { min-height: 100vh; min-height: 100dvh; }
@@ -31,12 +31,9 @@ button { cursor: pointer; }
   height: 64px;
   margin: 0 auto 20px;
   border-radius: 20px;
-  display: grid;
-  place-items: center;
-  background: #111827;
-  color: #fff;
-  font-size: 30px;
-  font-weight: 800;
+  display: block;
+  object-fit: cover;
+  background: #0066B2;
   flex: 0 0 auto;
 }
 .brand-mark-small { width: 36px; height: 36px; margin: 0; border-radius: 11px; font-size: 17px; }
@@ -78,10 +75,10 @@ p { color: #64748b; line-height: 1.55; }
 }
 .field input:focus,
 .delete-account-form input:focus,
-.contact-search input:focus { border-color: #475569; box-shadow: 0 0 0 3px rgba(71, 85, 105, .12); }
+.contact-search input:focus { border-color: #0066B2; box-shadow: 0 0 0 3px rgba(0, 102, 178, .16); }
 .primary-button,
 .secondary-button { border: 0; border-radius: 14px; padding: 13px 16px; font-weight: 700; }
-.primary-button { background: #111827; color: #fff; }
+.primary-button { background: #0066B2; color: #fff; }
 .primary-button:disabled { opacity: .65; cursor: wait; }
 .secondary-button { background: #e2e8f0; color: #0f172a; margin-top: 12px; }
 .compact-button { margin-top: 0; padding: 9px 12px; }
@@ -92,7 +89,7 @@ p { color: #64748b; line-height: 1.55; }
   min-height: 100dvh;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  background: #f8fafc;
+  background: #f4f9fd;
 }
 .mobile-topbar {
   position: sticky;
@@ -113,7 +110,7 @@ p { color: #64748b; line-height: 1.55; }
   height: 38px;
   border: 0;
   border-radius: 50%;
-  background: #111827;
+  background: #0066B2;
   color: #fff;
   font-size: .78rem;
   font-weight: 800;
