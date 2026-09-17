@@ -45,7 +45,7 @@ describe('ChatPalezApiClient transport', () => {
     }), { status: 401 })));
     const api = new ChatPalezApiClient({ config, getAuthToken: () => 'jwt-token', onUnauthorized });
 
-    await expect(api.get('user/blocked')).rejects.toEqual(expect.objectContaining<ApiError>({ status: 401 }));
+    await expect(api.get('user/blocked')).rejects.toEqual(expect.objectContaining({ name: 'ApiError', status: 401 }));
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
   });
 
