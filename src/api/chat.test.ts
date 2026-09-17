@@ -83,6 +83,14 @@ describe('ChatService', () => {
     });
   });
 
+  it('omits the message cursor for ordinary offset history paging', async () => {
+    const get = vi.fn().mockResolvedValue({ messages: [] });
+    const api = { get, post: vi.fn() } as unknown as ChatPalezApiClient;
+    const chat = new ChatService(api);
+    await chat.getMessages(9, 2);
+    expect(get).toHaveBeenCalledWith('chat/messages', { conversation_id: 9, offset: 2, last_message_id: undefined });
+  });
+
   it('uses official conversation and message management routes', async () => {
     const post = vi.fn().mockResolvedValue(undefined);
     const del = vi.fn().mockResolvedValue(undefined);
