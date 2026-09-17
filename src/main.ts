@@ -182,10 +182,11 @@ const shell = createAppShell(root, {
     logInfo('Conversation started', { conversationId: conversation.conversation_id, recipientId });
     return conversation;
   },
-  onLoadMessages: async (conversationId) => {
-    const result = await chat.getMessages(conversationId);
+  onLoadMessages: async (conversationId, offset) => {
+    const result = await chat.getMessages(conversationId, offset);
     logDebug('Conversation messages loaded', {
       conversationId,
+      offset,
       count: result.messages?.length ?? 0
     });
     return result;
