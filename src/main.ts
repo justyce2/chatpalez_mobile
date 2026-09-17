@@ -167,15 +167,15 @@ const shell = createAppShell(root, {
     if (!session) throw new Error('Your session has expired. Sign in again to continue.');
     return requestNativeNotificationPermission(config, users, session.user.user_id, openWebModule);
   },
-  onLoadConversations: async () => {
-    const conversations = await chat.getConversations();
-    logInfo('Conversation list loaded', { count: conversations.length });
-    return conversations;
+  onLoadConversations: async (offset) => {
+    const page = await chat.getConversationsPage(offset);
+    logInfo('Conversation list loaded', { count: page.data.length, offset, hasMore: page.hasMore });
+    return { items: page.data, hasMore: page.hasMore };
   },
-  onLoadContacts: async (query) => {
-    const contacts = await chat.getContacts(query);
-    logDebug('Chat contacts loaded', { query, count: contacts.length });
-    return contacts;
+  onLoadContacts: async (query, offset) => {
+    const page = await chat.getContactsPage(query, offset);
+    logDebug('Chat contacts loaded', { query, count: page.data.length, offset, hasMore: page.hasMore });
+    return { items: page.data, hasMore: page.hasMore };
   },
   onStartConversation: async (recipientId, message) => {
     const conversation = await chat.startConversation(recipientId, message);
