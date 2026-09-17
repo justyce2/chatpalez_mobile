@@ -68,15 +68,17 @@ describe('RegistrationService', () => {
 
     await service.activate(' 123456 ');
     await service.resendActivation();
+    await service.resetActivationIdentity(' justice@example.com ');
     await service.updateGettingStarted({ country: '160', city: 'Abuja' });
     await service.finishGettingStarted();
 
     expect(post).toHaveBeenNthCalledWith(1, 'auth/activation', { code: '123456' });
     expect(post).toHaveBeenNthCalledWith(2, 'auth/activation_resend', {});
-    expect(post).toHaveBeenNthCalledWith(3, 'auth/getting_started_update', expect.objectContaining({
+    expect(post).toHaveBeenNthCalledWith(3, 'auth/activation_reset', { email: 'justice@example.com' });
+    expect(post).toHaveBeenNthCalledWith(4, 'auth/getting_started_update', expect.objectContaining({
       country: '160',
       city: 'Abuja'
     }));
-    expect(post).toHaveBeenNthCalledWith(4, 'auth/getting_started_finish', {});
+    expect(post).toHaveBeenNthCalledWith(5, 'auth/getting_started_finish', {});
   });
 });
