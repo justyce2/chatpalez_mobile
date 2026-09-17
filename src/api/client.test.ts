@@ -38,6 +38,28 @@ describe('ChatPalezApiClient transport', () => {
     expect(new Headers(init.headers).get('content-type')).toBeNull();
   });
 
+  it('clears only an expired authenticated session', async () => {
+    const onUnauthorized = vi.fn();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 'error', message: 'Session expired'
+    }), { status: 401 })));
+    const api = new ChatPalezApiClient({ config, getAuthToken: () => 'jwt-token', onUnauthorized });
+
+    await expect(api.get('user/blocked')).rejects.toEqual(expect.objectContaining<ApiError>({ status: 401 }));
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not clear a session for a public authentication failure', async () => {
+    const onUnauthorized = vi.fn();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: 'error', message: 'Invalid credentials'
+    }), { status: 401 })));
+    const api = new ChatPalezApiClient({ config, getAuthToken: () => null, onUnauthorized });
+
+    await expect(api.post('auth/signin', {})).rejects.toEqual(expect.objectContaining<ApiError>({ status: 401 }));
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
   it('normalizes failed API responses', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: 'error', message: 'Access denied'
