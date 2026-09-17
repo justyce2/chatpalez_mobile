@@ -224,3 +224,8 @@ Local messaging now supports official Sngine leave/delete conversation actions, 
 ## Implementation update — messaging pagination foundation (2026-09-16)
 
 The API client now preserves Sngine's official `has_more` metadata for paged conversation/contact requests; ChatService exposes page-aware methods alongside its existing simple list calls. Status: **Testing**; use this foundation for local Load More UI after runtime API validation.
+
+
+## Major milestone — local messaging pagination UI (2026-09-17)
+
+The local Messages and New Message contact picker now provide Load More controls using Sngine's official offset and has_more responses. No backend change was made. Status: **Testing** pending deployed API/device validation.
