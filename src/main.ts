@@ -219,10 +219,10 @@ const shell = createAppShell(root, {
     logInfo('Notifications loaded', { count: items.length });
     return items;
   },
-  onLoadBlockedUsers: async () => {
-    const blocked = await users.getBlockedUsers();
-    logInfo('Blocked-user list loaded', { count: blocked.length });
-    return blocked;
+  onLoadBlockedUsers: async (offset) => {
+    const page = await users.getBlockedUsersPage(offset);
+    logInfo('Blocked-user list loaded', { count: page.data.length, offset, hasMore: page.hasMore });
+    return { items: page.data, hasMore: page.hasMore };
   },
   onDeleteAccount: async (password) => {
     await users.deleteAccount(password);
