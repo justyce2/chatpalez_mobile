@@ -52,7 +52,7 @@ Do not infer capability from the legacy top-level `api.php`. The current/fresh A
 | Calls data | Partial / Audit Required | `GET /chat/calls` | Existing call UI first; native/local call architecture separate |
 | Full current-user/profile retrieval | Not API Ready — confirmed | Signin/bootstrap return a secured summary; no dedicated profile-read route | Use local summary; retain deeper profile web-backed |
 | Full profile editing | Not API Ready — confirmed | User module exposes connect, image deletion, OneSignal, delete and blocked only; no profile-update route | Retain web-backed v1 |
-| Notification list | API Ready / documented minimal adapter | `GET /notifications` delegates to Sngine notification retrieval | Local list implemented; adapter requires deployed acceptance and must not expand without a fresh audit |
+| Notification list | API Ready / documented minimal adapter | `GET /notifications` delegates to Sngine notification retrieval | Local initial list implemented. The adapter does not emit `has_more`; do not add client paging until live response behavior is verified or a minimal adapter contract is approved. |
 | Main timeline/feed | Not API Ready — confirmed | Full fresh-module audit found `/data/load?get=new_people` only; no timeline route | **Retained web module for v1** |
 | Post CRUD | Not API Ready — confirmed | No official posts module/route in fresh API subsystem | **Retained web module for v1** |
 | Non-chat comments/reactions | Not API Ready — confirmed | No official non-chat comment/reaction route | **Retained web module for v1** |
@@ -161,3 +161,10 @@ The fresh user module router/controller was reviewed in full. It exposes connect
 ## API implementation completion boundary (2026-09-17)
 
 All currently justified mobile API client work is implemented in source and covered by contract tests: authentication/recovery, registration/onboarding, chat, multipart photo upload, user blocking/deletion/OneSignal association, notifications, page metadata and authenticated transport. No further backend API is authorized at this boundary. The next work is deployed Android/iOS acceptance of these contracts and protected retained-web modules; only a new fresh-Sngine audit can reopen the custom-API decision.
+
+
+## API hardening follow-up (2026-09-17)
+
+The selected v1 service audit is source-complete: sign-in, two-factor completion, sign-out, activation reset, transport headers/error handling/multipart behavior, user blocking pagination, deletion, OneSignal association, notifications and uploads now have contract coverage. Blocked-user `has_more` is preserved through the local Settings UI.
+
+Direct conversation lookup, call history, reaction-viewer and unreact are intentionally deferred because no selected v1 screen requires them. Notification pagination remains a runtime/backend-contract gate: the existing minimal adapter accepts pagination inputs but does not return `has_more`.
