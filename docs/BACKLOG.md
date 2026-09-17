@@ -89,11 +89,11 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| D-01 | Audit API authentication endpoints | Planned | Login/current-user/logout/session model documented | N-01 | First task before local login implementation |
-| D-02 | Implement local/API-driven login UI | Planned | User can authenticate from local mobile screen | D-01, N-02 | Replaces website-first login direction |
-| D-03 | Design API ↔ retained-web session continuity | Planned | API-authenticated user can enter web-backed modules safely | D-01 | May require supported session bootstrap strategy |
-| D-04 | Verify logout synchronization | Planned | API/local/native/web identities all clear predictably | D-02,D-03 | Includes OneSignal identity logout |
-| D-05 | Handle expired/invalid auth | Planned | User returns safely to local login without loops | D-02,D-03 | Central auth state required |
+| D-01 | Audit API authentication endpoints | Completed | Login/current-user/logout/session model documented | N-01 | Official audit and client contracts complete |
+| D-02 | Implement local/API-driven login UI | Testing | User can authenticate from local mobile screen | D-01, N-02 | Source complete; native/deployed acceptance pending |
+| D-03 | Design API ↔ retained-web session continuity | Testing | API-authenticated user can enter web-backed modules safely | D-01 | Existing isolated bridge requires Android/iOS validation |
+| D-04 | Verify logout synchronization | Testing | API/local/native/web identities all clear predictably | D-02,D-03 | Includes OneSignal identity logout; device validation pending |
+| D-05 | Handle expired/invalid auth | Testing | User returns safely to local login without loops | D-02,D-03 | Source complete; test expired-session scenarios on devices |
 | D-06 | Verify CSRF/token compatibility | Planned | API and retained web actions remain valid | D-03 | Minimal backend adjustment only if proven necessary |
 | D-07 | Test social/OAuth login flows | Planned | Enabled providers return correctly to app | C-05,D-02 | High-priority runtime case |
 | D-08 | Official mobile-shell compatibility support | Testing | Retained web modules can detect official app when needed | Backend integration | Backend bridge merged; new screens should not depend on template detection |
@@ -164,10 +164,10 @@
 | I-02 | Post creation regression | Planned | Text/media posting works through selected path | I-01,F | Web-backed acceptable for v1 |
 | I-03 | Reactions/comments regression | Planned | Interactions work | I-01 | Selected path |
 | I-04 | Profile/account regression | Testing | Local summary works; validate deeper profile/edit path through protected WebView | N-06 | Official API has no full profile-read/update contract |
-| I-05 | Messaging regression | Planned | Send/receive/composer work | Auth,F | Web-backed initially |
-| I-06 | Notifications regression | Planned | Local notifications + push interactions work | N-05,G | API-driven target |
-| I-07 | Search/friends/groups/pages regression | Planned | Primary community flows work | Auth | Web-backed initially |
-| I-08 | Settings/privacy regression | Planned | Local settings shell + safety/account flows work | N-07 | Progressive hybrid target |
+| I-05 | Messaging regression | Testing | Local conversations, contacts, history paging, send, photo upload, typing/seen and management work | Auth,F | Source complete; deployed/device validation pending |
+| I-06 | Notifications regression | Testing | Local notification list + push interactions work | N-05,G | Source complete; external push credentials/device delivery pending |
+| I-07 | Search/friends/groups/pages regression | Planned | Primary community flows work | Auth | Protected web-backed v1 path |
+| I-08 | Settings/privacy regression | Testing | Local settings shell + safety/account flows work | N-07 | Source complete; device validation pending |
 
 ---
 
@@ -234,13 +234,13 @@
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
 | N-01 | Audit existing Sngine/ChatPalez API coverage | Completed | Matrix documents confirmed/absent official contracts and v1 boundaries | Backend/API access | Feed/posts/comments/groups/pages/search/profile/social graph audit complete |
-| N-02 | Build typed API/service layer | Planned | Central API client, config, auth/error normalization and reusable services exist | N-01 | Keep UI independent of raw API details |
-| N-03 | Build local mobile navigation shell | Planned | App opens into local shell with mobile-first primary navigation | B-03 | Bottom-tab/app-bar design; web modules become destinations |
-| N-04 | Implement local login/onboarding | Planned | Authentication occurs through local UI using supported API/auth model | D-01,N-02 | High App Store differentiation value |
-| N-05 | Implement API-driven notifications screen | Planned | Local notification list/read state works | N-01,N-02,N-04 | Integrate native push routing |
-| N-06 | Implement API-driven profile/account summary | Planned | Local account identity/profile summary works | N-01,N-02,N-04 | Deeper profile may remain web-backed initially |
-| N-07 | Implement local/API settings shell | Planned | Settings shell exposes native permissions + key account options | N-01,N-02,N-04 | Link to retained safety/account flows as needed |
-| N-08 | Create local↔web module router/session bridge | Planned | Users move between local and retained web modules without broken auth/navigation | D-03,N-03 | Critical progressive-hybrid boundary |
+| N-02 | Build typed API/service layer | Testing | Central API client, config, auth/error normalization and reusable services exist | N-01 | Source and contract suite complete; runtime API validation pending |
+| N-03 | Build local mobile navigation shell | Testing | App opens into local shell with mobile-first primary navigation | B-03 | Source complete; device validation pending |
+| N-04 | Implement local login/onboarding | Testing | Authentication occurs through local UI using supported API/auth model | D-01,N-02 | Source complete; runtime acceptance pending |
+| N-05 | Implement API-driven notifications screen | Testing | Local notification list/read state works | N-01,N-02,N-04 | Source complete; push/device validation pending |
+| N-06 | Implement API-driven profile/account summary | Testing | Local account identity/profile summary works | N-01,N-02,N-04 | Deeper profile remains web-backed |
+| N-07 | Implement local/API settings shell | Testing | Settings shell exposes native permissions + key account options | N-01,N-02,N-04 | Source complete; runtime validation pending |
+| N-08 | Create local↔web module router/session bridge | Testing | Users move between local and retained web modules without broken auth/navigation | D-03,N-03 | Existing isolated bridge; Android/iOS validation required |
 | N-09 | Decide whether feed migrates in v1 | Testing | Retained-web v1 decision documented and entry point implemented | N-01,N-08 | Official fresh API lacks feed/post contract; validate bridge on devices |
 
 ---
