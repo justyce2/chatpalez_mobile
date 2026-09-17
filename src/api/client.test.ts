@@ -56,7 +56,7 @@ describe('ChatPalezApiClient transport', () => {
     }), { status: 401 })));
     const api = new ChatPalezApiClient({ config, getAuthToken: () => null, onUnauthorized });
 
-    await expect(api.post('auth/signin', {})).rejects.toEqual(expect.objectContaining<ApiError>({ status: 401 }));
+    await expect(api.post('auth/signin', {})).rejects.toEqual(expect.objectContaining({ name: 'ApiError', status: 401 }));
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
 
