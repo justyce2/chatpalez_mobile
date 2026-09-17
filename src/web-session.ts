@@ -12,20 +12,35 @@ export type WebSessionTransitionOptions = {
  * Sngine's normal web cookies, then performs a 303 redirect to the internal path.
  */
 export function openAuthenticatedWebModule(options: WebSessionTransitionOptions): void {
-  const token = options.token.trim();
-  if (!token) throw new Error('Your ChatPalez session is unavailable. Please sign in again.');
-
-  const destination = normalizeInternalPath(options.config.origin.toString(), options.path);
-  const action = new URL('/mobile-session.php', options.config.origin);
+  const transition = createWebSessionTransition(options);
   const form = document.createElement('form');
   form.method = 'POST';
-  form.action = action.toString();
+  form.action = transition.action;
   form.style.display = 'none';
   form.autocomplete = 'off';
 
-  form.append(hiddenInput('token', token), hiddenInput('path', destination));
+  form.append(hiddenInput('token', transition.token), hiddenInput('path', transition.path));
   document.body.append(form);
   form.submit();
+}
+
+export type WebSessionTransition = {
+  action: string;
+  path: string;
+  token: string;
+};
+
+/**
+ * Produces the form-only bridge contract without exposing the JWT or destination
+ * in the action URL. Kept separate so the no-token-in-URL guarantee is tested.
+ */
+export function createWebSessionTransition(options: WebSessionTransitionOptions): WebSessionTransition {
+  const token = options.token.trim();
+  if (!token) throw new Error('Your ChatPalez session is unavailable. Please sign in again.');
+
+  const path = normalizeInternalPath(options.config.origin.toString(), options.path);
+  const action = new URL('/mobile-session.php', options.config.origin);
+  return { action: action.toString(), path, token };
 }
 
 export function normalizeInternalPath(origin: string, requestedPath: string): string {
