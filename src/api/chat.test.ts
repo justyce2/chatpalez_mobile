@@ -91,6 +91,16 @@ describe('ChatService', () => {
     expect(get).toHaveBeenCalledWith('chat/messages', { conversation_id: 9, offset: 2, last_message_id: undefined });
   });
 
+  it('supports the official optional message cursor when a caller needs it', async () => {
+    const get = vi.fn().mockResolvedValue({ messages: [] });
+    const api = { get, post: vi.fn() } as unknown as ChatPalezApiClient;
+    const chat = new ChatService(api);
+
+    await chat.getMessages(9, 1, 44);
+
+    expect(get).toHaveBeenCalledWith('chat/messages', { conversation_id: 9, offset: 1, last_message_id: 44 });
+  });
+
   it('uses official conversation and message management routes', async () => {
     const post = vi.fn().mockResolvedValue(undefined);
     const del = vi.fn().mockResolvedValue(undefined);
