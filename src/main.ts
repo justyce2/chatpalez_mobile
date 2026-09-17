@@ -24,6 +24,8 @@ import {
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
 import { registerNativeLifecycle } from './native-lifecycle';
 import { openAuthenticatedWebModule } from './web-session';
+import { installMobileBridge } from './bridge';
+import { bindWebBridgeEvents } from './web-bridge-events';
 import './styles.css';
 
 const appRoot = document.querySelector<HTMLElement>('#app');
@@ -31,6 +33,8 @@ if (!appRoot) throw new Error('ChatPalez app root was not found.');
 const root: HTMLElement = appRoot;
 
 const config = getAppConfig();
+const mobileBridge = installMobileBridge(config);
+bindWebBridgeEvents(mobileBridge);
 const api = new ChatPalezApiClient({ config, getAuthToken });
 const auth = new AuthService(api);
 const chat = new ChatService(api);
