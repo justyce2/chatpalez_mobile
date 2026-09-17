@@ -9,14 +9,16 @@ export type LoginCredentials = {
   password: string;
 };
 
+export type PageResult<T> = { items: T[]; hasMore: boolean; };
+
 export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
-  onLoadConversations?: () => Promise<Conversation[]>;
-  onLoadContacts?: (query: string) => Promise<ChatContact[]>;
+  onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
+  onLoadContacts?: (query: string, offset: number) => Promise<PageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
   onLoadMessages?: (conversationId: number | string) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<void>;
@@ -321,22 +323,29 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         content.append(paragraph('Messaging is not wired yet.'));
         return;
       }
+      const list = element('div', 'conversation-list');
       content.append(paragraph('Loading conversations…'));
-      try {
-        const conversations = await handlers.onLoadConversations();
-        const status = content.querySelector('p');
-        status?.remove();
-        if (conversations.length === 0) {
-          content.append(paragraph('No conversations yet. Start a new message.'));
-          return;
+      let offset = 0;
+      let hasMore = false;
+      const load = async (append: boolean): Promise<void> => {
+        try {
+          const page = await handlers.onLoadConversations!(offset);
+          const status = content.querySelector('p');
+          status?.remove();
+          if (!append) list.replaceChildren();
+          for (const conversation of page.items) list.append(conversationList([conversation], (item) => void showConversation(item)).firstElementChild!);
+          hasMore = page.hasMore;
+          if (!append && page.items.length === 0) content.append(paragraph('No conversations yet. Start a new message.'));
+          more.hidden = !hasMore;
+        } catch (error) {
+          content.append(paragraph(error instanceof Error ? error.message : 'Unable to load conversations.'));
         }
-        content.append(conversationList(conversations, (conversation) => void showConversation(conversation)));
-      } catch (error) {
-        content.append(paragraph(error instanceof Error ? error.message : 'Unable to load conversations.'));
-        const retry = secondaryButton('Try again');
-        retry.addEventListener('click', () => void showConversationList());
-        content.append(retry);
-      }
+      };
+      const more = secondaryButton('Load more');
+      more.hidden = true;
+      more.addEventListener('click', () => { offset += 1; void load(true); });
+      content.append(list, more);
+      await load(false);
     }
 
     async function showNewConversation(): Promise<void> {
@@ -359,16 +368,26 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const results = element('div', 'contact-list');
       content.append(results);
 
-      const loadContacts = async (): Promise<void> => {
+      let offset = 0;
+      let hasMore = false;
+      const more = secondaryButton('Load more contacts');
+      more.hidden = true;
+      results.after(more);
+
+      const loadContacts = async (append = false): Promise<void> => {
         if (!handlers.onLoadContacts) return;
-        results.replaceChildren(paragraph('Loading contacts…'));
+        if (!append) results.replaceChildren(paragraph('Loading contacts…'));
         try {
-          const contacts = await handlers.onLoadContacts(query.value.trim());
-          results.replaceChildren();
-          if (contacts.length === 0) {
+          const page = await handlers.onLoadContacts(query.value.trim(), offset);
+          const contacts = page.items;
+          if (!append) results.replaceChildren();
+          if (!append && contacts.length === 0) {
             results.append(paragraph('No matching contacts.'));
+            more.hidden = !page.hasMore;
             return;
           }
+          hasMore = page.hasMore;
+          more.hidden = !hasMore;
           for (const contact of contacts) {
             const button = element('button', 'contact-item');
             button.type = 'button';
@@ -419,8 +438,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
       searchForm.addEventListener('submit', (event) => {
         event.preventDefault();
+        offset = 0;
         void loadContacts();
       });
+      more.addEventListener('click', () => { if (hasMore) { offset += 1; void loadContacts(true); } });
       await loadContacts();
     }
 
