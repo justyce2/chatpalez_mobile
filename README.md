@@ -21,13 +21,13 @@ Core project documents:
 | Item | Value |
 |---|---|
 | App display name | ChatPalez |
-| Android application ID | `com.chatpalez` |
-| iOS bundle ID in project | `com.chatpalez` |
+| Android application ID | `chatpalez.app.webview` |
+| iOS bundle ID in project | `chatpalez.app.webview` |
 | Production origin | `https://chatpalez.com` |
 | Official-shell marker | `ChatPalezMobile/1.0` |
 | Custom deep-link scheme | `chatpalez://open` |
 
-The Android identity is preserved for compatibility with the existing app identity. Apple ownership/signing for `com.chatpalez` still has to be confirmed in the client Apple Developer team before release.
+The Android identity is preserved for compatibility with the existing app identity. Apple ownership/signing for `chatpalez.app.webview` still has to be confirmed in the client Apple Developer team before release.
 
 ## Platform Support
 
@@ -95,7 +95,6 @@ Only regenerate a native project deliberately. CI guards important native config
 - trusted internal host configuration
 - `CAP_APP_ID=com.chatpalez`
 - `CAP_APP_NAME=ChatPalez`
-- `CAP_SERVER_URL=https://chatpalez.com`
 
 Never put API secrets, signing passwords, Apple APNs private keys, Firebase service-account credentials, OneSignal REST keys or private signing material in `VITE_*` variables or commit them to this repository.
 
