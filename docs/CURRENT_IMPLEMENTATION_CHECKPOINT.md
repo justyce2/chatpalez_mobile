@@ -245,3 +245,10 @@ No additional backend route, Sngine core file, stock theme, or JWT bridge behavi
 **Verification:** `npm run build` passes and `npm test` passes (**52 tests**). This is source-level verification only. The remaining API boundary is not more custom implementation: deploy the approved backend reference, then validate each existing contract on Android and iOS with real users/devices (including history paging, attachment limits/failures, session expiration, OneSignal delivery and retained-web session transition).
 
 **Next non-API implementation phase:** native runtime validation and retained-web module regression. Do not create a replacement API for the intentionally retained feed, posts, groups, pages, search, deeper profile, or social-graph modules unless a fresh official-API audit demonstrates a sufficient contract.
+
+
+## Retained-web bridge activation (2026-09-17)
+
+The bundled shell now activates the existing mobile bridge and binds retained-web share/external-event hooks before authentication begins. This does not alter any web/mobile theme or replace the current ChatPalez UI; it makes the already-designed hybrid controls available in the bundled shell. The bridge only accepts trusted internal route notifications, while the secure POST session handoff remains responsible for entering retained web modules.
+
+**Verification:** fresh-clone native configuration check, web build, and 61 unit tests must pass. Physical-device and deployed retained-web regression remain the next acceptance gate.
