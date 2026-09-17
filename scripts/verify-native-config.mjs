@@ -11,12 +11,29 @@ const checks = [
   ['iOS deep link is declared', 'ios/App/App/Info.plist', (s) => s.includes('<string>chatpalez</string>')],
   ['iOS camera explanation is declared', 'ios/App/App/Info.plist', (s) => s.includes('NSCameraUsageDescription')],
   ['iOS microphone explanation is declared', 'ios/App/App/Info.plist', (s) => s.includes('NSMicrophoneUsageDescription')],
-  ['iOS photo-library explanation is declared', 'ios/App/App/Info.plist', (s) => s.includes('NSPhotoLibraryUsageDescription')]
+  ['iOS photo-library explanation is declared', 'ios/App/App/Info.plist', (s) => s.includes('NSPhotoLibraryUsageDescription')],
+  ['mobile client contains no Sngine server API secret', 'src', (s) => !s.includes('system_api_secret')],
+  ['JWT session persistence has no browser-storage fallback', 'src/auth/session.ts', (s) => !/\b(?:sessionStorage|localStorage)\s*[.\[]/.test(s)],
+  ['retained-web bridge posts without a JWT query string', 'src/web-session.ts', (s) => s.includes("form.method = 'POST'") && !/mobile-session\.php\?.*token/.test(s)]
 ];
 
 const files = new Map();
 for (const [, path] of checks) {
-  if (!files.has(path)) files.set(path, await readFile(path, 'utf8'));
+  if (!files.has(path)) {
+    if (path === 'src') {
+      const { readdir } = await import('node:fs/promises');
+      const collect = async (directory) => {
+        const entries = await readdir(directory, { withFileTypes: true });
+        const contents = await Promise.all(entries.map(async (entry) => entry.isDirectory()
+          ? collect(`${directory}/${entry.name}`)
+          : readFile(`${directory}/${entry.name}`, 'utf8')));
+        return contents.flat().join('\n');
+      };
+      files.set(path, await collect(path));
+    } else {
+      files.set(path, await readFile(path, 'utf8'));
+    }
+  }
 }
 
 const failures = checks
