@@ -20,7 +20,7 @@ export type AppShellHandlers = {
   onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<PageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
-  onLoadMessages?: (conversationId: number | string) => Promise<MessagesResult>;
+  onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<void>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onLeaveConversation?: (conversationId: number | string) => Promise<void>;
@@ -473,6 +473,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const presence = element('p', 'conversation-presence');
       presence.textContent = conversation.user_is_online ? 'Online' : '';
       content.append(presence);
+      const loadOlder = secondaryButton('Load older messages');
+      loadOlder.hidden = true;
+      content.append(loadOlder);
       const thread = element('div', 'message-thread');
       thread.append(paragraph('Loading messages…'));
       content.append(thread);
@@ -509,34 +512,55 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       });
       text.addEventListener('blur', () => setTyping(false));
 
-      const refreshThread = async (): Promise<void> => {
+      let historyOffset = 0;
+
+      const renderPresence = (result: MessagesResult): void => {
+        presence.textContent = result.typing_name_list
+          ? `${result.typing_name_list} typing…`
+          : result.user_is_online
+            ? 'Online'
+            : result.user_last_seen
+              ? `Last seen ${String(result.user_last_seen)}`
+              : '';
+      };
+
+      const refreshThread = async (older = false): Promise<void> => {
         try {
-          const result = await handlers.onLoadMessages?.(conversationId);
-          thread.replaceChildren();
-          const messages = result?.messages ?? [];
-          presence.textContent = result?.typing_name_list
-            ? `${result.typing_name_list} typing…`
-            : result?.user_is_online
-              ? 'Online'
-              : result?.user_last_seen
-                ? `Last seen ${String(result.user_last_seen)}`
-                : '';
+          const nextOffset = older ? historyOffset + 1 : 0;
+          const result = await handlers.onLoadMessages?.(conversationId, nextOffset);
+          if (!result) return;
+          const messages = result.messages ?? [];
+          renderPresence(result);
+          loadOlder.hidden = !result.has_more;
+          if (!older) thread.replaceChildren();
           if (messages.length === 0) {
-            thread.append(paragraph('No messages yet.'));
+            if (!older) thread.append(paragraph('No messages yet.'));
             return;
           }
-          for (const message of messages) thread.append(messageBubble(message, session, handlers.resolveChatPhotoUrl, handlers.onReactToMessage, handlers.onDeleteMessage, refreshThread));
+          const bubbles = messages.map((message) => messageBubble(message, session, handlers.resolveChatPhotoUrl, handlers.onReactToMessage, handlers.onDeleteMessage, () => refreshThread()));
+          if (older) {
+            const beforeHeight = thread.scrollHeight;
+            const beforeTop = thread.scrollTop;
+            thread.prepend(...bubbles);
+            thread.scrollTop = thread.scrollHeight - beforeHeight + beforeTop;
+          } else {
+            thread.append(...bubbles);
+          }
+          historyOffset = nextOffset;
           const ids = messages
             .map((message) => message.message_id)
             .filter((id): id is number | string => id !== undefined && id !== null);
           if (ids.length > 0 && handlers.onMarkSeen) {
             void handlers.onMarkSeen(ids).catch(() => undefined);
           }
-          thread.scrollTop = thread.scrollHeight;
+          if (!older) thread.scrollTop = thread.scrollHeight;
         } catch (error) {
-          thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
+          if (!older) thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
+          else window.alert(error instanceof Error ? error.message : 'Unable to load older messages.');
         }
       };
+
+      loadOlder.addEventListener('click', () => void refreshThread(true));
 
       composer.addEventListener('submit', (event) => {
         event.preventDefault();
