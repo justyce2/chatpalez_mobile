@@ -29,7 +29,7 @@ export type AppShellHandlers = {
   onDeleteMessage?: (messageId: number | string) => Promise<void>;
   onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
   onLoadNotifications?: () => Promise<NotificationItem[]>;
-  onLoadBlockedUsers?: () => Promise<BlockedUser[]>;
+  onLoadBlockedUsers?: (offset: number) => Promise<PageResult<BlockedUser>>;
   onDeleteAccount?: (password: string) => Promise<void>;
 };
 
@@ -210,26 +210,36 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const blockedBody = element('div', 'settings-list');
       blockedBody.append(paragraph('Loading blocked users…'));
       blockedSection.append(blockedBody);
+      const moreBlocked = secondaryButton('Load more blocked users');
+      moreBlocked.hidden = true;
+      blockedSection.append(moreBlocked);
       content.append(blockedSection);
 
       if (handlers.onLoadBlockedUsers) {
-        try {
-          const blocked = await handlers.onLoadBlockedUsers();
-          blockedBody.replaceChildren();
-          if (blocked.length === 0) {
-            blockedBody.append(paragraph('You have not blocked anyone.'));
-          } else {
-            for (const blockedUser of blocked) {
-              const name = String(blockedUser.user_firstname || blockedUser.user_name || `User ${blockedUser.user_id}`);
-              const row = element('div', 'settings-row');
-              row.append(elementWithText('strong', name));
-              if (blockedUser.user_name) row.append(elementWithText('span', `@${String(blockedUser.user_name)}`));
-              blockedBody.append(row);
+        let blockedOffset = 0;
+        const loadBlocked = async (append = false): Promise<void> => {
+          try {
+            const page = await handlers.onLoadBlockedUsers!(blockedOffset);
+            if (!append) blockedBody.replaceChildren();
+            if (!append && page.items.length === 0) {
+              blockedBody.append(paragraph('You have not blocked anyone.'));
+            } else {
+              for (const blockedUser of page.items) {
+                const name = String(blockedUser.user_firstname || blockedUser.user_name || `User ${blockedUser.user_id}`);
+                const row = element('div', 'settings-row');
+                row.append(elementWithText('strong', name));
+                if (blockedUser.user_name) row.append(elementWithText('span', `@${String(blockedUser.user_name)}`));
+                blockedBody.append(row);
+              }
             }
+            moreBlocked.hidden = !page.hasMore;
+          } catch (error) {
+            if (!append) blockedBody.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load blocked users.'));
+            else window.alert(error instanceof Error ? error.message : 'Unable to load more blocked users.');
           }
-        } catch (error) {
-          blockedBody.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load blocked users.'));
-        }
+        };
+        moreBlocked.addEventListener('click', () => { blockedOffset += 1; void loadBlocked(true); });
+        await loadBlocked();
       } else {
         blockedBody.replaceChildren(paragraph('Blocked-user management is not available yet.'));
       }
