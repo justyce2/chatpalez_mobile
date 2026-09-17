@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Web build
+dist/
+.vite/
+
+# Generated release metadata/artifacts
+artifacts/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+GoogleService-Info.plist
+google-services.json
+
+# Capacitor/native generated state
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+ios/App/Pods/
+ios/App/DerivedData/
+ios/App/App.xcworkspace/xcuserdata/
+
+# IDE/OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
