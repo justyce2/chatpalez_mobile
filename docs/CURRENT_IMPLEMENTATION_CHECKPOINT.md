@@ -229,3 +229,8 @@ The API client now preserves Sngine's official `has_more` metadata for paged con
 ## Major milestone — local messaging pagination UI (2026-09-17)
 
 The local Messages and New Message contact picker now provide Load More controls using Sngine's official offset and has_more responses. No backend change was made. Status: **Testing** pending deployed API/device validation.
+
+
+## Implementation update — correct message-history paging contract (2026-09-17)
+
+Message history now omits `last_message_id` for normal offset-based pages, avoiding the API's separate “newer than this ID” mode when no cursor is intended. This is the required service foundation for loading older thread history. Status: **Testing**.
