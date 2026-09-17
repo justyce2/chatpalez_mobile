@@ -258,6 +258,8 @@ const shell = createAppShell(root, {
   }
 });
 
+shell.setRetryAction(() => { void bootstrap(); });
+
 async function prepareNativeChrome(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
 
