@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from './config';
 
-const share = vi.fn().mockResolvedValue(undefined);
+const { share } = vi.hoisted(() => ({ share: vi.fn().mockResolvedValue(undefined) }));
 
 vi.mock('@capacitor/core', () => ({
   Capacitor: {
