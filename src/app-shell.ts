@@ -38,6 +38,7 @@ export type AppShell = {
   showLogin: (error?: string) => void;
   showAuthenticated: (session: AuthSession) => void;
   setBusy: (busy: boolean, message?: string) => void;
+  setRetryAction: (action: () => void) => void;
 };
 
 export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): AppShell {
