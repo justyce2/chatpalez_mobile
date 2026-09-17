@@ -609,7 +609,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     else delete root.dataset.busyMessage;
   };
   retryAction = () => showLogin();
-  return { showStartup, showLogin, showAuthenticated, setBusy };
+  const setRetryAction = (action: () => void): void => {
+    retryAction = action;
+  };
+  return { showStartup, showLogin, showAuthenticated, setBusy, setRetryAction };
 }
 
 function conversationList(conversations: Conversation[], onOpen: (conversation: Conversation) => void): HTMLDivElement {
