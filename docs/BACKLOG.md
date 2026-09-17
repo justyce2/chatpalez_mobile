@@ -393,3 +393,8 @@ Conversation and contact services now retain official pagination metadata instea
 ## Major milestone — conversation/contact Load More (2026-09-17)
 
 Local conversation and contact lists now page through the official API with explicit Load More controls. Runtime acceptance remains pending.
+
+
+## Implementation update — message history paging contract (2026-09-17)
+
+The local service now uses the official offset-history mode correctly by omitting an unused last-message cursor. Older-message UI remains the next shell task.
