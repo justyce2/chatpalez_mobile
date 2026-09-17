@@ -36,6 +36,7 @@ const config = getAppConfig();
 const mobileBridge = installMobileBridge(config);
 bindWebBridgeEvents(mobileBridge);
 let handlingSessionExpiry = false;
+let nativeLifecycleRegistration: Promise<void> | null = null;
 const api = new ChatPalezApiClient({
   config,
   getAuthToken,
@@ -109,7 +110,7 @@ async function completeAuthenticatedSession(session: AuthSession): Promise<void>
   await showAuthenticatedSession(session);
 }
 
-function openWebModule(path: string): void {
+async function openWebModule(path: string): Promise<void> {
   const token = getAuthToken();
   if (!token) {
     void clearSession();
@@ -118,6 +119,11 @@ function openWebModule(path: string): void {
   }
 
   try {
+    const network = await Network.getStatus();
+    if (!network.connected) {
+      window.alert('This ChatPalez section needs an internet connection. Reconnect and try again.');
+      return;
+    }
     logInfo('Authenticated retained-web transition requested', { path });
     openAuthenticatedWebModule({ config, token, path });
   } catch (error) {
@@ -127,6 +133,19 @@ function openWebModule(path: string): void {
     });
     window.alert(error instanceof Error ? error.message : 'Unable to open this ChatPalez section.');
   }
+}
+
+async function ensureNativeLifecycleRegistration(): Promise<void> {
+  if (!nativeLifecycleRegistration) {
+    nativeLifecycleRegistration = registerNativeLifecycle(config, (route) => {
+      logInfo('Trusted native route received', { path: route });
+      void openWebModule(route);
+    }).catch((error) => {
+      nativeLifecycleRegistration = null;
+      throw error;
+    });
+  }
+  await nativeLifecycleRegistration;
 }
 
 function renderTwoFactor(challenge: TwoFactorChallenge): void {
@@ -278,10 +297,7 @@ async function bootstrap(): Promise<void> {
   logInfo('Progressive shell bootstrap started', { platform: Capacitor.getPlatform() });
 
   try {
-    await registerNativeLifecycle(config, (route) => {
-      logInfo('Trusted native route received', { path: route });
-      openWebModule(route);
-    });
+    await ensureNativeLifecycleRegistration();
 
     const network = await Network.getStatus();
     if (!network.connected) {
