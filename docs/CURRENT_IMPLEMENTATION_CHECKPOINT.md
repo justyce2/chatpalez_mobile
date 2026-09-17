@@ -136,7 +136,7 @@ Source validation completed on 2026-09-16: `npm run build` passed (TypeScript + 
 4. Configure the public `VITE_ONESIGNAL_APP_ID`, then run `npx cap sync` and validate native OneSignal delivery/identity using the official `/user/onesignal` route: login, logout, permission grant/denial, foreground/background and notification click. Notification URLs must be internal ChatPalez paths.
 5. Validate retained feed/home, post composer, comments/reactions, groups, pages and search through the protected WebView session bridge on Android/iOS.
 6. Validate deeper profile, profile editing, friends/followers and social-graph pages through the protected WebView bridge on Android/iOS; the official API has no sufficient read/update contract.
-7. Add chat media/attachment support after text-chat runtime acceptance.
+7. Perform the native/device acceptance pass for local chat: conversation/contact/message history pagination, photo attachment upload/rendering, typing/seen, reactions and deletion. Video and voice attachments remain deferred.
 
 ## Handoff rule
 
@@ -234,3 +234,14 @@ The local Messages and New Message contact picker now provide Load More controls
 ## Implementation update — correct message-history paging contract (2026-09-17)
 
 Message history now omits `last_message_id` for normal offset-based pages, avoiding the API's separate “newer than this ID” mode when no cursor is intended. This is the required service foundation for loading older thread history. Status: **Testing**.
+
+
+## API implementation tranche complete — runtime validation next (2026-09-17)
+
+The API-related implementation tranche is complete in source. The local thread now provides **Load older messages** through the official `chat/messages` offset/history contract while preserving the reader's position when older content is prepended. Existing local services were rechecked against their audited routes and contract tests now cover chat, authentication/recovery, registration, user blocking/deletion/OneSignal association, notifications, and multipart chat-photo uploads. The transport layer retains JSON/form-data distinction, authenticated headers and page metadata.
+
+No additional backend route, Sngine core file, stock theme, or JWT bridge behavior was added or changed. The existing `notifications` adapter remains a documented minimal exception, pending deployed acceptance; it was not expanded.
+
+**Verification:** `npm run build` passes and `npm test` passes (**52 tests**). This is source-level verification only. The remaining API boundary is not more custom implementation: deploy the approved backend reference, then validate each existing contract on Android and iOS with real users/devices (including history paging, attachment limits/failures, session expiration, OneSignal delivery and retained-web session transition).
+
+**Next non-API implementation phase:** native runtime validation and retained-web module regression. Do not create a replacement API for the intentionally retained feed, posts, groups, pages, search, deeper profile, or social-graph modules unless a fresh official-API audit demonstrates a sufficient contract.
