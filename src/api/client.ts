@@ -26,15 +26,18 @@ export type ApiPage<T> = {
 export type ApiClientOptions = {
   config: AppConfig;
   getAuthToken: () => string | null;
+  onUnauthorized?: () => void;
 };
 
 export class ChatPalezApiClient {
   private readonly baseUrl: URL;
   private readonly getAuthToken: () => string | null;
+  private readonly onUnauthorized?: () => void;
 
   constructor(options: ApiClientOptions) {
     this.baseUrl = new URL('/apis/php/', options.config.origin);
     this.getAuthToken = options.getAuthToken;
+    this.onUnauthorized = options.onUnauthorized;
   }
 
   async get<T>(path: string, query?: Record<string, string | number | boolean | undefined>): Promise<T> {
@@ -111,6 +114,7 @@ export class ChatPalezApiClient {
     }
 
     if (!response.ok || envelope?.status === 'error') {
+      if (response.status === 401 && token) this.onUnauthorized?.();
       throw new ApiError(envelope?.message || `ChatPalez request failed (${response.status}).`, response.status);
     }
 
