@@ -146,7 +146,7 @@ async function completeAuthenticatedSession(session: AuthSession): Promise<void>
   await showAuthenticatedSession(session);
 }
 
-async function openWebModule(path: string): Promise<void> {
+async function openWebModule(path: string, target?: string): Promise<void> {
   const token = getAuthToken();
   if (!token) {
     void clearSession();
@@ -160,8 +160,8 @@ async function openWebModule(path: string): Promise<void> {
       window.alert('This ChatPalez section needs an internet connection. Reconnect and try again.');
       return;
     }
-    logInfo('Authenticated retained-web transition requested', { path });
-    openAuthenticatedWebModule({ config, token, path });
+    logInfo('Authenticated retained-web transition requested', { path, target: target || null });
+    openAuthenticatedWebModule({ config, token, path, target });
   } catch (error) {
     logWarn('Retained-web transition was blocked', {
       path,
