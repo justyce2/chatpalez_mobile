@@ -52,6 +52,21 @@ export type MobileAccount = {
   two_factor_type?: string | null;
   email_verified?: boolean;
   phone_verified?: boolean;
+  menu?: {
+    switch_accounts_enabled?: boolean;
+    packages_enabled?: boolean;
+    user_subscribed?: boolean;
+    points_enabled?: boolean;
+    points?: number;
+    wallet_enabled?: boolean;
+    wallet_balance?: string | null;
+    support_center_enabled?: boolean;
+    is_admin?: boolean;
+    is_moderator?: boolean;
+    themes_count?: number;
+    theme_mode_select?: boolean;
+    theme_mode_night?: boolean;
+  };
   privacy?: {
     user_chat_enabled?: boolean;
     user_newsletter_enabled?: boolean;
