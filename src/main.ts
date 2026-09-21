@@ -146,15 +146,6 @@ async function completeAuthenticatedSession(session: AuthSession): Promise<void>
   await showAuthenticatedSession(session);
 }
 
-function openPublicWebModule(path = '/'): void {
-  const destination = new URL(path || '/', config.origin);
-  if (destination.origin !== config.origin.origin) {
-    throw new Error('ChatPalez blocked an untrusted in-app destination.');
-  }
-  logInfo('Opening first-party ChatPalez mobile web route in app', { path: destination.pathname });
-  window.location.assign(destination.toString());
-}
-
 async function openWebModule(path: string): Promise<void> {
   const token = getAuthToken();
   if (!token) {
