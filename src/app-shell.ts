@@ -2,7 +2,7 @@ import type { ChatContact, Conversation, Message, MessagesResult } from './api/c
 import type { CommunityDetail, MobileEvent, MobileGroup, MobilePage, MobilePerson, MobileSearchResult } from './api/community';
 import type { NotificationItem } from './api/notifications';
 import type { FeedPost, FeedView, PostComment, ReelItem, VideoItem } from './api/feed';
-import type { BlockedUser } from './api/user';
+import type { BlockedUser, MobileAccount, ProfileUpdate } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
 
@@ -50,6 +50,14 @@ export type AppShellHandlers = {
   onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
   onLoadNotifications?: () => Promise<NotificationItem[]>;
   onLoadBlockedUsers?: (offset: number) => Promise<PageResult<BlockedUser>>;
+  onLoadAccount?: () => Promise<MobileAccount>;
+  onUpdateProfile?: (payload: ProfileUpdate) => Promise<void>;
+  onUpdateIdentity?: (payload: { username: string; email: string; phone: string; password: string }) => Promise<void>;
+  onUpdateWork?: (payload: { work_title: string; work_place: string; work_url: string }) => Promise<void>;
+  onUpdateLocation?: (payload: { city: string; hometown: string }) => Promise<void>;
+  onUpdateEducation?: (payload: { edu_major: string; edu_school: string; edu_class: string }) => Promise<void>;
+  onUpdateSocial?: (payload: { facebook: string; twitter: string; youtube: string; instagram: string; twitch: string; linkedin: string; vkontakte: string }) => Promise<void>;
+  onUpdatePassword?: (payload: { current: string; new: string; confirm: string }) => Promise<void>;
   onDeleteAccount?: (password: string) => Promise<void>;
 };
 
