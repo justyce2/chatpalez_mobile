@@ -1255,23 +1255,60 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.append(logoutSection);
     }
 
-    function showProfile(): void {
+    async function showProfile(): Promise<void> {
       backAction = showAccountMenu;
+      setActiveTab('menu');
       content.replaceChildren(screenTitle('Profile'));
-      const profileCard = element('div', 'profile-card');
-      profileCard.append(elementWithText('strong', displayName));
-      if (user.user_email) profileCard.append(elementWithText('span', String(user.user_email)));
-      if (user.user_name) profileCard.append(elementWithText('span', `@${String(user.user_name)}`));
-      content.append(profileCard);
-      const settings = secondaryButton('Account & settings');
-      settings.addEventListener('click', () => void showSettings());
-      const logout = secondaryButton('Sign out');
-      logout.addEventListener('click', () => void handlers.onLogout());
-      content.append(settings, logout);
+
+      const card = element('section', 'native-profile-card');
+      card.append(paragraph('Loading profile…'));
+      content.append(card);
+
+      if (!handlers.onLoadAccount) {
+        card.replaceChildren(paragraph('Profile details are not available through the mobile API yet.'));
+        return;
+      }
+
+      try {
+        const account = await handlers.onLoadAccount();
+        card.replaceChildren();
+
+        if (account.picture) {
+          const picture = document.createElement('img');
+          picture.className = 'native-profile-picture';
+          picture.src = account.picture;
+          picture.alt = account.fullname || displayName;
+          card.append(picture);
+        }
+
+        const identity = element('div', 'native-profile-identity');
+        identity.append(elementWithText('h2', account.fullname || displayName));
+        if (account.username) identity.append(elementWithText('span', `@${account.username}`));
+        if (account.biography) identity.append(elementWithText('p', account.biography));
+        card.append(identity);
+
+        const meta = element('div', 'native-profile-meta');
+        if (account.work_title || account.work_place) {
+          meta.append(elementWithText('span', [account.work_title, account.work_place].filter(Boolean).join(' at ')));
+        }
+        if (account.city) meta.append(elementWithText('span', account.city));
+        if (account.edu_school) meta.append(elementWithText('span', account.edu_school));
+        if (account.website) meta.append(elementWithText('span', account.website));
+        if (meta.childElementCount > 0) card.append(meta);
+
+        const edit = secondaryButton('Edit profile');
+        edit.addEventListener('click', () => void showProfileEditor(account));
+        const settings = secondaryButton('Account & settings');
+        settings.addEventListener('click', () => void showSettings());
+        content.append(edit, settings);
+      } catch (error) {
+        card.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load profile.'));
+      }
     }
 
     async function showSettings(): Promise<void> {
       backAction = showAccountMenu;
+      setActiveTab('menu');
       content.replaceChildren();
       const header = element('div', 'conversation-header');
       const back = secondaryButton('Back');
@@ -1281,10 +1318,40 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.append(header);
 
       const account = element('section', 'settings-card');
-      account.append(elementWithText('h3', 'Account'));
-      account.append(elementWithText('strong', displayName));
-      if (user.user_email) account.append(elementWithText('span', String(user.user_email)));
+      account.append(elementWithText('h3', 'Account & profile'));
+      const accountStatus = paragraph('Loading account details…');
+      account.append(accountStatus);
       content.append(account);
+
+      if (handlers.onLoadAccount) {
+        try {
+          const details = await handlers.onLoadAccount();
+          accountStatus.textContent = details.email || details.username || displayName;
+          const menu = element('div', 'settings-action-grid');
+
+          const actions: Array<[string, () => void]> = [
+            ['Edit profile', () => void showProfileEditor(details)],
+            ['Login & contact', () => void showIdentityEditor(details)],
+            ['Work', () => void showWorkEditor(details)],
+            ['Location', () => void showLocationEditor(details)],
+            ['Education', () => void showEducationEditor(details)],
+            ['Social links', () => void showSocialEditor(details)],
+            ['Change password', () => void showPasswordEditor()]
+          ];
+
+          for (const [label, action] of actions) {
+            const button = secondaryButton(label);
+            button.classList.add('settings-action-button');
+            button.addEventListener('click', action);
+            menu.append(button);
+          }
+          account.append(menu);
+        } catch (error) {
+          accountStatus.textContent = error instanceof Error ? error.message : 'Unable to load account settings.';
+        }
+      } else {
+        accountStatus.textContent = 'Native account editing is not available yet.';
+      }
 
       const push = element('section', 'settings-card');
       push.append(elementWithText('h3', 'Push notifications'));
@@ -1383,6 +1450,234 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       });
       danger.append(deleteForm);
       content.append(danger);
+    }
+
+    async function showProfileEditor(account?: MobileAccount): Promise<void> {
+      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      if (!details || !handlers.onUpdateProfile) return;
+
+      backAction = () => { void showSettings(); };
+      content.replaceChildren();
+      const header = settingsEditorHeader('Edit profile');
+      content.append(header);
+
+      const form = element('form', 'native-settings-form') as HTMLFormElement;
+      const first = settingsInput('First name', 'text', details.firstname || '');
+      const last = settingsInput('Last name', 'text', details.lastname || '');
+      const bio = settingsTextarea('Bio', details.biography || '', 4);
+      const website = settingsInput('Website', 'url', details.website || '');
+
+      const relationship = settingsSelect('Relationship', [
+        ['', 'Not specified'],
+        ['single', 'Single'],
+        ['relationship', 'In a relationship'],
+        ['married', 'Married'],
+        ['complicated', 'Complicated'],
+        ['separated', 'Separated'],
+        ['divorced', 'Divorced'],
+        ['widowed', 'Widowed']
+      ], details.relationship || '');
+
+      const message = element('p', 'settings-form-status');
+      const submit = actionButton('Save profile');
+      submit.type = 'submit';
+      form.append(first.wrapper, last.wrapper, bio.wrapper, website.wrapper, relationship.wrapper, message, submit);
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        submit.disabled = true;
+        message.textContent = 'Saving…';
+        const payload: ProfileUpdate = {
+          firstname: first.control.value.trim(),
+          lastname: last.control.value.trim(),
+          biography: bio.control.value.trim(),
+          website: website.control.value.trim(),
+          relationship: relationship.control.value || null
+        };
+        void handlers.onUpdateProfile!(payload)
+          .then(() => {
+            message.textContent = 'Profile updated.';
+            window.setTimeout(() => { void showSettings(); }, 250);
+          })
+          .catch((error: unknown) => {
+            message.textContent = error instanceof Error ? error.message : 'Unable to update profile.';
+          })
+          .finally(() => { submit.disabled = false; });
+      });
+
+      content.append(form);
+    }
+
+    async function showIdentityEditor(account?: MobileAccount): Promise<void> {
+      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      if (!details || !handlers.onUpdateIdentity) return;
+
+      backAction = () => { void showSettings(); };
+      content.replaceChildren(settingsEditorHeader('Login & contact'));
+
+      const form = element('form', 'native-settings-form') as HTMLFormElement;
+      const username = settingsInput('Username', 'text', details.username || '');
+      username.control.disabled = Boolean(details.username_changes_disabled);
+      const email = settingsInput('Email', 'email', details.email || '');
+      const phone = settingsInput('Phone', 'tel', details.phone || '');
+      const password = settingsInput('Current password', 'password', '');
+      password.control.autocomplete = 'current-password';
+      const message = element('p', 'settings-form-status');
+      const submit = actionButton('Save account');
+      submit.type = 'submit';
+
+      form.append(username.wrapper, email.wrapper, phone.wrapper, password.wrapper, message, submit);
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        submit.disabled = true;
+        message.textContent = 'Saving…';
+        void handlers.onUpdateIdentity!({
+          username: username.control.value.trim(),
+          email: email.control.value.trim(),
+          phone: phone.control.value.trim(),
+          password: password.control.value
+        }).then(() => {
+          message.textContent = 'Account updated. Verification may be required for changed email or phone details.';
+          password.control.value = '';
+        }).catch((error: unknown) => {
+          message.textContent = error instanceof Error ? error.message : 'Unable to update account.';
+        }).finally(() => { submit.disabled = false; });
+      });
+      content.append(form);
+    }
+
+    async function showWorkEditor(account?: MobileAccount): Promise<void> {
+      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      if (!details || !handlers.onUpdateWork) return;
+      await showSimpleSettingsEditor('Work', [
+        ['Job title', 'text', details.work_title || ''],
+        ['Workplace', 'text', details.work_place || ''],
+        ['Work website', 'url', details.work_url || '']
+      ], async (values) => {
+        await handlers.onUpdateWork!({ work_title: values[0], work_place: values[1], work_url: values[2] });
+      });
+    }
+
+    async function showLocationEditor(account?: MobileAccount): Promise<void> {
+      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      if (!details || !handlers.onUpdateLocation) return;
+      await showSimpleSettingsEditor('Location', [
+        ['Current city', 'text', details.city || ''],
+        ['Hometown', 'text', details.hometown || '']
+      ], async (values) => {
+        await handlers.onUpdateLocation!({ city: values[0], hometown: values[1] });
+      });
+    }
+
+    async function showEducationEditor(account?: MobileAccount): Promise<void> {
+      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      if (!details || !handlers.onUpdateEducation) return;
+      await showSimpleSettingsEditor('Education', [
+        ['Major', 'text', details.edu_major || ''],
+        ['School', 'text', details.edu_school || ''],
+        ['Class', 'text', details.edu_class || '']
+      ], async (values) => {
+        await handlers.onUpdateEducation!({ edu_major: values[0], edu_school: values[1], edu_class: values[2] });
+      });
+    }
+
+    async function showSocialEditor(account?: MobileAccount): Promise<void> {
+      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      if (!details || !handlers.onUpdateSocial) return;
+      await showSimpleSettingsEditor('Social links', [
+        ['Facebook', 'url', details.facebook || ''],
+        ['Twitter / X', 'url', details.twitter || ''],
+        ['YouTube', 'url', details.youtube || ''],
+        ['Instagram', 'url', details.instagram || ''],
+        ['Twitch', 'url', details.twitch || ''],
+        ['LinkedIn', 'url', details.linkedin || ''],
+        ['VKontakte', 'url', details.vkontakte || '']
+      ], async (values) => {
+        await handlers.onUpdateSocial!({
+          facebook: values[0],
+          twitter: values[1],
+          youtube: values[2],
+          instagram: values[3],
+          twitch: values[4],
+          linkedin: values[5],
+          vkontakte: values[6]
+        });
+      });
+    }
+
+    async function showPasswordEditor(): Promise<void> {
+      if (!handlers.onUpdatePassword) return;
+      backAction = () => { void showSettings(); };
+      content.replaceChildren(settingsEditorHeader('Change password'));
+
+      const form = element('form', 'native-settings-form') as HTMLFormElement;
+      const current = settingsInput('Current password', 'password', '');
+      const next = settingsInput('New password', 'password', '');
+      const confirm = settingsInput('Confirm new password', 'password', '');
+      current.control.autocomplete = 'current-password';
+      next.control.autocomplete = 'new-password';
+      confirm.control.autocomplete = 'new-password';
+      const message = element('p', 'settings-form-status');
+      const submit = actionButton('Change password');
+      submit.type = 'submit';
+      form.append(current.wrapper, next.wrapper, confirm.wrapper, message, submit);
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        submit.disabled = true;
+        message.textContent = 'Updating…';
+        void handlers.onUpdatePassword!({
+          current: current.control.value,
+          new: next.control.value,
+          confirm: confirm.control.value
+        }).then(() => {
+          message.textContent = 'Password updated. Other sessions have been signed out.';
+          form.reset();
+        }).catch((error: unknown) => {
+          message.textContent = error instanceof Error ? error.message : 'Unable to update password.';
+        }).finally(() => { submit.disabled = false; });
+      });
+
+      content.append(form);
+    }
+
+    async function showSimpleSettingsEditor(
+      title: string,
+      definitions: Array<[string, string, string]>,
+      save: (values: string[]) => Promise<void>
+    ): Promise<void> {
+      backAction = () => { void showSettings(); };
+      content.replaceChildren(settingsEditorHeader(title));
+
+      const form = element('form', 'native-settings-form') as HTMLFormElement;
+      const fields = definitions.map(([label, type, value]) => settingsInput(label, type, value));
+      const message = element('p', 'settings-form-status');
+      const submit = actionButton('Save');
+      submit.type = 'submit';
+      for (const item of fields) form.append(item.wrapper);
+      form.append(message, submit);
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        submit.disabled = true;
+        message.textContent = 'Saving…';
+        void save(fields.map((item) => item.control.value.trim()))
+          .then(() => { message.textContent = 'Saved.'; })
+          .catch((error: unknown) => {
+            message.textContent = error instanceof Error ? error.message : 'Unable to save changes.';
+          })
+          .finally(() => { submit.disabled = false; });
+      });
+      content.append(form);
+    }
+
+    function settingsEditorHeader(title: string): HTMLElement {
+      const header = element('div', 'conversation-header');
+      const back = secondaryButton('Back');
+      back.classList.add('compact-button');
+      back.addEventListener('click', () => { void showSettings(); });
+      header.append(back, screenTitle(title));
+      return header;
     }
 
     async function showNotifications(): Promise<void> {
