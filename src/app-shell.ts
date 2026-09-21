@@ -81,6 +81,7 @@ export type AppShell = {
   setRetryAction: (action: () => void) => void;
   handleBack: () => boolean;
   openRoute: (path: string) => boolean;
+  setNetworkState: (connected: boolean) => void;
 };
 
 export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): AppShell {
@@ -88,6 +89,17 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   let backAction: (() => void) | null = null;
   let authenticatedCleanup: (() => void) | null = null;
   let routeAction: ((path: string) => void) | null = null;
+  let networkConnected = true;
+
+  const setNetworkState = (connected: boolean): void => {
+    networkConnected = connected;
+    root.dataset.network = connected ? 'online' : 'offline';
+    const banner = root.querySelector<HTMLElement>('.native-network-banner');
+    if (banner) {
+      banner.hidden = connected;
+      banner.setAttribute('aria-hidden', connected ? 'true' : 'false');
+    }
+  };
 
   const showStartup = (title: string, message: string, canRetry = false): void => {
     root.replaceChildren();
@@ -186,6 +198,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
 
     const layout = element('section', 'mobile-layout');
+    const networkBanner = element('div', 'native-network-banner');
+    networkBanner.textContent = 'You are offline. Some ChatPalez features will be unavailable until you reconnect.';
+    networkBanner.setAttribute('role', 'status');
+    networkBanner.hidden = networkConnected;
+    networkBanner.setAttribute('aria-hidden', networkConnected ? 'true' : 'false');
     const drawer = element('aside', 'native-drawer');
     drawer.id = 'chatpalez-native-drawer';
     drawer.setAttribute('aria-hidden', 'true');
@@ -2780,7 +2797,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       await refreshThread();
     }
 
-    layout.append(topbar, content, nav, drawer);
+    layout.append(topbar, networkBanner, content, nav, drawer);
     root.append(layout);
     void showFeed('newsfeed');
   };
@@ -2814,7 +2831,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     routeAction(path);
     return true;
   };
-  return { showStartup, showLogin, showAuthenticated, setBusy, setRetryAction, handleBack, openRoute };
+  return { showStartup, showLogin, showAuthenticated, setBusy, setRetryAction, handleBack, openRoute, setNetworkState };
 }
 
 function iconAsset(icon: string): string {
