@@ -395,6 +395,15 @@ const shell = createAppShell(root, {
   onLoadAccount: async () => {
     return users.getAccount();
   },
+  onLoadConnectedAccounts: async () => {
+    return users.getConnectedAccounts();
+  },
+  onSwitchAccount: async (userId) => {
+    const nextSession = await users.switchConnectedAccount(userId);
+    await logoutNativeNotifications().catch(() => undefined);
+    await showAuthenticatedSession(nextSession);
+    return nextSession;
+  },
   onUpdateProfile: async (payload) => {
     await users.updateProfile(payload);
   },
