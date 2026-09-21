@@ -6,6 +6,7 @@ import { createAppShell } from './app-shell';
 import { ChatPalezApiClient, ApiError } from './api/client';
 import { AuthService, type TwoFactorChallenge } from './api/auth';
 import { ChatService } from './api/chat';
+import { FeedService } from './api/feed';
 import { NotificationsService } from './api/notifications';
 import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
@@ -73,6 +74,7 @@ const api = new ChatPalezApiClient({
 });
 const auth = new AuthService(api);
 const chat = new ChatService(api);
+const feed = new FeedService(api);
 const notifications = new NotificationsService(api);
 const registration = new RegistrationService(api);
 const users = new UserService(api);
@@ -122,16 +124,16 @@ async function showAuthenticatedSession(session: AuthSession): Promise<void> {
   await setSession(session);
   logInfo('Mobile authentication completed', { userId: session.user.user_id });
 
-  // ChatPalez already has a complete responsive mobile UI. After API authentication,
-  // bridge the JWT into the normal Sngine web session and continue inside the same
-  // Capacitor WebView instead of rendering a competing local dashboard.
+  // Keep the API/native shell authoritative after authentication. Retained web
+  // modules are opened only when a feature is not yet available through the native
+  // API surface.
   void initializeNativeNotifications(config, users, session.user.user_id, openWebModule).catch((error) => {
     logWarn('Native notification identity could not be initialized', {
       detail: error instanceof Error ? error.message : String(error ?? '')
     });
   });
 
-  await openWebModule('/');
+  shell.showAuthenticated(session);
 }
 
 async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
@@ -244,6 +246,11 @@ const shell = createAppShell(root, {
     }
   },
   onOpenWebModule: openWebModule,
+  onLoadFeed: async (view, offset) => {
+    const page = await feed.getFeed(view, offset);
+    logInfo('Native feed loaded', { view, count: page.data.length, offset, hasMore: page.hasMore });
+    return { items: page.data, hasMore: page.hasMore };
+  },
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
   onManageNotifications: async () => {
     const session = getSession();
