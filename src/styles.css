@@ -1881,3 +1881,29 @@ body.native-drawer-open {
 .native-create-card input[type="datetime-local"] {
   min-height: 46px;
 }
+
+
+.native-profile-media {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.native-profile-media .native-profile-picture {
+  flex: 0 0 92px;
+}
+
+.native-profile-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.native-profile-media .compact-button {
+  min-height: 34px;
+  margin: 0;
+}
