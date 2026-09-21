@@ -769,3 +769,100 @@ body.native-drawer-open {
     padding-right: 18px;
   }
 }
+
+
+/* Phase H1 auth viewport contract: pin auth flows to the device viewport.
+   Short forms center without document overscroll; long forms scroll internally. */
+.auth-screen {
+  width: min(100% - 32px, 420px);
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  margin: 0 auto;
+  padding:
+    max(20px, env(safe-area-inset-top))
+    0
+    max(20px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.auth-screen > .auth-header:first-child {
+  margin-top: auto;
+}
+
+.auth-screen > :last-child {
+  margin-bottom: auto;
+}
+
+.auth-screen .auth-header {
+  flex: 0 0 auto;
+  margin-bottom: 22px;
+}
+
+.auth-screen .auth-form {
+  flex: 0 0 auto;
+  width: 100%;
+  padding-bottom: 1px;
+}
+
+.auth-screen .field input,
+.auth-screen .field select {
+  min-height: 48px;
+}
+
+.auth-screen .field select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 12px 42px 12px 15px;
+  background: #fff;
+  color: #0f172a;
+  outline: none;
+}
+
+.auth-screen .field select:focus {
+  border-color: #0066B2;
+  box-shadow: 0 0 0 3px rgba(0, 102, 178, .16);
+}
+
+@supports (height: 100svh) {
+  .auth-screen {
+    height: 100svh;
+    min-height: 100svh;
+    max-height: 100svh;
+  }
+}
+
+@media (max-height: 700px) {
+  .auth-screen {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .auth-screen > .auth-header:first-child {
+    margin-top: 0;
+  }
+
+  .auth-screen > :last-child {
+    margin-bottom: 0;
+  }
+
+  .auth-screen .auth-header {
+    margin-bottom: 16px;
+  }
+
+  .auth-screen .brand-mark {
+    width: 52px;
+    height: 52px;
+    margin-bottom: 12px;
+  }
+}
