@@ -64,6 +64,7 @@ Public runtime configuration belongs in `.env`; privileged credentials do not.
 npm run build
 npm test
 npm run build:metadata
+npm run build:domain-links
 npm run cap:sync
 npm run android
 npm run ios
