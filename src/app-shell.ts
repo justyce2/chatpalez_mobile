@@ -16,6 +16,7 @@ export type PageResult<T> = { items: T[]; hasMore: boolean; };
 export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
+  onSessionExpired?: () => void;
   onOpenWebModule: (path: string, target?: string) => void;
   trustedWebOrigin?: string;
   onLoadFeed?: (view: FeedView, offset: number) => Promise<PageResult<FeedPost>>;
@@ -277,9 +278,23 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       if (!handlers.trustedWebOrigin || event.origin !== handlers.trustedWebOrigin) return;
       if (!retainedFrameName || !retainedFrameWindow || event.source !== retainedFrameWindow) return;
       if (!event.data || typeof event.data !== 'object') return;
-      const payload = event.data as { source?: string; type?: string; path?: string; title?: string };
-      if (payload.source !== 'chatpalez-retained' || !['ready', 'navigate'].includes(payload.type || '')) return;
+      const payload = event.data as { source?: string; type?: string; path?: string; title?: string; url?: string };
+      if (payload.source !== 'chatpalez-retained') return;
 
+      if (payload.type === 'session-expired') {
+        retainedFrameName = null;
+        retainedFrameWindow = null;
+        retainedHistory = [];
+        handlers.onSessionExpired?.();
+        return;
+      }
+
+      if (payload.type === 'external' && payload.url) {
+        window.dispatchEvent(new CustomEvent('chatpalez:open-external', { detail: { url: payload.url } }));
+        return;
+      }
+
+      if (!['ready', 'navigate'].includes(payload.type || '')) return;
       const normalizedPath = normalizeRetainedPath(payload.path || '');
       if (!normalizedPath) return;
 
