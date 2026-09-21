@@ -6,6 +6,8 @@ const checks = [
   ['Android Gradle package matches the published application ID', 'android/app/build.gradle', (s) => s.includes('namespace = "chatpalez.app.webview"') && s.includes('applicationId "chatpalez.app.webview"')],
   ['mobile user agent is configured for the session bridge', 'capacitor.config.ts', (s) => s.includes('ChatPalezMobile/1.0')],
   ['mixed content is disabled', 'capacitor.config.ts', (s) => s.includes('allowMixedContent: false')],
+  ['native splash cannot remain indefinitely on startup failure', 'capacitor.config.ts', (s) => s.includes('launchAutoHide: true')],
+  ['production origin has a safe local-build fallback', 'src/config.ts', (s) => s.includes("'https://chatpalez.com'")],
   ['Android cleartext traffic is disabled', 'android/app/src/main/AndroidManifest.xml', (s) => s.includes('android:usesCleartextTraffic="false"')],
   ['Android deep link is declared', 'android/app/src/main/AndroidManifest.xml', (s) => s.includes('android:scheme="chatpalez"') && s.includes('android:host="open"')],
   ['Android camera permission is declared', 'android/app/src/main/AndroidManifest.xml', (s) => s.includes('android.permission.CAMERA')],
