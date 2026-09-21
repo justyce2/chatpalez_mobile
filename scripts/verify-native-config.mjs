@@ -25,7 +25,7 @@ const checks = [
   ['iOS photo-library explanation is declared', 'ios/App/App/Info.plist', (s) => s.includes('NSPhotoLibraryUsageDescription')],
   ['ChatPalez launcher icon is provisioned', 'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png', (s) => s.length > 0],
   ['ChatPalez iOS app icon is provisioned', 'ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png', (s) => s.length > 0],
-  ['local welcome screen uses the ChatPalez icon asset', 'src/app-shell.ts', (s) => s.includes("/brand/chatpalez-app-icon.png")],
+  ['local auth screen uses the ChatPalez icon asset', 'src/auth-shell.ts', (s) => s.includes("/brand/chatpalez-app-icon.png")],
   ['mobile client contains no Sngine server API secret', 'src', (s) => !s.includes('system_api_secret')],
   ['JWT session persistence has no browser-storage fallback', 'src/auth/session.ts', (s) => !/\b(?:sessionStorage|localStorage)\s*[.\[]/.test(s)],
   ['retained-web bridge posts without a JWT query string', 'src/web-session.ts', (s) => s.includes("form.method = 'POST'") && !/mobile-session\.php\?.*token/.test(s)],
