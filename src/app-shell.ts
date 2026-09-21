@@ -1,7 +1,7 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
 import type { MobileEvent, MobileGroup, MobilePage, MobilePerson, MobileSearchResult } from './api/community';
 import type { NotificationItem } from './api/notifications';
-import type { FeedPost, FeedView, ReelItem } from './api/feed';
+import type { FeedPost, FeedView, ReelItem, VideoItem } from './api/feed';
 import type { BlockedUser } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
@@ -19,6 +19,7 @@ export type AppShellHandlers = {
   onOpenWebModule: (path: string, target?: string) => void;
   onLoadFeed?: (view: FeedView, offset: number) => Promise<PageResult<FeedPost>>;
   onLoadReels?: (offset: number) => Promise<PageResult<ReelItem>>;
+  onLoadWatch?: (offset: number) => Promise<PageResult<VideoItem>>;
   onLoadPages?: (view: 'discover' | 'liked' | 'manage', offset: number) => Promise<PageResult<MobilePage>>;
   onLoadGroups?: (view: 'discover' | 'joined' | 'manage', offset: number) => Promise<PageResult<MobileGroup>>;
   onLoadEvents?: (view: 'discover' | 'going' | 'interested' | 'invited' | 'manage', offset: number) => Promise<PageResult<MobileEvent>>;
@@ -134,7 +135,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       { label: 'Groups', icon: 'groups', action: () => void showGroups('discover') },
       { label: 'Events', icon: 'events', action: () => void showEvents('discover') },
       { label: 'Reels', icon: 'reels', action: () => void showReels() },
-      { label: 'Watch', icon: 'watch', action: () => showRetainedModule('/watch', 'Watch') },
+      { label: 'Watch', icon: 'watch', action: () => void showWatch() },
       { label: 'Blogs', icon: 'blogs', action: () => showRetainedModule('/blogs', 'Blogs') },
       { label: 'Market', icon: 'products', action: () => showRetainedModule('/market', 'Market') },
       { label: 'Funding', icon: 'funding', action: () => showRetainedModule('/funding', 'Funding') },
@@ -495,6 +496,93 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           window.alert(error instanceof Error ? error.message : 'Unable to update this connection.');
           button.disabled = false;
         });
+    }
+
+    async function showWatch(): Promise<void> {
+      backAction = () => { void showFeed('newsfeed'); };
+      setActiveTab('');
+      content.replaceChildren(screenTitle('Watch'));
+
+      const list = element('div', 'native-watch');
+      const loading = paragraph('Loading videos…');
+      list.append(loading);
+      content.append(list);
+
+      if (!handlers.onLoadWatch) {
+        loading.textContent = 'Watch is not available through the mobile API yet.';
+        return;
+      }
+
+      let offset = 0;
+      let hasMore = false;
+      const more = secondaryButton('Load more videos');
+      more.hidden = true;
+      content.append(more);
+
+      const load = async (append = false): Promise<void> => {
+        try {
+          const page = await handlers.onLoadWatch!(offset);
+          if (!append) list.replaceChildren();
+          if (!append && page.items.length === 0) list.append(paragraph('No videos to show yet.'));
+          for (const item of page.items) list.append(videoCard(item));
+          hasMore = page.hasMore;
+          more.hidden = !hasMore;
+        } catch (error) {
+          if (!append) list.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load videos.'));
+          else window.alert(error instanceof Error ? error.message : 'Unable to load more videos.');
+        }
+      };
+
+      more.addEventListener('click', () => {
+        if (!hasMore) return;
+        offset += 1;
+        void load(true);
+      });
+
+      await load();
+    }
+
+    function videoCard(item: VideoItem): HTMLElement {
+      const card = element('article', 'native-video-card');
+      const media = element('button', 'native-video-media');
+      media.type = 'button';
+      media.setAttribute('aria-label', 'Open video');
+
+      if (item.thumbnail) {
+        const image = document.createElement('img');
+        image.src = item.thumbnail;
+        image.alt = '';
+        image.loading = 'lazy';
+        media.append(image);
+      } else {
+        media.append(elementWithText('span', 'Video'));
+      }
+
+      const play = elementWithText('span', '▶');
+      play.className = 'native-video-play';
+      media.append(play);
+      media.addEventListener('click', () => showRetainedModule(item.url || `/posts/${item.post_id}`, 'Video'));
+
+      const body = element('div', 'native-video-body');
+      const identity = element('div', 'native-video-identity');
+      if (item.author_picture) {
+        const avatar = document.createElement('img');
+        avatar.src = item.author_picture;
+        avatar.alt = '';
+        identity.append(avatar);
+      }
+      identity.append(elementWithText('strong', item.author_name || item.author_username || 'ChatPalez'));
+      body.append(identity);
+      if (item.text) body.append(elementWithText('p', item.text));
+      const stats = element('div', 'native-video-stats');
+      stats.append(
+        elementWithText('span', `${item.reaction_like_count || 0} likes`),
+        elementWithText('span', `${item.comments || 0} comments`),
+        elementWithText('span', `${item.shares || 0} shares`)
+      );
+      body.append(stats);
+      card.append(media, body);
+      return card;
     }
 
     async function showReels(): Promise<void> {
