@@ -1,4 +1,7 @@
-const rawOrigin = import.meta.env.VITE_CHATPALEZ_ORIGIN?.trim();
+// Production has a safe built-in origin so a local build cannot crash before
+// the recovery UI simply because .env was not copied. .env can still override
+// this for controlled development environments.
+const rawOrigin = import.meta.env.VITE_CHATPALEZ_ORIGIN?.trim() || 'https://chatpalez.com';
 const rawOneSignalAppId = import.meta.env.VITE_ONESIGNAL_APP_ID?.trim();
 const allowedHosts = (import.meta.env.VITE_ALLOWED_HOSTS ?? '')
   .split(',')
@@ -12,10 +15,6 @@ export type AppConfig = {
 };
 
 export function getAppConfig(): AppConfig {
-  if (!rawOrigin) {
-    throw new Error('VITE_CHATPALEZ_ORIGIN is not configured.');
-  }
-
   const origin = new URL(rawOrigin);
   if (origin.protocol !== 'https:' && origin.hostname !== 'localhost') {
     throw new Error('ChatPalez origin must use HTTPS outside localhost.');
