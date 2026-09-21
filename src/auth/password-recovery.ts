@@ -73,7 +73,7 @@ function renderNewPasswordStep(options: PasswordRecoveryOptions, emailAddress: s
   confirm.autocomplete = 'new-password';
   const error = errorBox();
   const submit = primaryButton('Change password');
-  form.append(field('New password', password), field('Confirm new password', confirm), error, submit, backButton(options.onReturnToLogin));
+  form.append(field('New password', passwordField(password)), field('Confirm new password', passwordField(confirm)), error, submit, backButton(options.onReturnToLogin));
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     error.hidden = true;
@@ -124,13 +124,33 @@ function fieldInput(type: string, placeholder: string): HTMLInputElement {
   return input;
 }
 
-function field(label: string, input: HTMLInputElement): HTMLLabelElement {
+function field(label: string, input: HTMLElement): HTMLLabelElement {
   const wrapper = document.createElement('label');
   wrapper.className = 'field';
   const text = document.createElement('span');
   text.textContent = label;
   wrapper.append(text, input);
   return wrapper;
+}
+
+function passwordField(inputControl: HTMLInputElement): HTMLDivElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'password-field';
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'password-toggle';
+  toggle.setAttribute('aria-label', 'Show password');
+  toggle.setAttribute('aria-pressed', 'false');
+  toggle.textContent = '👁';
+  toggle.addEventListener('click', () => {
+    const showing = inputControl.type === 'text';
+    inputControl.type = showing ? 'password' : 'text';
+    toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    toggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
+    inputControl.focus({ preventScroll: true });
+  });
+  wrap.append(inputControl, toggle);
+  return wrap;
 }
 
 function errorBox(): HTMLParagraphElement {
