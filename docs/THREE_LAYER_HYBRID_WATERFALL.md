@@ -434,3 +434,16 @@ External/runtime gates remaining after source remediation:
 - run local verify/test/build/cap-sync and installed Android/iOS acceptance.
 
 GitHub Actions remain disabled and were not triggered.
+
+
+### Verified-link artifact generator
+
+The app-side App Link/Universal Link declarations are now paired with a fail-closed generator:
+
+- `npm run build:domain-links`;
+- reads `ANDROID_APP_LINK_SHA256` and `APPLE_TEAM_ID` from project `.env` or the operating-system environment;
+- validates the signing identities;
+- generates the exact Android `assetlinks.json` and iOS `apple-app-site-association` files under `artifacts/well-known/`;
+- refuses to generate production association files from missing or malformed placeholders.
+
+Source preparation for verified HTTPS links is complete. Publishing the generated files remains blocked only on the real Play signing fingerprint and Apple Team ID.
