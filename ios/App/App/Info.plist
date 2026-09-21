@@ -35,6 +35,12 @@
       </array>
     </dict>
   </array>
+  <key>WKAppBoundDomains</key>
+  <array>
+    <string>localhost</string>
+    <string>chatpalez.com</string>
+    <string>www.chatpalez.com</string>
+  </array>
   <key>LSRequiresIPhoneOS</key>
   <true/>
   <key>NSCameraUsageDescription</key>
