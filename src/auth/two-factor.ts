@@ -15,9 +15,10 @@ export function renderTwoFactorChallenge(options: TwoFactorOptions): void {
 
   const header = document.createElement('div');
   header.className = 'auth-header';
-  const mark = document.createElement('div');
+  const mark = document.createElement('img');
   mark.className = 'brand-mark';
-  mark.textContent = 'C';
+  mark.src = '/brand/chatpalez-app-icon.png';
+  mark.alt = '';
   mark.setAttribute('aria-hidden', 'true');
   const title = document.createElement('h1');
   title.textContent = 'Two-factor authentication';
