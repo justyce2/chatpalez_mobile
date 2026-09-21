@@ -185,7 +185,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       { id: 'reels', label: 'Reels', icon: 'reels', action: () => handlers.onOpenWebModule('/reels') },
       { id: 'add', label: 'Add', icon: 'header-plus', action: () => showQuickAdd() },
       { id: 'search', label: 'Search', icon: 'header-search', action: () => handlers.onOpenWebModule('/search') },
-      { id: 'menu', label: 'Menu', icon: 'user_information', action: () => showProfile() }
+      { id: 'menu', label: 'Menu', icon: 'user_information', action: () => showAccountMenu() }
     ] as const;
 
     const buttons = new Map<string, HTMLButtonElement>();
@@ -280,6 +280,53 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       await load();
     }
 
+    function showAccountMenu(): void {
+      setActiveTab('menu');
+      content.replaceChildren();
+
+      const accountHead = element('section', 'account-menu-head');
+      const accountAvatar = element('div', 'account-menu-avatar');
+      accountAvatar.textContent = displayName.trim().slice(0, 1).toUpperCase() || 'C';
+      const identity = element('div', 'account-menu-identity');
+      identity.append(elementWithText('strong', displayName));
+      if (user.user_name) identity.append(elementWithText('span', `@${String(user.user_name)}`));
+      accountHead.append(accountAvatar, identity);
+      content.append(accountHead);
+
+      const sections: Array<Array<{ icon: string; label: string; action: () => void }>> = [
+        [
+          { icon: 'user_information', label: 'View profile', action: showProfile },
+          { icon: 'settings', label: 'Account & settings', action: () => void showSettings() },
+          { icon: 'saved', label: 'Saved', action: () => void showFeed('saved') },
+          { icon: 'notifications', label: 'Notifications', action: () => void showNotifications() }
+        ],
+        [
+          { icon: 'privacy', label: 'Privacy Policy', action: () => handlers.onOpenWebModule('/static/privacy') },
+          { icon: 'terms', label: 'Terms & Conditions', action: () => handlers.onOpenWebModule('/static/terms') },
+          { icon: 'shield', label: 'Child Safety', action: () => handlers.onOpenWebModule('/static/child-safety') },
+          { icon: 'delete', label: 'Account deletion help', action: () => handlers.onOpenWebModule('/account-deletion.php') }
+        ]
+      ];
+
+      for (const group of sections) {
+        const section = element('section', 'account-menu-section');
+        for (const item of group) {
+          const button = navigationButton(item.icon, item.label);
+          button.classList.add('account-menu-item');
+          button.addEventListener('click', item.action);
+          section.append(button);
+        }
+        content.append(section);
+      }
+
+      const logout = navigationButton('logout', 'Sign out');
+      logout.classList.add('account-menu-item', 'account-menu-logout');
+      logout.addEventListener('click', () => void handlers.onLogout());
+      const logoutSection = element('section', 'account-menu-section');
+      logoutSection.append(logout);
+      content.append(logoutSection);
+    }
+
     function showProfile(): void {
       content.replaceChildren(screenTitle('Profile'));
       const profileCard = element('div', 'profile-card');
@@ -299,7 +346,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const header = element('div', 'conversation-header');
       const back = secondaryButton('Back');
       back.classList.add('compact-button');
-      back.addEventListener('click', showProfile);
+      back.addEventListener('click', showAccountMenu);
       header.append(back, screenTitle('Account & settings'));
       content.append(header);
 
