@@ -190,8 +190,8 @@ Existing working native surfaces to retain:
 | H5-01 | Expand native account menu | Planned | Full mobile account navigation |
 | H5-02 | Native profile detail/edit API audit | Planned | Native where supported; app-theme fallback otherwise |
 | H5-03 | Native privacy/settings expansion | Planned | Common account controls local/API driven |
-| H5-04 | Native Create menu | In Progress | App-owned action sheet/grid mirrors website capabilities |
-| H5-05 | Post composer API implementation/audit | Planned | Native composer where safe |
+| H5-04 | Native Create menu | Testing | App-owned action sheet/grid mirrors website capabilities |
+| H5-05 | Post composer API implementation/audit | Testing | Native composer where safe |
 | H5-06 | Page/Group/Event creation | Planned | Native API or stripped app-theme fallback by complexity |
 | H5-07 | Legal/safety/account-deletion links | Testing | Accessible from native account menu |
 
@@ -264,7 +264,7 @@ These are not reasons to stop implementation, but must be called out for runtime
 ## 7. Current Work Pointer
 
 **Current phase:** PHASE 2 — Core API/native content surfaces (Phase 1 source implementation is in Testing pending Android/iOS acceptance).  
-**Next task:** H5-04/H5-05 native Create/Post composer audit and implementation, while retaining the app-theme fallback for complex create flows.  
-**Parallel testing gate:** deploy latest `sngine-fresh` and verify feed/community/search/people/reels/watch/post/community detail plus `chatpalez_app` fallback rendering in Android.
+**Next task:** H4-02 through H4-07 retained-content/session/navigation regression and then H5-01 through H5-03 account/profile/settings expansion.  
+**Parallel testing gate:** deploy latest `sngine-fresh` and verify native feed/community/search/people/reels/watch/post/community detail, native text-post creation, and `chatpalez_app` fallback rendering in Android.
 
 This document supersedes older implementation notes that stated feed/groups/pages/search must remain full retained-web surfaces for v1. Those historical decisions remain useful context, but this document governs implementation from 2026-09-21 onward.
