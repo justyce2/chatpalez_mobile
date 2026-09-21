@@ -17,6 +17,7 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onSessionExpired?: () => void;
+  onAppearanceChanged?: (mode: 'system' | 'day' | 'night', resolvedNight: boolean) => void;
   onOpenWebModule: (path: string, target?: string) => void;
   trustedWebOrigin?: string;
   onLoadFeed?: (view: FeedView, offset: number) => Promise<PageResult<FeedPost>>;
@@ -323,7 +324,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       };
     };
     window.addEventListener('message', retainedMessageListener);
-    authenticatedCleanup = () => window.removeEventListener('message', retainedMessageListener);
+    authenticatedCleanup = () => {
+      window.removeEventListener('message', retainedMessageListener);
+      appearanceMedia?.removeEventListener('change', appearanceChangeListener);
+    };
 
     const nav = element('nav', 'bottom-tabs');
     nav.setAttribute('aria-label', 'Primary');
@@ -1618,13 +1622,21 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       return stored === 'day' || stored === 'night' ? stored : 'system';
     }
 
+    const appearanceMedia = window.matchMedia?.('(prefers-color-scheme: dark)');
+
     function applyAppearance(mode: NativeAppearanceMode): void {
       localStorage.setItem('chatpalez.appearance', mode);
-      const prefersNight = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+      const prefersNight = appearanceMedia?.matches ?? false;
       const night = mode === 'night' || (mode === 'system' && prefersNight);
       document.body.classList.toggle('native-theme-night', night);
       document.body.dataset.appearance = mode;
+      handlers.onAppearanceChanged?.(mode, night);
     }
+
+    const appearanceChangeListener = (): void => {
+      if (getAppearanceMode() === 'system') applyAppearance('system');
+    };
+    appearanceMedia?.addEventListener('change', appearanceChangeListener);
 
     function showAppearanceSettings(): void {
       backAction = showAccountMenu;
