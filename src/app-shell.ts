@@ -1,7 +1,7 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
 import type { MobileEvent, MobileGroup, MobilePage, MobilePerson, MobileSearchResult } from './api/community';
 import type { NotificationItem } from './api/notifications';
-import type { FeedPost, FeedView, ReelItem, VideoItem } from './api/feed';
+import type { FeedPost, FeedView, PostComment, ReelItem, VideoItem } from './api/feed';
 import type { BlockedUser } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
@@ -18,6 +18,10 @@ export type AppShellHandlers = {
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string, target?: string) => void;
   onLoadFeed?: (view: FeedView, offset: number) => Promise<PageResult<FeedPost>>;
+  onLoadPost?: (postId: number | string) => Promise<FeedPost>;
+  onLoadPostComments?: (postId: number | string, offset: number) => Promise<PageResult<PostComment>>;
+  onReactToPost?: (postId: number | string, reaction: string, remove: boolean) => Promise<void>;
+  onCommentOnPost?: (postId: number | string, message: string) => Promise<PostComment>;
   onLoadReels?: (offset: number) => Promise<PageResult<ReelItem>>;
   onLoadWatch?: (offset: number) => Promise<PageResult<VideoItem>>;
   onLoadPages?: (view: 'discover' | 'liked' | 'manage', offset: number) => Promise<PageResult<MobilePage>>;
@@ -332,7 +336,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           if (!append && page.items.length === 0) {
             list.append(paragraph('Nothing to show yet.'));
           } else {
-            for (const post of page.items) list.append(feedCard(post, handlers.onOpenWebModule));
+            for (const post of page.items) list.append(feedCard(post, (postId) => { void showPostDetail(postId); }));
           }
           hasMore = page.hasMore;
           more.hidden = !hasMore;
@@ -498,6 +502,138 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         });
     }
 
+    async function showPostDetail(postId: number | string): Promise<void> {
+      backAction = () => { void showFeed('newsfeed'); };
+      setActiveTab('');
+      content.replaceChildren();
+
+      const header = element('div', 'conversation-header');
+      const back = secondaryButton('Back');
+      back.classList.add('compact-button');
+      back.addEventListener('click', () => void showFeed('newsfeed'));
+      header.append(back, screenTitle('Post'));
+      content.append(header);
+
+      if (!handlers.onLoadPost) {
+        content.append(paragraph('Post detail is not available through the mobile API yet.'));
+        return;
+      }
+
+      const body = element('div', 'native-post-detail');
+      body.append(paragraph('Loading post…'));
+      content.append(body);
+
+      try {
+        const post = await handlers.onLoadPost(postId);
+        body.replaceChildren();
+
+        const card = feedCard(post);
+        const mediaSource = post.reel?.source || post.video?.source;
+        if (mediaSource) {
+          card.querySelector('.native-post-media')?.remove();
+          const player = document.createElement('video');
+          player.className = 'native-post-player';
+          player.controls = true;
+          player.playsInline = true;
+          player.preload = 'metadata';
+          player.src = mediaSource;
+          const poster = post.reel?.thumbnail || post.video?.thumbnail;
+          if (poster) player.poster = poster;
+          card.insertBefore(player, card.querySelector('.native-post-stats'));
+        }
+
+        const controls = element('div', 'native-post-detail-actions');
+        if (handlers.onReactToPost) {
+          const like = secondaryButton(post.i_react ? 'Unlike' : 'Like');
+          like.classList.add('native-post-action');
+          like.addEventListener('click', () => {
+            const remove = Boolean(post.i_react);
+            const reaction = post.i_reaction || 'like';
+            like.disabled = true;
+            void handlers.onReactToPost!(post.post_id, reaction, remove)
+              .then(() => {
+                post.i_react = !remove;
+                post.i_reaction = post.i_react ? reaction : null;
+                like.textContent = post.i_react ? 'Unlike' : 'Like';
+              })
+              .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to react to this post.'))
+              .finally(() => { like.disabled = false; });
+          });
+          controls.append(like);
+        }
+        body.append(card, controls);
+
+        const commentsSection = element('section', 'native-comments');
+        commentsSection.append(elementWithText('h3', 'Comments'));
+        const commentsList = element('div', 'native-comments-list');
+        commentsSection.append(commentsList);
+
+        let commentOffset = 0;
+        let commentHasMore = false;
+        const moreComments = secondaryButton('Load more comments');
+        moreComments.hidden = true;
+        commentsSection.append(moreComments);
+
+        const loadComments = async (append = false): Promise<void> => {
+          if (!handlers.onLoadPostComments) {
+            if (!append) commentsList.replaceChildren(paragraph('Comments are not available through the mobile API yet.'));
+            return;
+          }
+          try {
+            const page = await handlers.onLoadPostComments(post.post_id, commentOffset);
+            if (!append) commentsList.replaceChildren();
+            if (!append && page.items.length === 0) commentsList.append(paragraph('No comments yet.'));
+            for (const item of page.items) commentsList.append(commentCard(item));
+            commentHasMore = page.hasMore;
+            moreComments.hidden = !commentHasMore;
+          } catch (error) {
+            if (!append) commentsList.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load comments.'));
+          }
+        };
+
+        moreComments.addEventListener('click', () => {
+          if (!commentHasMore) return;
+          commentOffset += 1;
+          void loadComments(true);
+        });
+
+        if (!post.comments_disabled && handlers.onCommentOnPost) {
+          const form = document.createElement('form');
+          form.className = 'native-comment-form';
+          const inputBox = document.createElement('textarea');
+          inputBox.rows = 2;
+          inputBox.placeholder = 'Write a comment…';
+          inputBox.required = true;
+          const submit = actionButton('Post');
+          submit.type = 'submit';
+          form.append(inputBox, submit);
+          form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const message = inputBox.value.trim();
+            if (!message) return;
+            submit.disabled = true;
+            void handlers.onCommentOnPost!(post.post_id, message)
+              .then((comment) => {
+                const empty = commentsList.querySelector('p');
+                if (empty && commentsList.children.length === 1) commentsList.replaceChildren();
+                commentsList.prepend(commentCard(comment));
+                inputBox.value = '';
+              })
+              .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to post comment.'))
+              .finally(() => { submit.disabled = false; });
+          });
+          commentsSection.append(form);
+        } else if (post.comments_disabled) {
+          commentsSection.append(paragraph('Comments are disabled for this post.'));
+        }
+
+        body.append(commentsSection);
+        await loadComments();
+      } catch (error) {
+        body.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load post.'));
+      }
+    }
+
     async function showWatch(): Promise<void> {
       backAction = () => { void showFeed('newsfeed'); };
       setActiveTab('');
@@ -561,7 +697,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const play = elementWithText('span', '▶');
       play.className = 'native-video-play';
       media.append(play);
-      media.addEventListener('click', () => showRetainedModule(item.url || `/posts/${item.post_id}`, 'Video'));
+      media.addEventListener('click', () => void showPostDetail(item.post_id));
 
       const body = element('div', 'native-video-body');
       const identity = element('div', 'native-video-identity');
@@ -648,7 +784,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const play = elementWithText('span', '▶');
       play.className = 'native-reel-play';
       media.append(play);
-      media.addEventListener('click', () => showRetainedModule(item.url || `/reels/${item.post_id}`, 'Reel', 'reels'));
+      media.addEventListener('click', () => void showPostDetail(item.post_id));
 
       const body = element('div', 'native-reel-body');
       const identity = element('div', 'native-reel-identity');
@@ -1411,7 +1547,7 @@ function navigationButton(icon: string, label: string): HTMLButtonElement {
   return button;
 }
 
-function feedCard(post: FeedPost, openWebModule: (path: string) => void): HTMLElement {
+function feedCard(post: FeedPost, onOpenPost?: (postId: number | string) => void): HTMLElement {
   const card = element('article', 'native-post-card');
   const header = element('div', 'native-post-header');
   if (post.author_picture) {
@@ -1481,16 +1617,36 @@ function feedCard(post: FeedPost, openWebModule: (path: string) => void): HTMLEl
   );
   card.append(stats);
 
-  const actions = element('div', 'native-post-actions');
-  const open = secondaryButton('Open post');
-  open.classList.add('native-post-action');
-  open.addEventListener('click', () => {
-    const route = post.url ? new URL(post.url).pathname : `/posts/${post.post_id}`;
-    openWebModule(route);
-  });
-  actions.append(open);
-  card.append(actions);
+  if (onOpenPost) {
+    const actions = element('div', 'native-post-actions');
+    const open = secondaryButton('Open post');
+    open.classList.add('native-post-action');
+    open.addEventListener('click', () => onOpenPost(post.post_id));
+    actions.append(open);
+    card.append(actions);
+  }
   return card;
+}
+
+function commentCard(comment: PostComment): HTMLElement {
+  const item = element('article', 'native-comment');
+  if (comment.author_picture) {
+    const avatar = document.createElement('img');
+    avatar.className = 'native-comment-avatar';
+    avatar.src = comment.author_picture;
+    avatar.alt = '';
+    item.append(avatar);
+  }
+  const body = element('div', 'native-comment-body');
+  body.append(elementWithText('strong', comment.author_name || 'ChatPalez'));
+  if (comment.text) body.append(elementWithText('p', comment.text));
+  const meta = element('div', 'native-comment-meta');
+  if (comment.time) meta.append(elementWithText('span', comment.time));
+  if (comment.reactions_total_count) meta.append(elementWithText('span', `${comment.reactions_total_count} reactions`));
+  if (comment.replies) meta.append(elementWithText('span', `${comment.replies} replies`));
+  body.append(meta);
+  item.append(body);
+  return item;
 }
 
 function localTabs(items: Array<[string, () => void, boolean]>): HTMLElement {
