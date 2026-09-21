@@ -128,7 +128,26 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     authenticatedCleanup = null;
     root.replaceChildren();
     const user = session.user;
-    const displayName = String(user.user_fullname || user.user_firstname || user.user_name || 'ChatPalez');
+    let displayName = String(user.user_fullname || user.user_firstname || user.user_name || 'ChatPalez');
+    let cachedAccount: MobileAccount | null = null;
+
+    async function loadAccountSnapshot(force = false): Promise<MobileAccount> {
+      if (!handlers.onLoadAccount) throw new Error('Native account details are not available yet.');
+      if (!force && cachedAccount) return cachedAccount;
+      const account = await handlers.onLoadAccount();
+      cachedAccount = account;
+      displayName = account.fullname || [account.firstname, account.lastname].filter(Boolean).join(' ') || account.username || displayName;
+      if (account.username) user.user_name = account.username;
+      if (account.email) user.user_email = account.email;
+      if (account.firstname) user.user_firstname = account.firstname;
+      if (account.lastname) user.user_lastname = account.lastname;
+      user.user_fullname = displayName;
+      return account;
+    }
+
+    function invalidateAccountSnapshot(): void {
+      cachedAccount = null;
+    }
     const layout = element('section', 'mobile-layout');
     const drawer = element('aside', 'native-drawer');
     drawer.id = 'chatpalez-native-drawer';
@@ -1319,7 +1338,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       }
 
       try {
-        const account = await handlers.onLoadAccount();
+        const account = await loadAccountSnapshot();
         card.replaceChildren();
 
         if (account.picture) {
@@ -1374,7 +1393,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
       if (handlers.onLoadAccount) {
         try {
-          const details = await handlers.onLoadAccount();
+          const details = await loadAccountSnapshot();
           accountStatus.textContent = details.email || details.username || displayName;
           const menu = element('div', 'settings-action-grid');
 
@@ -1520,7 +1539,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showProfileEditor(account?: MobileAccount): Promise<void> {
-      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      const details = account || (handlers.onLoadAccount ? await loadAccountSnapshot() : undefined);
       if (!details || !handlers.onUpdateProfile) return;
 
       backAction = () => { void showSettings(); };
@@ -1563,6 +1582,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         };
         void handlers.onUpdateProfile!(payload)
           .then(() => {
+            invalidateAccountSnapshot();
             message.textContent = 'Profile updated.';
             window.setTimeout(() => { void showSettings(); }, 250);
           })
@@ -1576,7 +1596,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showIdentityEditor(account?: MobileAccount): Promise<void> {
-      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      const details = account || (handlers.onLoadAccount ? await loadAccountSnapshot() : undefined);
       if (!details || !handlers.onUpdateIdentity) return;
 
       backAction = () => { void showSettings(); };
@@ -1604,6 +1624,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           phone: phone.control.value.trim(),
           password: password.control.value
         }).then(() => {
+          invalidateAccountSnapshot();
           message.textContent = 'Account updated. Verification may be required for changed email or phone details.';
           password.control.value = '';
         }).catch((error: unknown) => {
@@ -1614,7 +1635,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showWorkEditor(account?: MobileAccount): Promise<void> {
-      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      const details = account || (handlers.onLoadAccount ? await loadAccountSnapshot() : undefined);
       if (!details || !handlers.onUpdateWork) return;
       await showSimpleSettingsEditor('Work', [
         ['Job title', 'text', details.work_title || ''],
@@ -1626,7 +1647,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showLocationEditor(account?: MobileAccount): Promise<void> {
-      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      const details = account || (handlers.onLoadAccount ? await loadAccountSnapshot() : undefined);
       if (!details || !handlers.onUpdateLocation) return;
       await showSimpleSettingsEditor('Location', [
         ['Current city', 'text', details.city || ''],
@@ -1637,7 +1658,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showEducationEditor(account?: MobileAccount): Promise<void> {
-      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      const details = account || (handlers.onLoadAccount ? await loadAccountSnapshot() : undefined);
       if (!details || !handlers.onUpdateEducation) return;
       await showSimpleSettingsEditor('Education', [
         ['Major', 'text', details.edu_major || ''],
@@ -1649,7 +1670,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showSocialEditor(account?: MobileAccount): Promise<void> {
-      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      const details = account || (handlers.onLoadAccount ? await loadAccountSnapshot() : undefined);
       if (!details || !handlers.onUpdateSocial) return;
       await showSimpleSettingsEditor('Social links', [
         ['Facebook', 'url', details.facebook || ''],
@@ -1673,7 +1694,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showPrivacyEditor(account?: MobileAccount): Promise<void> {
-      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      const details = account || (handlers.onLoadAccount ? await loadAccountSnapshot() : undefined);
       if (!details || !handlers.onUpdatePrivacy) return;
 
       backAction = () => { void showSettings(); };
@@ -1749,6 +1770,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           user_suggestions_hidden: suggestionsHidden.control.checked,
           user_incognito_enabled: incognito.control.checked
         }).then(() => {
+          invalidateAccountSnapshot();
           message.textContent = 'Privacy settings updated.';
         }).catch((error: unknown) => {
           message.textContent = error instanceof Error ? error.message : 'Unable to update privacy settings.';
@@ -1815,7 +1837,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         submit.disabled = true;
         message.textContent = 'Saving…';
         void save(fields.map((item) => item.control.value.trim()))
-          .then(() => { message.textContent = 'Saved.'; })
+          .then(() => { invalidateAccountSnapshot(); message.textContent = 'Saved.'; })
           .catch((error: unknown) => {
             message.textContent = error instanceof Error ? error.message : 'Unable to save changes.';
           })
