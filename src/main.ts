@@ -252,6 +252,19 @@ const shell = createAppShell(root, {
     logInfo('Native feed loaded', { view, count: page.data.length, offset, hasMore: page.hasMore });
     return { items: page.data, hasMore: page.hasMore };
   },
+  onLoadPost: async (postId) => {
+    return feed.getPost(postId);
+  },
+  onLoadPostComments: async (postId, offset) => {
+    const page = await feed.getPostComments(postId, offset);
+    return { items: page.data, hasMore: page.hasMore };
+  },
+  onReactToPost: async (postId, reaction, remove) => {
+    await feed.reactToPost(postId, reaction, remove);
+  },
+  onCommentOnPost: async (postId, message) => {
+    return feed.commentOnPost(postId, message);
+  },
   onLoadPages: async (view, offset) => {
     const page = await community.getPages(view, offset);
     return { items: page.data, hasMore: page.hasMore };
