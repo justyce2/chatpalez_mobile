@@ -20,6 +20,10 @@ export class UserService {
     return this.api.getPage<BlockedUser[]>('user/blocked', { offset });
   }
 
+  async connect(action: string, id: number | string, uid?: number | string): Promise<void> {
+    await this.api.post<unknown>('user/connect', { do: action, id, uid: uid ?? 0 });
+  }
+
   async deleteAccount(password: string): Promise<void> {
     await this.api.post<unknown>('user/delete', { password });
   }
