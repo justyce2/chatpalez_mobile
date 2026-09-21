@@ -4,18 +4,14 @@ Hybrid Android and iOS client for ChatPalez, built with Capacitor 8 and TypeScri
 
 ## Architecture
 
-This repository contains the shared mobile shell plus Android and iOS native projects. The existing ChatPalez PHP/Smarty application remains the system of record for social-network business logic and most UI; native capabilities are layered onto the installed app through Capacitor and the guarded backend mobile bridge.
+ChatPalez Mobile now uses a **website-first hybrid** architecture.
 
-Core project documents:
+- Native/local: startup, sign in, sign up, activation/onboarding, password recovery, 2FA, secure JWT storage and native push setup.
+- Post-login: the full responsive ChatPalez mobile website owns navigation and all social-network screens.
+- Session handoff: the JWT is POSTed to `mobile-session.php`, which establishes normal website cookies and redirects the main Capacitor WebView.
+- App-specific website styling: `content/themes/chatpalez_app/` inherits the normal website and is the customization layer for making the mobile site feel more native.
 
-- `docs/ARCHITECTURE_AND_SCOPE.md` — architecture and delivery scope
-- `docs/BACKLOG.md` — implementation/status ledger
-- `docs/RUNTIME_QA_MATRIX.md` — Android/iOS runtime acceptance tests
-- `docs/APP_STORE_COMPLIANCE.md` — UGC/privacy/store audit
-- `docs/RELEASE_INPUTS.md` — external Apple/Google/Firebase/OneSignal/signing inputs
-- `docs/PLATFORM_SUPPORT.md` — supported Android/iOS versions and orientation policy
-- `docs/RELEASE_CHECKLIST.md` — authoritative release go/no-go checklist
-- `docs/DEEPLINK_DOMAIN_ASSOCIATION.md` — Android/iOS verified HTTPS link setup
+See `docs/WEBSITE_FIRST_WATERFALL.md` for the authoritative plan.
 
 ## Confirmed Runtime Identity
 
