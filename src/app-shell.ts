@@ -161,6 +161,30 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     function invalidateAccountSnapshot(): void {
       cachedAccount = null;
     }
+    type NativeAppearanceMode = 'system' | 'day' | 'night';
+
+    function getAppearanceMode(): NativeAppearanceMode {
+      const stored = localStorage.getItem('chatpalez.appearance');
+      return stored === 'day' || stored === 'night' ? stored : 'system';
+    }
+
+    const appearanceMedia = window.matchMedia?.('(prefers-color-scheme: dark)');
+
+    function applyAppearance(mode: NativeAppearanceMode): void {
+      localStorage.setItem('chatpalez.appearance', mode);
+      const prefersNight = appearanceMedia?.matches ?? false;
+      const night = mode === 'night' || (mode === 'system' && prefersNight);
+      document.body.classList.toggle('native-theme-night', night);
+      document.body.dataset.appearance = mode;
+      handlers.onAppearanceChanged?.(mode, night);
+    }
+
+    const appearanceChangeListener = (): void => {
+      if (getAppearanceMode() === 'system') applyAppearance('system');
+    };
+    appearanceMedia?.addEventListener('change', appearanceChangeListener);
+
+
     const layout = element('section', 'mobile-layout');
     const drawer = element('aside', 'native-drawer');
     drawer.id = 'chatpalez-native-drawer';
@@ -1614,29 +1638,6 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         body.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load this community.'));
       }
     }
-
-    type NativeAppearanceMode = 'system' | 'day' | 'night';
-
-    function getAppearanceMode(): NativeAppearanceMode {
-      const stored = localStorage.getItem('chatpalez.appearance');
-      return stored === 'day' || stored === 'night' ? stored : 'system';
-    }
-
-    const appearanceMedia = window.matchMedia?.('(prefers-color-scheme: dark)');
-
-    function applyAppearance(mode: NativeAppearanceMode): void {
-      localStorage.setItem('chatpalez.appearance', mode);
-      const prefersNight = appearanceMedia?.matches ?? false;
-      const night = mode === 'night' || (mode === 'system' && prefersNight);
-      document.body.classList.toggle('native-theme-night', night);
-      document.body.dataset.appearance = mode;
-      handlers.onAppearanceChanged?.(mode, night);
-    }
-
-    const appearanceChangeListener = (): void => {
-      if (getAppearanceMode() === 'system') applyAppearance('system');
-    };
-    appearanceMedia?.addEventListener('change', appearanceChangeListener);
 
     function showAppearanceSettings(): void {
       backAction = showAccountMenu;
