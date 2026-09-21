@@ -5,7 +5,7 @@ import { resolveAppDeepLink } from './navigation';
 
 export type RouteHandler = (route: string) => void;
 
-export async function registerNativeLifecycle(config: AppConfig, onRoute: RouteHandler): Promise<void> {
+export async function registerNativeLifecycle(config: AppConfig, onRoute: RouteHandler, onBack?: () => boolean): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
 
   await App.addListener('appUrlOpen', ({ url }) => {
@@ -15,6 +15,8 @@ export async function registerNativeLifecycle(config: AppConfig, onRoute: RouteH
 
   if (Capacitor.getPlatform() === 'android') {
     await App.addListener('backButton', ({ canGoBack }) => {
+      if (onBack?.()) return;
+
       if (canGoBack) {
         window.history.back();
         return;
