@@ -70,12 +70,14 @@ export type AppShell = {
   setBusy: (busy: boolean, message?: string) => void;
   setRetryAction: (action: () => void) => void;
   handleBack: () => boolean;
+  openRoute: (path: string) => boolean;
 };
 
 export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): AppShell {
   let retryAction: (() => void) | null = null;
   let backAction: (() => void) | null = null;
   let authenticatedCleanup: (() => void) | null = null;
+  let routeAction: ((path: string) => void) | null = null;
 
   const showStartup = (title: string, message: string, canRetry = false): void => {
     root.replaceChildren();
@@ -90,6 +92,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   };
 
   const showLogin = (error?: string): void => {
+    routeAction = null;
     root.replaceChildren();
     const wrap = element('section', 'auth-screen');
     const header = element('div', 'auth-header');
@@ -307,6 +310,76 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         else button.removeAttribute('aria-current');
       }
     }
+
+    function dispatchRoute(rawPath: string): void {
+      const url = new URL(rawPath || '/', handlers.trustedWebOrigin || 'https://chatpalez.com');
+      const path = url.pathname.replace(/\/+$/, '') || '/';
+
+      if (path === '/' || path === '/index') {
+        void showFeed('newsfeed');
+        return;
+      }
+      if (path === '/reels') {
+        void showReels();
+        return;
+      }
+      if (path === '/watch') {
+        void showWatch();
+        return;
+      }
+      if (path === '/search') {
+        showSearch();
+        return;
+      }
+      if (path === '/people') {
+        void showPeople('discover');
+        return;
+      }
+      if (path === '/people/friend_requests') {
+        void showPeople('requests');
+        return;
+      }
+      if (path === '/pages') {
+        void showPages('discover');
+        return;
+      }
+      if (path === '/groups') {
+        void showGroups('discover');
+        return;
+      }
+      if (path === '/events') {
+        void showEvents('discover');
+        return;
+      }
+      if (path === '/notifications') {
+        void showNotifications();
+        return;
+      }
+      if (path === '/messages' || path === '/chat') {
+        void showConversationList();
+        return;
+      }
+      if (path === '/settings') {
+        void showSettings();
+        return;
+      }
+
+      const postMatch = path.match(/^\/posts\/(\d+)$/);
+      if (postMatch) {
+        void showPostDetail(postMatch[1]);
+        return;
+      }
+
+      const eventMatch = path.match(/^\/events\/(\d+)$/);
+      if (eventMatch) {
+        void showCommunityDetail('event', eventMatch[1]);
+        return;
+      }
+
+      showRetainedModule(`${path}${url.search}${url.hash}`, document.title || 'ChatPalez');
+    }
+
+    routeAction = dispatchRoute;
 
     function showRetainedModule(path: string, title: string, activeTab?: string): void {
       closeDrawer();
@@ -1880,9 +1953,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           if (item.time) button.append(elementWithText('small', String(item.time)));
           if (item.url) {
             button.addEventListener('click', () => {
-              const url = new URL(String(item.url), window.location.origin);
-              const path = `${url.pathname}${url.search}${url.hash}`;
-              handlers.onOpenWebModule(path);
+              const url = new URL(String(item.url), handlers.trustedWebOrigin || 'https://chatpalez.com');
+              dispatchRoute(`${url.pathname}${url.search}${url.hash}`);
             });
           } else {
             button.disabled = true;
@@ -2211,7 +2283,12 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     action();
     return true;
   };
-  return { showStartup, showLogin, showAuthenticated, setBusy, setRetryAction, handleBack };
+  const openRoute = (path: string): boolean => {
+    if (!routeAction) return false;
+    routeAction(path);
+    return true;
+  };
+  return { showStartup, showLogin, showAuthenticated, setBusy, setRetryAction, handleBack, openRoute };
 }
 
 function iconAsset(icon: string): string {
