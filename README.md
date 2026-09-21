@@ -44,7 +44,7 @@ See `docs/PLATFORM_SUPPORT.md` for orientation and support-policy details.
 - Android Studio + Android SDK for Android local builds
 - macOS + Xcode for iOS device/archive builds
 
-CI already validates Android debug/release compilation and unsigned iOS simulator compilation. Final signed store artifacts still require client-controlled signing credentials/accounts.
+Local build scripts and the checked-in native projects support Android debug/release compilation and iOS compilation. GitHub Actions are currently disabled by project-owner instruction; final signed store artifacts still require client-controlled signing credentials/accounts.
 
 ## First-time Setup
 
@@ -93,7 +93,7 @@ Only regenerate a native project deliberately. CI guards important native config
 
 - `VITE_CHATPALEZ_ORIGIN=https://chatpalez.com`
 - trusted internal host configuration
-- `CAP_APP_ID=com.chatpalez`
+- `CAP_APP_ID=chatpalez.app.webview`
 - `CAP_APP_NAME=ChatPalez`
 
 Never put API secrets, signing passwords, Apple APNs private keys, Firebase service-account credentials, OneSignal REST keys or private signing material in `VITE_*` variables or commit them to this repository.
@@ -151,9 +151,9 @@ The current generated Android `versionCode 1` and iOS build `1` are development 
 
 See `docs/RELEASE_INPUTS.md` before producing a final signed release.
 
-## CI Notes
+## Validation Notes
 
-`develop` commits trigger both the lightweight Mobile CI workflow and the heavier native validation workflow. When several implementation commits are pushed close together, GitHub may queue newer runs while Android emulator/macOS runners finish earlier work. A queued run is not treated as a failure, and release status is promoted only after the relevant validation job actually completes successfully.
+GitHub Actions are currently disabled by project-owner instruction. Run `npm run verify:native`, `npm test`, `npm run build`, `npx cap sync android`, and the Gradle build locally before treating a commit as a device-test candidate.
 
 ## Branch Strategy
 
