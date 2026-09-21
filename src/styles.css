@@ -958,3 +958,110 @@ body.native-drawer-open {
 .account-menu-logout {
   color: #b42318;
 }
+
+
+/* Shell-safe retained content container */
+.retained-module {
+  width: 100%;
+  min-height: calc(100dvh - var(--chatpalez-header-height) - var(--chatpalez-bottom-height) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 40px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--chatpalez-surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+}
+
+.retained-module-header {
+  min-height: 48px;
+  flex: 0 0 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 6px 0 14px;
+  border-bottom: 1px solid var(--chatpalez-divider);
+  background: #fff;
+}
+
+.retained-module-close {
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
+  padding: 10px;
+}
+
+.retained-module-loading {
+  margin: 0;
+  padding: 18px;
+  color: var(--chatpalez-muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+.retained-module-frame {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: calc(100dvh - var(--chatpalez-header-height) - var(--chatpalez-bottom-height) - 110px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  border: 0;
+  background: #fff;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+
+.retained-module-frame.is-ready {
+  opacity: 1;
+}
+
+/* Keep shell chrome touch targets stable and app-like. */
+.mobile-topbar,
+.bottom-tabs {
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.native-drawer-panel,
+.mobile-content {
+  overscroll-behavior-y: contain;
+}
+
+.native-drawer-backdrop {
+  touch-action: none;
+}
+
+.bottom-tabs .tab-button,
+.native-topbar-actions .native-icon-button,
+.native-topbar-left .native-icon-button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-tabs .tab-button:focus-visible,
+.native-icon-button:focus-visible,
+.account-menu-item:focus-visible,
+.native-drawer-list .native-navigation-button:focus-visible {
+  outline: 2px solid var(--chatpalez-link);
+  outline-offset: -2px;
+}
+
+@media (max-width: 380px) {
+  .mobile-topbar {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .native-icon-button {
+    width: 44px;
+    flex-basis: 44px;
+    padding: 11px;
+  }
+
+  .brand-mark-small {
+    max-width: 96px;
+  }
+
+  .mobile-content {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
