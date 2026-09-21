@@ -1,7 +1,7 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
 import type { MobileEvent, MobileGroup, MobilePage } from './api/community';
 import type { NotificationItem } from './api/notifications';
-import type { FeedPost, FeedView } from './api/feed';
+import type { FeedPost, FeedView, ReelItem } from './api/feed';
 import type { BlockedUser } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
@@ -18,6 +18,7 @@ export type AppShellHandlers = {
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string, target?: string) => void;
   onLoadFeed?: (view: FeedView, offset: number) => Promise<PageResult<FeedPost>>;
+  onLoadReels?: (offset: number) => Promise<PageResult<ReelItem>>;
   onLoadPages?: (view: 'discover' | 'liked' | 'manage', offset: number) => Promise<PageResult<MobilePage>>;
   onLoadGroups?: (view: 'discover' | 'joined' | 'manage', offset: number) => Promise<PageResult<MobileGroup>>;
   onLoadEvents?: (view: 'discover' | 'going' | 'interested' | 'invited' | 'manage', offset: number) => Promise<PageResult<MobileEvent>>;
@@ -130,7 +131,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       { label: 'Pages', icon: 'pages', action: () => void showPages('discover') },
       { label: 'Groups', icon: 'groups', action: () => void showGroups('discover') },
       { label: 'Events', icon: 'events', action: () => void showEvents('discover') },
-      { label: 'Reels', icon: 'reels', action: () => showRetainedModule('/reels', 'Reels', 'reels') },
+      { label: 'Reels', icon: 'reels', action: () => void showReels() },
       { label: 'Watch', icon: 'watch', action: () => showRetainedModule('/watch', 'Watch') },
       { label: 'Blogs', icon: 'blogs', action: () => showRetainedModule('/blogs', 'Blogs') },
       { label: 'Market', icon: 'products', action: () => showRetainedModule('/market', 'Market') },
@@ -205,7 +206,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     nav.setAttribute('aria-label', 'Primary');
     const bottomItems = [
       { id: 'home', label: 'Home', icon: 'header-home', action: () => void showFeed('newsfeed') },
-      { id: 'reels', label: 'Reels', icon: 'reels', action: () => showRetainedModule('/reels', 'Reels', 'reels') },
+      { id: 'reels', label: 'Reels', icon: 'reels', action: () => void showReels() },
       { id: 'add', label: 'Add', icon: 'header-plus', action: () => showQuickAdd() },
       { id: 'search', label: 'Search', icon: 'header-search', action: () => showRetainedModule('/search', 'Search', 'search') },
       { id: 'menu', label: 'Menu', icon: 'user_information', action: () => showAccountMenu() }
@@ -343,6 +344,93 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         void load(true);
       });
       await load();
+    }
+
+    async function showReels(): Promise<void> {
+      backAction = () => { void showFeed('newsfeed'); };
+      setActiveTab('reels');
+      content.replaceChildren(screenTitle('Reels'));
+
+      const list = element('div', 'native-reels');
+      const loading = paragraph('Loading reels…');
+      list.append(loading);
+      content.append(list);
+
+      if (!handlers.onLoadReels) {
+        loading.textContent = 'Reels are not available through the mobile API yet.';
+        return;
+      }
+
+      let offset = 0;
+      let hasMore = false;
+      const more = secondaryButton('Load more reels');
+      more.hidden = true;
+      content.append(more);
+
+      const load = async (append = false): Promise<void> => {
+        try {
+          const page = await handlers.onLoadReels!(offset);
+          if (!append) list.replaceChildren();
+          if (!append && page.items.length === 0) list.append(paragraph('No reels to show yet.'));
+          for (const item of page.items) list.append(reelCard(item));
+          hasMore = page.hasMore;
+          more.hidden = !hasMore;
+        } catch (error) {
+          if (!append) list.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load reels.'));
+          else window.alert(error instanceof Error ? error.message : 'Unable to load more reels.');
+        }
+      };
+
+      more.addEventListener('click', () => {
+        if (!hasMore) return;
+        offset += 1;
+        void load(true);
+      });
+
+      await load();
+    }
+
+    function reelCard(item: ReelItem): HTMLElement {
+      const card = element('article', 'native-reel-card');
+      const media = element('button', 'native-reel-media');
+      media.type = 'button';
+      media.setAttribute('aria-label', 'Open reel');
+
+      if (item.thumbnail) {
+        const image = document.createElement('img');
+        image.src = item.thumbnail;
+        image.alt = '';
+        image.loading = 'lazy';
+        media.append(image);
+      } else {
+        media.append(elementWithText('span', 'Reel'));
+      }
+
+      const play = elementWithText('span', '▶');
+      play.className = 'native-reel-play';
+      media.append(play);
+      media.addEventListener('click', () => showRetainedModule(item.url || `/reels/${item.post_id}`, 'Reel', 'reels'));
+
+      const body = element('div', 'native-reel-body');
+      const identity = element('div', 'native-reel-identity');
+      if (item.author_picture) {
+        const avatar = document.createElement('img');
+        avatar.src = item.author_picture;
+        avatar.alt = '';
+        identity.append(avatar);
+      }
+      identity.append(elementWithText('strong', item.author_name || item.author_username || 'ChatPalez'));
+      body.append(identity);
+      if (item.text) body.append(elementWithText('p', item.text));
+      const stats = element('div', 'native-reel-stats');
+      stats.append(
+        elementWithText('span', `${item.reaction_like_count || 0} likes`),
+        elementWithText('span', `${item.comments || 0} comments`),
+        elementWithText('span', `${item.shares || 0} shares`)
+      );
+      body.append(stats);
+      card.append(media, body);
+      return card;
     }
 
     async function showPages(view: 'discover' | 'liked' | 'manage' = 'discover'): Promise<void> {
