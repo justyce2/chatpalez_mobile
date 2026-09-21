@@ -390,6 +390,9 @@ const shell = createAppShell(root, {
   onUpdatePassword: async (payload) => {
     await users.updatePassword(payload);
   },
+  onUpdatePrivacy: async (payload) => {
+    await users.updatePrivacy(payload);
+  },
   onDeleteAccount: async (password) => {
     await users.deleteAccount(password);
     await logoutNativeNotifications().catch((error) => {
