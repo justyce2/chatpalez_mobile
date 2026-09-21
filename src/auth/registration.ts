@@ -41,6 +41,7 @@ export async function resumeRegistration(options: RegistrationOptions, session: 
 
 async function renderSignUp(options: RegistrationOptions): Promise<void> {
   const card = authCard('Create your ChatPalez account', 'Join ChatPalez from the mobile app.');
+  card.classList.add('auth-screen-signup');
   const loading = message('Loading registration options…');
   loading.dataset.registrationLoading = 'true';
   card.append(loading);
@@ -132,6 +133,7 @@ function continueAfterRegistration(options: RegistrationOptions, metadata: Regis
 
 function renderActivation(options: RegistrationOptions, metadata: RegistrationMetadata, session: AuthSession): void {
   const card = authCard('Activate your account', 'Enter the verification code sent by ChatPalez.');
+  card.classList.add('auth-screen-compact');
   const form = document.createElement('form');
   form.className = 'auth-form';
   const code = input('text', 'Verification code');
@@ -173,6 +175,7 @@ function renderActivation(options: RegistrationOptions, metadata: RegistrationMe
 
 function renderGettingStarted(options: RegistrationOptions, metadata: RegistrationMetadata, session: AuthSession): void {
   const card = authCard('Complete your profile', 'Add a few details to finish setting up ChatPalez.');
+  card.classList.add('auth-screen-onboarding');
   const form = document.createElement('form');
   form.className = 'auth-form';
   const country = selectFromRecords(metadata.countries, 'Select country', ['country_id', 'id'], ['country_name', 'name']);
