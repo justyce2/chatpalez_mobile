@@ -314,6 +314,18 @@ const shell = createAppShell(root, {
   onLoadCommunityDetail: async (type, id) => {
     return community.getDetail(type, id);
   },
+  onLoadCreationMeta: async (type) => {
+    return community.getCreationMeta(type);
+  },
+  onCreatePage: async (payload) => {
+    return community.createPage(payload);
+  },
+  onCreateGroup: async (payload) => {
+    return community.createGroup(payload);
+  },
+  onCreateEvent: async (payload) => {
+    return community.createEvent(payload);
+  },
   onConnect: async (action, id) => {
     await users.connect(action, id);
   },
