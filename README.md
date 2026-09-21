@@ -15,6 +15,7 @@ Core project documents:
 - `docs/RELEASE_INPUTS.md` — external Apple/Google/Firebase/OneSignal/signing inputs
 - `docs/PLATFORM_SUPPORT.md` — supported Android/iOS versions and orientation policy
 - `docs/RELEASE_CHECKLIST.md` — authoritative release go/no-go checklist
+- `docs/DEEPLINK_DOMAIN_ASSOCIATION.md` — Android/iOS verified HTTPS link setup
 
 ## Confirmed Runtime Identity
 
@@ -114,6 +115,7 @@ The active implementation includes:
 - safe-area/status/splash handling
 - selective haptics
 - custom `chatpalez://open` deep links with trusted-target validation
+- Android App Link and iOS Universal Link source declarations for `https://chatpalez.com/...`
 - OneSignal native SDK integration and user-controlled permission UX
 - ChatPalez user ↔ OneSignal external identity bridge
 - foreground/click notification handlers
@@ -126,7 +128,7 @@ The matching server-side bridge is maintained in `justyce2/chatpalez-backend-2` 
 
 ## Deep Links
 
-The installed Android app registers both the custom scheme and first-party HTTPS links:
+The installed app supports the custom scheme, and the native projects now declare first-party HTTPS App/Universal Links:
 
 ```text
 chatpalez://open?path=/settings/notifications
