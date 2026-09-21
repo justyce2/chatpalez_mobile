@@ -1,5 +1,6 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
 import type { NotificationItem } from './api/notifications';
+import type { FeedPost, FeedView } from './api/feed';
 import type { BlockedUser } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
@@ -15,6 +16,7 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string) => void;
+  onLoadFeed?: (view: FeedView, offset: number) => Promise<PageResult<FeedPost>>;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
   onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
@@ -95,58 +97,194 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     const user = session.user;
     const displayName = String(user.user_fullname || user.user_firstname || user.user_name || 'ChatPalez');
     const layout = element('section', 'mobile-layout');
+    const drawer = element('aside', 'native-drawer');
+    drawer.setAttribute('aria-hidden', 'true');
+    const drawerBackdrop = element('button', 'native-drawer-backdrop');
+    drawerBackdrop.type = 'button';
+    drawerBackdrop.setAttribute('aria-label', 'Close navigation');
+    const drawerPanel = element('div', 'native-drawer-panel');
+
+    const drawerHead = element('div', 'native-drawer-head');
+    drawerHead.append(brandMark('small'), elementWithText('strong', 'ChatPalez'));
+    const drawerClose = iconButton('header-menu', 'Close menu');
+    drawerClose.addEventListener('click', closeDrawer);
+    drawerHead.append(drawerClose);
+    drawerPanel.append(drawerHead);
+
+    const drawerItems: Array<{ label: string; icon: string; action: () => void }> = [
+      { label: 'News Feed', icon: 'header-home', action: () => void showFeed('newsfeed') },
+      { label: 'Popular Posts', icon: 'posts_discover', action: () => void showFeed('popular') },
+      { label: 'Discover Posts', icon: 'posts_recent', action: () => void showFeed('discover') },
+      { label: 'Saved', icon: 'save', action: () => void showFeed('saved') },
+      { label: 'Scheduled', icon: 'calendar', action: () => void showFeed('scheduled') },
+      { label: 'Memories', icon: 'memories', action: () => void showFeed('memories') },
+      { label: 'People', icon: 'friends', action: () => handlers.onOpenWebModule('/people') },
+      { label: 'Pages', icon: 'pages', action: () => handlers.onOpenWebModule('/pages') },
+      { label: 'Groups', icon: 'groups', action: () => handlers.onOpenWebModule('/groups') },
+      { label: 'Events', icon: 'events', action: () => handlers.onOpenWebModule('/events') },
+      { label: 'Reels', icon: 'reels', action: () => handlers.onOpenWebModule('/reels') },
+      { label: 'Watch', icon: 'watch', action: () => handlers.onOpenWebModule('/watch') },
+      { label: 'Blogs', icon: 'blogs', action: () => handlers.onOpenWebModule('/blogs') },
+      { label: 'Market', icon: 'products', action: () => handlers.onOpenWebModule('/market') },
+      { label: 'Funding', icon: 'funding', action: () => handlers.onOpenWebModule('/funding') },
+      { label: 'Offers', icon: 'offers', action: () => handlers.onOpenWebModule('/offers') },
+      { label: 'Jobs', icon: 'jobs', action: () => handlers.onOpenWebModule('/jobs') },
+      { label: 'Courses', icon: 'courses', action: () => handlers.onOpenWebModule('/courses') }
+    ];
+
+    const drawerList = element('div', 'native-drawer-list');
+    for (const item of drawerItems) {
+      const button = navigationButton(item.icon, item.label);
+      button.addEventListener('click', () => {
+        closeDrawer();
+        item.action();
+      });
+      drawerList.append(button);
+    }
+    drawerPanel.append(drawerList);
+    drawer.append(drawerBackdrop, drawerPanel);
+    drawerBackdrop.addEventListener('click', closeDrawer);
+
+    function openDrawer(): void {
+      drawer.classList.add('is-open');
+      drawer.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('native-drawer-open');
+    }
+    function closeDrawer(): void {
+      drawer.classList.remove('is-open');
+      drawer.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('native-drawer-open');
+    }
+
     const topbar = element('header', 'mobile-topbar');
-    const brand = element('div', 'topbar-brand');
-    brand.append(brandMark('small'), elementWithText('strong', 'ChatPalez'));
-    const avatar = document.createElement('button');
-    avatar.type = 'button';
-    avatar.className = 'avatar-button';
-    avatar.setAttribute('aria-label', 'Account');
-    avatar.textContent = initials(displayName);
-    avatar.addEventListener('click', () => void selectTab('profile'));
-    topbar.append(brand, avatar);
+    const topLeft = element('div', 'native-topbar-left');
+    const menu = iconButton('header-menu', 'Open navigation');
+    menu.addEventListener('click', openDrawer);
+    const brand = element('button', 'topbar-brand');
+    brand.type = 'button';
+    brand.append(brandMark('small'));
+    brand.addEventListener('click', () => void showFeed('newsfeed'));
+    topLeft.append(menu, brand);
+
+    const topActions = element('div', 'native-topbar-actions');
+    const requests = iconButton('header-friends', 'Friend requests');
+    requests.addEventListener('click', () => handlers.onOpenWebModule('/people/friend_requests'));
+    const messages = iconButton('header-messages', 'Messages');
+    messages.addEventListener('click', () => void showConversationList());
+    const alerts = iconButton('header-notifications', 'Notifications');
+    alerts.addEventListener('click', () => void showNotifications());
+    topActions.append(requests, messages, alerts);
+    topbar.append(topLeft, topActions);
 
     const content = element('main', 'mobile-content');
+
     const nav = element('nav', 'bottom-tabs');
     nav.setAttribute('aria-label', 'Primary');
-    const tabs = [
-      { id: 'home', label: 'Home' },
-      { id: 'messages', label: 'Messages' },
-      { id: 'notifications', label: 'Alerts' },
-      { id: 'profile', label: 'Profile' }
+    const bottomItems = [
+      { id: 'home', label: 'Home', icon: 'header-home', action: () => void showFeed('newsfeed') },
+      { id: 'reels', label: 'Reels', icon: 'reels', action: () => handlers.onOpenWebModule('/reels') },
+      { id: 'add', label: 'Add', icon: 'header-plus', action: () => showQuickAdd() },
+      { id: 'search', label: 'Search', icon: 'header-search', action: () => handlers.onOpenWebModule('/search') },
+      { id: 'menu', label: 'Menu', icon: 'user_information', action: () => showProfile() }
     ] as const;
+
     const buttons = new Map<string, HTMLButtonElement>();
-    for (const tab of tabs) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'tab-button';
+    for (const tab of bottomItems) {
+      const button = navigationButton(tab.icon, tab.label);
+      button.classList.add('tab-button');
       button.dataset.tab = tab.id;
-      button.textContent = tab.label;
-      button.addEventListener('click', () => void selectTab(tab.id));
+      button.addEventListener('click', tab.action);
       buttons.set(tab.id, button);
       nav.append(button);
     }
 
+    function setActiveTab(id: string): void {
+      for (const [tabId, button] of buttons) button.classList.toggle('is-active', tabId === id);
+    }
+
+    function showQuickAdd(): void {
+      setActiveTab('add');
+      content.replaceChildren(screenTitle('Create'));
+      const grid = element('div', 'quick-add-grid');
+      const actions = [
+        ['newsfeed', 'Post', '/'],
+        ['live', 'Live', '/live'],
+        ['24_hours', 'Story', '/'],
+        ['blogs', 'Blog', '/blogs/new'],
+        ['products', 'Product', '/market'],
+        ['funding', 'Funding', '/funding'],
+        ['ads', 'Ads', '/ads/new'],
+        ['pages', 'Page', '/pages'],
+        ['groups', 'Group', '/groups'],
+        ['events', 'Event', '/events']
+      ] as const;
+      for (const [icon, label, route] of actions) {
+        const button = navigationButton(icon, label);
+        button.classList.add('quick-add-item');
+        button.addEventListener('click', () => handlers.onOpenWebModule(route));
+        grid.append(button);
+      }
+      content.append(grid);
+    }
+
     async function selectTab(tab: string): Promise<void> {
-      for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
+      if (tab === 'home') return showFeed('newsfeed');
+      if (tab === 'messages') return showConversationList();
+      if (tab === 'notifications') return showNotifications();
+      if (tab === 'profile' || tab === 'menu') return showProfile();
+    }
+
+    async function showFeed(view: FeedView = 'newsfeed'): Promise<void> {
+      setActiveTab('home');
       content.replaceChildren();
-      if (tab === 'home') {
-        content.append(screenTitle(`Hi, ${displayName}`));
-        content.append(paragraph('Your local ChatPalez app shell is active. The existing feed remains a protected web module for v1 because the official API does not provide a complete feed and post contract.'));
-        const webFeed = secondaryButton('Open feed');
-        webFeed.addEventListener('click', () => handlers.onOpenWebModule('/'));
-        content.append(webFeed);
+      const headingRow = element('div', 'section-heading-row');
+      const titles: Record<FeedView, string> = {
+        newsfeed: 'News Feed',
+        popular: 'Popular Posts',
+        discover: 'Discover Posts',
+        saved: 'Saved',
+        scheduled: 'Scheduled',
+        memories: 'Memories'
+      };
+      headingRow.append(screenTitle(titles[view]));
+      content.append(headingRow);
+
+      if (!handlers.onLoadFeed) {
+        content.append(paragraph('This feed is not available through the mobile API yet.'));
         return;
       }
-      if (tab === 'messages') {
-        await showConversationList();
-        return;
-      }
-      if (tab === 'notifications') {
-        await showNotifications();
-        return;
-      }
-      showProfile();
+
+      const list = element('div', 'native-feed');
+      list.append(paragraph('Loading feed…'));
+      content.append(list);
+      let offset = 0;
+      let hasMore = false;
+      const more = secondaryButton('Load more');
+      more.hidden = true;
+      content.append(more);
+
+      const load = async (append = false): Promise<void> => {
+        try {
+          const page = await handlers.onLoadFeed!(view, offset);
+          if (!append) list.replaceChildren();
+          if (!append && page.items.length === 0) {
+            list.append(paragraph('Nothing to show yet.'));
+          } else {
+            for (const post of page.items) list.append(feedCard(post, handlers.onOpenWebModule));
+          }
+          hasMore = page.hasMore;
+          more.hidden = !hasMore;
+        } catch (error) {
+          if (!append) list.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load feed.'));
+          else window.alert(error instanceof Error ? error.message : 'Unable to load more posts.');
+        }
+      };
+      more.addEventListener('click', () => {
+        if (!hasMore) return;
+        offset += 1;
+        void load(true);
+      });
+      await load();
     }
 
     function showProfile(): void {
@@ -598,9 +736,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       await refreshThread();
     }
 
-    layout.append(topbar, content, nav);
+    layout.append(topbar, content, nav, drawer);
     root.append(layout);
-    void selectTab('home');
+    void showFeed('newsfeed');
   };
 
   const setBusy = (busy: boolean, message = 'Please wait…'): void => {
@@ -613,6 +751,114 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     retryAction = action;
   };
   return { showStartup, showLogin, showAuthenticated, setBusy, setRetryAction };
+}
+
+function iconAsset(icon: string): string {
+  return `https://chatpalez.com/content/themes/default/images/svg/${icon}.svg`;
+}
+
+function iconButton(icon: string, label: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'native-icon-button';
+  button.setAttribute('aria-label', label);
+  const img = document.createElement('img');
+  img.src = iconAsset(icon);
+  img.alt = '';
+  img.setAttribute('aria-hidden', 'true');
+  button.append(img);
+  return button;
+}
+
+function navigationButton(icon: string, label: string): HTMLButtonElement {
+  const button = iconButton(icon, label);
+  button.classList.add('native-navigation-button');
+  const title = elementWithText('span', label);
+  title.className = 'native-navigation-label';
+  button.append(title);
+  return button;
+}
+
+function feedCard(post: FeedPost, openWebModule: (path: string) => void): HTMLElement {
+  const card = element('article', 'native-post-card');
+  const header = element('div', 'native-post-header');
+  if (post.author_picture) {
+    const avatar = document.createElement('img');
+    avatar.className = 'native-post-avatar';
+    avatar.src = post.author_picture;
+    avatar.alt = '';
+    header.append(avatar);
+  }
+  const identity = element('div', 'native-post-identity');
+  identity.append(elementWithText('strong', post.author_name || post.author_username || 'ChatPalez'));
+  if (post.time) identity.append(elementWithText('small', post.time));
+  header.append(identity);
+  card.append(header);
+
+  if (post.text) {
+    const body = elementWithText('div', post.text);
+    body.className = 'native-post-text';
+    card.append(body);
+  }
+
+  if (post.photos?.length) {
+    const media = element('div', post.photos.length > 1 ? 'native-post-media native-post-media-grid' : 'native-post-media');
+    for (const photo of post.photos.slice(0, 4)) {
+      const img = document.createElement('img');
+      img.src = photo.source;
+      img.alt = 'Post image';
+      img.loading = 'lazy';
+      media.append(img);
+    }
+    card.append(media);
+  } else if (post.reel?.thumbnail || post.video?.thumbnail) {
+    const media = element('div', 'native-post-media');
+    const img = document.createElement('img');
+    img.src = String(post.reel?.thumbnail || post.video?.thumbnail);
+    img.alt = 'Post media';
+    img.loading = 'lazy';
+    media.append(img);
+    card.append(media);
+  }
+
+  if (post.link?.title || post.link?.url) {
+    const preview = element('div', 'native-link-preview');
+    if (post.link.image) {
+      const img = document.createElement('img');
+      img.src = post.link.image;
+      img.alt = '';
+      preview.append(img);
+    }
+    const info = element('div', 'native-link-preview-body');
+    if (post.link.host) info.append(elementWithText('small', post.link.host));
+    if (post.link.title) info.append(elementWithText('strong', post.link.title));
+    if (post.link.description) info.append(elementWithText('span', post.link.description));
+    preview.append(info);
+    card.append(preview);
+  }
+
+  const stats = element('div', 'native-post-stats');
+  const reactions = Number(post.reaction_like_count || 0) + Number(post.reaction_love_count || 0) +
+    Number(post.reaction_haha_count || 0) + Number(post.reaction_yay_count || 0) +
+    Number(post.reaction_wow_count || 0) + Number(post.reaction_sad_count || 0) +
+    Number(post.reaction_angry_count || 0);
+  stats.append(
+    elementWithText('span', `${reactions} reactions`),
+    elementWithText('span', `${post.comments || 0} comments`),
+    elementWithText('span', `${post.shares || 0} shares`)
+  );
+  card.append(stats);
+
+  const actions = element('div', 'native-post-actions');
+  const open = secondaryButton('Open post');
+  open.classList.add('native-post-action');
+  open.addEventListener('click', () => {
+    const route = post.url ? new URL(post.url).pathname : `/posts/${post.post_id}`;
+    openWebModule(route);
+  });
+  actions.append(open);
+  card.append(actions);
+  return card;
 }
 
 function conversationList(conversations: Conversation[], onOpen: (conversation: Conversation) => void): HTMLDivElement {
