@@ -15,6 +15,7 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string) => void;
+  onOpenPublicPage?: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
   onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
@@ -68,12 +69,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     identity.autocomplete = 'username';
     const password = input('password', 'Password', 'password');
     password.autocomplete = 'current-password';
+    const passwordControl = passwordField(password);
     const errorBox = element('p', 'form-error');
     errorBox.hidden = !error;
     errorBox.textContent = error ?? '';
     const submit = actionButton('Sign in');
     submit.type = 'submit';
-    form.append(field('Email or username', identity), field('Password', password), errorBox, submit);
+    form.append(field('Email or username', identity), field('Password', passwordControl), errorBox, submit);
+    if (handlers.onOpenPublicPage) form.append(policyLinks(handlers.onOpenPublicPage));
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       errorBox.hidden = true;
@@ -252,12 +255,13 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       deleteForm.className = 'delete-account-form';
       const password = input('password', 'Current password', 'deletePassword');
       password.autocomplete = 'current-password';
+      const passwordControl = passwordField(password);
       const deleteButton = actionButton('Delete my account');
       deleteButton.type = 'submit';
       deleteButton.classList.add('danger-button');
       const deleteError = element('p', 'form-error');
       deleteError.hidden = true;
-      deleteForm.append(password, deleteError, deleteButton);
+      deleteForm.append(passwordControl, deleteError, deleteButton);
       deleteForm.addEventListener('submit', (event) => {
         event.preventDefault();
         if (!handlers.onDeleteAccount || !password.value) return;
@@ -696,7 +700,43 @@ function brandMark(size?: 'small'): HTMLImageElement {
 function actionButton(text: string): HTMLButtonElement { const button = elementWithText('button', text); button.type = 'button'; button.className = 'primary-button'; return button; }
 function secondaryButton(text: string): HTMLButtonElement { const button = elementWithText('button', text); button.type = 'button'; button.className = 'secondary-button'; return button; }
 function input(type: string, placeholder: string, name: string): HTMLInputElement { const node = document.createElement('input'); node.type = type; node.placeholder = placeholder; node.name = name; node.required = true; return node; }
-function field(label: string, control: HTMLInputElement): HTMLLabelElement { const node = element('label', 'field'); node.append(elementWithText('span', label), control); return node; }
+function field(label: string, control: HTMLElement): HTMLLabelElement { const node = element('label', 'field'); node.append(elementWithText('span', label), control); return node; }
+
+function passwordField(inputControl: HTMLInputElement): HTMLDivElement {
+  const wrap = element('div', 'password-field');
+  const toggle = element('button', 'password-toggle');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-label', 'Show password');
+  toggle.setAttribute('aria-pressed', 'false');
+  toggle.textContent = '👁';
+  toggle.addEventListener('click', () => {
+    const showing = inputControl.type === 'text';
+    inputControl.type = showing ? 'password' : 'text';
+    toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    toggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
+    inputControl.focus({ preventScroll: true });
+  });
+  wrap.append(inputControl, toggle);
+  return wrap;
+}
+
+function policyLinks(openPublicPage: (path: string) => void): HTMLDivElement {
+  const wrap = element('div', 'auth-policy-links');
+  const items: Array<[string, string]> = [
+    ['Privacy Policy', '/static/privacy'],
+    ['Terms', '/static/terms'],
+    ['Child Safety', '/static/childsafetypolicy']
+  ];
+  items.forEach(([label, path], index) => {
+    if (index) wrap.append(elementWithText('span', '•'));
+    const button = element('button', 'auth-policy-link');
+    button.type = 'button';
+    button.textContent = label;
+    button.addEventListener('click', () => openPublicPage(path));
+    wrap.append(button);
+  });
+  return wrap;
+}
 function initials(name: string): string { return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || 'C'; }
 
 
