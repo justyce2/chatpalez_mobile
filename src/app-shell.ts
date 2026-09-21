@@ -1,5 +1,5 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
-import type { MobileEvent, MobileGroup, MobilePage } from './api/community';
+import type { MobileEvent, MobileGroup, MobilePage, MobilePerson, MobileSearchResult } from './api/community';
 import type { NotificationItem } from './api/notifications';
 import type { FeedPost, FeedView, ReelItem } from './api/feed';
 import type { BlockedUser } from './api/user';
@@ -22,6 +22,8 @@ export type AppShellHandlers = {
   onLoadPages?: (view: 'discover' | 'liked' | 'manage', offset: number) => Promise<PageResult<MobilePage>>;
   onLoadGroups?: (view: 'discover' | 'joined' | 'manage', offset: number) => Promise<PageResult<MobileGroup>>;
   onLoadEvents?: (view: 'discover' | 'going' | 'interested' | 'invited' | 'manage', offset: number) => Promise<PageResult<MobileEvent>>;
+  onLoadPeople?: (view: 'discover' | 'requests' | 'sent' | 'friends', offset: number) => Promise<PageResult<MobilePerson>>;
+  onSearch?: (query: string) => Promise<MobileSearchResult[]>;
   onConnect?: (action: string, id: number | string) => Promise<void>;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
@@ -127,7 +129,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       { label: 'Saved', icon: 'saved', action: () => void showFeed('saved') },
       { label: 'Scheduled', icon: 'schedule', action: () => void showFeed('scheduled') },
       { label: 'Memories', icon: 'memories', action: () => void showFeed('memories') },
-      { label: 'People', icon: 'friends', action: () => showRetainedModule('/people', 'People') },
+      { label: 'People', icon: 'friends', action: () => void showPeople('discover') },
       { label: 'Pages', icon: 'pages', action: () => void showPages('discover') },
       { label: 'Groups', icon: 'groups', action: () => void showGroups('discover') },
       { label: 'Events', icon: 'events', action: () => void showEvents('discover') },
@@ -192,7 +194,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     const topActions = element('div', 'native-topbar-actions');
     const requests = iconButton('header-friends', 'Friend requests');
-    requests.addEventListener('click', () => showRetainedModule('/people/friend_requests', 'Friend Requests'));
+    requests.addEventListener('click', () => void showPeople('requests'));
     const messages = iconButton('header-messages', 'Messages');
     messages.addEventListener('click', () => void showConversationList());
     const alerts = iconButton('header-notifications', 'Notifications');
@@ -208,7 +210,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       { id: 'home', label: 'Home', icon: 'header-home', action: () => void showFeed('newsfeed') },
       { id: 'reels', label: 'Reels', icon: 'reels', action: () => void showReels() },
       { id: 'add', label: 'Add', icon: 'header-plus', action: () => showQuickAdd() },
-      { id: 'search', label: 'Search', icon: 'header-search', action: () => showRetainedModule('/search', 'Search', 'search') },
+      { id: 'search', label: 'Search', icon: 'header-search', action: () => showSearch() },
       { id: 'menu', label: 'Menu', icon: 'user_information', action: () => showAccountMenu() }
     ] as const;
 
@@ -344,6 +346,155 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         void load(true);
       });
       await load();
+    }
+
+    function showSearch(): void {
+      backAction = () => { void showFeed('newsfeed'); };
+      setActiveTab('search');
+      content.replaceChildren();
+
+      const form = document.createElement('form');
+      form.className = 'native-search-form';
+      const query = input('search', 'Search ChatPalez', 'globalSearch');
+      query.required = false;
+      query.autocomplete = 'off';
+      const submit = actionButton('Search');
+      submit.type = 'submit';
+      form.append(query, submit);
+
+      const results = element('div', 'native-search-results');
+      results.append(paragraph('Search people, pages, groups and events.'));
+      content.append(form, results);
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const term = query.value.trim();
+        if (term.length < 2) {
+          results.replaceChildren(paragraph('Enter at least two characters.'));
+          return;
+        }
+        if (!handlers.onSearch) {
+          results.replaceChildren(paragraph('Search is not available through the mobile API yet.'));
+          return;
+        }
+
+        submit.disabled = true;
+        results.replaceChildren(paragraph('Searching…'));
+        void handlers.onSearch(term)
+          .then((items) => {
+            results.replaceChildren();
+            if (items.length === 0) {
+              results.append(paragraph('No results found.'));
+              return;
+            }
+            for (const item of items) results.append(searchResultCard(item));
+          })
+          .catch((error: unknown) => {
+            results.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to search.'));
+          })
+          .finally(() => { submit.disabled = false; });
+      });
+
+      window.setTimeout(() => query.focus(), 0);
+    }
+
+    function searchResultCard(item: MobileSearchResult): HTMLElement {
+      const button = element('button', 'native-search-result');
+      button.type = 'button';
+
+      if (item.picture) {
+        const image = document.createElement('img');
+        image.src = item.picture;
+        image.alt = '';
+        image.loading = 'lazy';
+        button.append(image);
+      }
+
+      const body = element('div', 'native-search-result-body');
+      body.append(elementWithText('strong', item.title || item.user_fullname || item.user_name || 'ChatPalez'));
+      if (item.subtitle) body.append(elementWithText('span', item.subtitle));
+      body.append(elementWithText('small', item.type));
+      button.append(body);
+
+      button.addEventListener('click', () => {
+        const route = item.url || (item.type === 'user' && item.user_name ? `/${item.user_name}` : '/');
+        showRetainedModule(route, item.title || item.user_fullname || 'Result', 'search');
+      });
+      return button;
+    }
+
+    async function showPeople(view: 'discover' | 'requests' | 'sent' | 'friends' = 'discover'): Promise<void> {
+      backAction = () => { void showFeed('newsfeed'); };
+      setActiveTab('');
+      content.replaceChildren();
+
+      const tabs = localTabs([
+        ['Discover', () => void showPeople('discover'), view === 'discover'],
+        ['Requests', () => void showPeople('requests'), view === 'requests'],
+        ['Sent', () => void showPeople('sent'), view === 'sent'],
+        ['Friends', () => void showPeople('friends'), view === 'friends']
+      ]);
+
+      content.append(screenTitle(view === 'requests' ? 'Friend Requests' : 'People'), tabs);
+      await renderPagedCommunity<MobilePerson>(
+        handlers.onLoadPeople ? (offset) => handlers.onLoadPeople!(view, offset) : undefined,
+        (person) => personCard(person, view)
+      );
+    }
+
+    function personCard(person: MobilePerson, view: 'discover' | 'requests' | 'sent' | 'friends'): HTMLElement {
+      const name = person.user_fullname || person.user_name || 'ChatPalez member';
+      const card = communityCard(
+        person.user_picture,
+        name,
+        person.mutual_friends_count ? `${person.mutual_friends_count} mutual friends` : (person.user_name ? `@${person.user_name}` : '')
+      );
+
+      if (handlers.onConnect) {
+        if (view === 'requests') {
+          const accept = secondaryButton('Accept');
+          accept.classList.add('community-card-action');
+          accept.addEventListener('click', () => runPersonAction(accept, 'friend-accept', person.user_id, 'Accepted'));
+          card.append(accept);
+
+          const decline = secondaryButton('Decline');
+          decline.classList.add('community-card-action');
+          decline.addEventListener('click', () => runPersonAction(decline, 'friend-decline', person.user_id, 'Declined'));
+          card.append(decline);
+        } else if (view === 'sent') {
+          const cancel = secondaryButton('Cancel request');
+          cancel.classList.add('community-card-action');
+          cancel.addEventListener('click', () => runPersonAction(cancel, 'friend-cancel', person.user_id, 'Cancelled'));
+          card.append(cancel);
+        } else if (view === 'discover') {
+          const add = secondaryButton('Add friend');
+          add.classList.add('community-card-action');
+          add.addEventListener('click', () => runPersonAction(add, 'friend-add', person.user_id, 'Request sent'));
+          card.append(add);
+        } else if (view === 'friends') {
+          const remove = secondaryButton('Remove friend');
+          remove.classList.add('community-card-action');
+          remove.addEventListener('click', () => runPersonAction(remove, 'friend-remove', person.user_id, 'Removed'));
+          card.append(remove);
+        }
+      }
+
+      const profile = secondaryButton('Profile');
+      profile.classList.add('community-card-action');
+      profile.addEventListener('click', () => showRetainedModule(person.url || `/${person.user_name || ''}`, name));
+      card.append(profile);
+      return card;
+    }
+
+    function runPersonAction(button: HTMLButtonElement, action: string, userId: number | string, doneLabel: string): void {
+      if (!handlers.onConnect) return;
+      button.disabled = true;
+      void handlers.onConnect(action, userId)
+        .then(() => { button.textContent = doneLabel; })
+        .catch((error: unknown) => {
+          window.alert(error instanceof Error ? error.message : 'Unable to update this connection.');
+          button.disabled = false;
+        });
     }
 
     async function showReels(): Promise<void> {
