@@ -33,7 +33,10 @@ This is the authoritative go/no-go checklist for the first Android/iOS Capacitor
 - [x] Android back-button handling implemented.
 - [x] iOS WKWebView back/forward gesture enabled.
 - [x] Custom `chatpalez://open` scheme registered on Android/iOS.
-- [x] Android first-party `https://chatpalez.com/...` deep-link intent filter registered.
+- [x] Android first-party `https://chatpalez.com/...` App Link intent filter registered with verification requested.
+- [x] iOS Associated Domains entitlement declares ChatPalez Universal Links.
+- [ ] Production `.well-known/assetlinks.json` published with the real Play signing certificate fingerprint.
+- [ ] Production `.well-known/apple-app-site-association` published with the confirmed Apple Team ID.
 - [x] Deep-link trusted-origin validation implemented and unit tested.
 - [x] Selective haptic feedback implemented.
 - [x] Privacy-safe bounded diagnostics implemented.
