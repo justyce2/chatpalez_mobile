@@ -134,8 +134,8 @@ Known regressions at start:
 | H2-03 | Native Popular/Discover/Saved/Scheduled/Memories | Testing | Drawer feed variants work without full website navigation |
 | H2-04 | Native post detail foundation | Planned | Post can open without losing native shell |
 | H2-05 | Add post reactions/comments API audit | Planned | Decide native vs app-theme fallback per action |
-| H2-06 | Native Search API | Planned | Search results render in shell |
-| H2-07 | Native People/friend requests API | Planned | People and requests no longer require full website chrome |
+| H2-06 | Native Search API | Testing | Search results render in shell |
+| H2-07 | Native People/friend requests API | Testing | People and requests no longer require full website chrome |
 | H2-08 | Native Pages list/detail API | In Progress | Page list/detail render in shell where practical |
 | H2-09 | Native Groups list/detail API | In Progress | Group list/detail render in shell where practical |
 | H2-10 | Native Events list/detail API | In Progress | Events render in shell where practical |
@@ -161,15 +161,15 @@ Existing working native surfaces to retain:
 
 | ID | Task | Status | Acceptance |
 |---|---|---|---|
-| H3-01 | Duplicate default theme to `chatpalez_app` | Planned | Separate upgrade-isolated theme exists |
-| H3-02 | Add official-app theme selection | Planned | App UA selects app theme; normal website remains default |
-| H3-03 | Strip app-theme website header | Planned | No duplicate top navigation |
-| H3-04 | Strip app-theme website bottom bar | Planned | No duplicate bottom navigation |
-| H3-05 | Strip footer/copyright/app badges | Planned | Content ends cleanly |
-| H3-06 | Strip duplicate sidebars/widgets | Planned | No overlay against native shell |
-| H3-07 | Normalize app-theme content spacing | Planned | Content fits between native bars |
-| H3-08 | Preserve upstream content functionality | Planned | Forms/actions/business logic still work |
-| H3-09 | Register customization/upgrade diff | Planned | All theme deviations documented |
+| H3-01 | Create upgrade-isolated `chatpalez_app` overlay theme | Testing | Separate upgrade-isolated theme exists |
+| H3-02 | Add official-app theme selection | Testing | App UA selects app theme; normal website remains default |
+| H3-03 | Strip app-theme website header | Testing | No duplicate top navigation |
+| H3-04 | Strip app-theme website bottom bar | Testing | No duplicate bottom navigation |
+| H3-05 | Strip footer/copyright/app badges | Testing | Content ends cleanly |
+| H3-06 | Strip duplicate sidebars/widgets | Testing | No overlay against native shell |
+| H3-07 | Normalize app-theme content spacing | Testing | Content fits between native bars |
+| H3-08 | Preserve upstream content functionality | Testing | Forms/actions/business logic still work |
+| H3-09 | Register customization/upgrade diff | Completed | All theme deviations documented |
 
 ### PHASE 4 — Controlled fallback integration
 
@@ -264,7 +264,7 @@ These are not reasons to stop implementation, but must be called out for runtime
 ## 7. Current Work Pointer
 
 **Current phase:** PHASE 2 — Core API/native content surfaces (Phase 1 source implementation is in Testing pending Android/iOS acceptance).  
-**Next task:** H2-06 and H2-07, implement native Search and People/Friend Requests.  
-**Then:** complete native detail/action coverage for Pages/Groups/Events/Reels and continue Watch/video migration.
+**Next task:** H2-12, native Watch/video audit and implementation; continue H2-08 through H2-10 detail coverage.  
+**Parallel testing gate:** deploy latest `sngine-fresh` and verify feed/community/search/people/reels plus `chatpalez_app` fallback rendering in Android.
 
 This document supersedes older implementation notes that stated feed/groups/pages/search must remain full retained-web surfaces for v1. Those historical decisions remain useful context, but this document governs implementation from 2026-09-21 onward.
