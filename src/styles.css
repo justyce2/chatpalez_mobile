@@ -1542,3 +1542,25 @@ body.native-drawer-open {
   min-height: 44px;
   padding: 10px 14px;
 }
+
+
+.native-comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.native-comment-action {
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: transparent;
+  color: #667085;
+  font-size: 10px;
+  box-shadow: none;
+}
+
+.danger-link-button {
+  color: #b42318;
+}
