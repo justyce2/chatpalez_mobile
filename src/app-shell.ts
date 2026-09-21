@@ -227,13 +227,6 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.append(grid);
     }
 
-    async function selectTab(tab: string): Promise<void> {
-      if (tab === 'home') return showFeed('newsfeed');
-      if (tab === 'messages') return showConversationList();
-      if (tab === 'notifications') return showNotifications();
-      if (tab === 'profile' || tab === 'menu') return showProfile();
-    }
-
     async function showFeed(view: FeedView = 'newsfeed'): Promise<void> {
       setActiveTab('home');
       content.replaceChildren();
@@ -943,7 +936,6 @@ function actionButton(text: string): HTMLButtonElement { const button = elementW
 function secondaryButton(text: string): HTMLButtonElement { const button = elementWithText('button', text); button.type = 'button'; button.className = 'secondary-button'; return button; }
 function input(type: string, placeholder: string, name: string): HTMLInputElement { const node = document.createElement('input'); node.type = type; node.placeholder = placeholder; node.name = name; node.required = true; return node; }
 function field(label: string, control: HTMLInputElement): HTMLLabelElement { const node = element('label', 'field'); node.append(elementWithText('span', label), control); return node; }
-function initials(name: string): string { return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || 'C'; }
 
 
 function nativeNotificationStatusMessage(status: NativeNotificationStatus): string {
