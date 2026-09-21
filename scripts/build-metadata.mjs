@@ -25,7 +25,11 @@ const androidVersionCode = Number(projectEnvValue('CHATPALEZ_VERSION_CODE', '1',
 const androidVersionName = projectEnvValue('CHATPALEZ_VERSION_NAME', '1.0', root);
 const androidApplicationId = match(androidGradle, /applicationId\s+"([^"]+)"/, 'Android applicationId');
 const iosBundleId = match(iosProject, /PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/, 'iOS bundle identifier');
-const productionOrigin = match(appConfig, /\|\|\s*'([^']+)'/, 'production origin fallback');
+const productionOrigin = match(
+  appConfig,
+  /const\s+rawOrigin\s*=.*?(?:\|\||\?\?)\s*['"]([^'"]+)['"]/s,
+  'production origin fallback'
+);
 const capacitorAppId = match(capacitorConfig, /process\.env\.CAP_APP_ID\s*\?\?\s*'([^']+)'/, 'Capacitor app ID');
 
 const metadata = {
