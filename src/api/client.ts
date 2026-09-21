@@ -1,5 +1,7 @@
 import type { AppConfig } from '../config';
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
 export type ApiEnvelope<T> = {
   status: 'success' | 'error';
   data?: T;
@@ -96,14 +98,22 @@ export class ChatPalezApiClient {
     if (token) headers.set('x-auth-token', token);
 
     let response: Response;
+    const controller = new AbortController();
+    const timeoutId = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       response = await fetch(url, {
         ...init,
         headers,
-        credentials: 'include'
+        credentials: 'include',
+        signal: controller.signal
       });
     } catch {
+      if (controller.signal.aborted) {
+        throw new ApiError('ChatPalez took too long to respond. Please try again.', 0);
+      }
       throw new ApiError('Unable to reach ChatPalez. Check your connection and try again.', 0);
+    } finally {
+      globalThis.clearTimeout(timeoutId);
     }
 
     let envelope: ApiEnvelope<T> | null = null;
