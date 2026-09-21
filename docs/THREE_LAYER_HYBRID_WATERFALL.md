@@ -395,3 +395,18 @@ Commits:
 - `cab35c3` — build metadata identity/version parser repair.
 
 The Android source acceptance path is now substantially hardened. Remaining P0/P1 acceptance requires an installed build and production backend runtime verification.
+
+
+### Source checkpoint — 2026-09-21 (auth acceptance completion)
+
+- confirmed signup, activation, getting-started, password recovery, and 2FA all render through the shared `.auth-screen` viewport contract;
+- replaced legacy text-placeholder branding on registration, recovery, and 2FA with the provisioned ChatPalez app icon;
+- login/signup/auth viewport locking now applies consistently across the complete native authentication journey.
+
+Commits:
+
+- `f02a53a` — registration branding consistency;
+- `8d34bfc` — password-recovery branding consistency;
+- `c05add2` — 2FA branding consistency.
+
+Next source work should be limited to defects found by local `npm run verify:native`, `npm test`, `npm run build`, `npx cap sync android`, and installed Android runtime acceptance. GitHub Actions remain disabled.
