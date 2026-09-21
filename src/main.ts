@@ -274,6 +274,9 @@ const shell = createAppShell(root, {
   onDeleteComment: async (commentId) => {
     await feed.deleteComment(commentId);
   },
+  onCreatePost: async (message, privacy) => {
+    return feed.createTextPost(message, privacy);
+  },
   onLoadPages: async (view, offset) => {
     const page = await community.getPages(view, offset);
     return { items: page.data, hasMore: page.hasMore };
