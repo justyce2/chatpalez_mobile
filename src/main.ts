@@ -235,6 +235,14 @@ const shell = createAppShell(root, {
     }
   },
   onSessionExpired: () => { void handleSessionExpiry(); },
+  onAppearanceChanged: (_mode, resolvedNight) => {
+    if (!Capacitor.isNativePlatform()) return;
+    void StatusBar.setStyle({ style: resolvedNight ? Style.Light : Style.Dark }).catch((error) => {
+      logDebug('Status bar appearance could not be synchronized', {
+        detail: error instanceof Error ? error.message : String(error ?? '')
+      });
+    });
+  },
   onLogout: async () => {
     shell.setBusy(true, 'Signing out…');
     try {
@@ -456,7 +464,10 @@ async function prepareNativeChrome(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
 
   try {
-    await StatusBar.setStyle({ style: Style.Light });
+    const storedAppearance = localStorage.getItem('chatpalez.appearance');
+    const prefersNight = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+    const resolvedNight = storedAppearance === 'night' || (storedAppearance !== 'day' && prefersNight);
+    await StatusBar.setStyle({ style: resolvedNight ? Style.Light : Style.Dark });
   } catch (error) {
     logDebug('Status bar style was not applied', {
       platform: Capacitor.getPlatform(),
