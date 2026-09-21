@@ -1,6 +1,6 @@
 # ChatPalez Mobile — Legacy Backlog
 
-> **Superseded execution source:** `docs/THREE_LAYER_HYBRID_WATERFALL.md` is authoritative from 2026-09-21 onward. This file remains as historical traceability only; rows below that describe feed, messaging, search, pages, groups, events or creation as retained-web-first are historical decisions and must not override the three-layer plan.
+> **Historical only:** `docs/WEBSITE_FIRST_WATERFALL.md` is now authoritative. Native feed/navigation/profile/settings/social surfaces below are abandoned; native ownership is limited to authentication and push notification setup.
 
 # ChatPalez Mobile — Delivery Backlog and Status Tracker
 
