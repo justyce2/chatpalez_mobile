@@ -338,3 +338,18 @@ Added after the three-layer checkpoint:
 - account snapshot cache invalidates after edits so native identity refreshes without app restart.
 
 Current device acceptance remains pending. The source-level next target is Page/Group/Event creation plus profile-avatar update audit, followed by Android/iOS regression closure.
+
+### Follow-on checkpoint — native creation + profile media
+
+- Quick Add Page/Group/Event now opens metadata-driven native creation forms.
+- Creation metadata comes from live Sngine categories, countries, languages, permissions and registration custom fields; nothing is hard-coded.
+- Supported Sngine custom field types (textbox, textarea, selectbox, multi-select) render natively and are submitted back through Sngine's existing create methods.
+- Native Page creation delegates to `create_page()`; Group to `create_group()`; Event to `create_event()`.
+- Newly created communities open their native detail screen immediately.
+- Profile picture upload now reuses stock `/data/upload` with `handle=picture-user`; Sngine performs validation, album/post creation and user-picture update.
+- Profile picture removal reuses stock `/user/image_delete` with `picture-user`.
+- Native Account Menu now mirrors enabled website menu capabilities for Pro, Points, Wallet, Support, Admin/Moderator and appearance entries.
+- Switch Accounts is intentionally not native yet: stock Sngine switching only changes web cookies and does not issue a replacement JWT, so native switching would create split identities between API auth and retained-web auth.
+- Latest source consistency scan found no obvious unused local functions or type imports in the modified TypeScript files.
+
+Next source target: design a JWT-safe connected-account switch contract and native appearance/theme behavior, then close H4/H5 through Android/iOS runtime acceptance.
