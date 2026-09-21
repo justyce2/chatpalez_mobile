@@ -264,7 +264,7 @@ These are not reasons to stop implementation, but must be called out for runtime
 ## 7. Current Work Pointer
 
 **Current phase:** PHASE 4/5 — retained-content integration hardening and native account/settings expansion (source implementation in Testing pending device acceptance).  
-**Next task:** close remaining H4 retained-route/session/deep-link regression items, then perform Android/iOS acceptance of the native account/profile/settings surfaces and account switching.  
+**Next task:** run Android/iOS acceptance for retained history/back, session expiry, external/deep links, native account switching, profile/settings, and the social API surfaces; fix only regressions discovered by that device pass.  
 **Parallel testing gate:** deploy latest `sngine-fresh` and verify native feed/community/search/people/reels/watch/post/community detail, native text-post creation, native account/profile/privacy settings, deep/push routing, retained history/back behavior, and `chatpalez_app` fallback rendering.
 
 This document supersedes older implementation notes that stated feed/groups/pages/search must remain full retained-web surfaces for v1. Those historical decisions remain useful context, but this document governs implementation from 2026-09-21 onward.
@@ -319,3 +319,24 @@ Mobile commits:
 - `b630ffc` — connected-account picker styles.
 
 Runtime acceptance still requires the latest backend `sngine-fresh` deployment before testing Switch Accounts on-device. GitHub Actions remain disabled and were not triggered.
+
+
+### Source checkpoint — 2026-09-21 (H4 retained bridge hardening)
+
+Implemented across backend `sngine-fresh` and mobile `develop`:
+
+- retained content now reports full loads plus `pushState`, `replaceState`, `hashchange`, and `popstate` navigation back to the shell;
+- same-origin retained links continue inside the controlled fallback container;
+- external HTTP(S) links are intercepted and handed to the native external-link bridge instead of taking over retained content;
+- retained bridge messages are still accepted only from the trusted origin and active iframe window;
+- a retained page rendered as logged out emits an explicit `session-expired` signal;
+- the native shell clears retained frame/history state and runs the normal secure session-expiry/logout path when that signal is received;
+- Android native back can therefore use the normalized retained history before leaving fallback content.
+
+Commits:
+
+- backend `3c93afa` — retained theme navigation/session/external-link bridge;
+- mobile `ae09225` — retained event handling in the native shell;
+- mobile `fc3b395` — retained session-expiry handoff to native auth lifecycle.
+
+H4 source work is now at the runtime acceptance gate. GitHub Actions remain disabled and were not triggered.
