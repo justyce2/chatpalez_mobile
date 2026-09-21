@@ -26,7 +26,10 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchAutoHide: false,
+      // Never let a JavaScript/configuration failure strand the user behind
+      // the native splash. bootstrap() still hides it explicitly when ready.
+      launchAutoHide: true,
+      launchShowDuration: 2000,
       showSpinner: false,
       backgroundColor: '#0066B2'
     },
