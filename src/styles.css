@@ -2026,3 +2026,30 @@ body.native-theme-night .local-tab.is-active {
   background: #24314a;
   color: var(--chatpalez-link);
 }
+
+
+/* Runtime connectivity state */
+.native-network-banner {
+  position: fixed;
+  top: calc(var(--chatpalez-header-height) + env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 8px 14px;
+  background: #fff7ed;
+  border-bottom: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+#app[data-network="offline"] .mobile-content {
+  padding-top: 52px;
+}
+
+body.native-theme-night .native-network-banner {
+  background: #3a2512;
+  border-color: #6b4423;
+  color: #fed7aa;
+}
