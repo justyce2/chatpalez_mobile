@@ -122,17 +122,18 @@ The active implementation includes:
 - Android unsigned release-AAB generation in CI
 - traceable CI build metadata artifact
 
-The matching server-side bridge remains isolated in `justyce2/chatpalez-backend-2` on the `mobile-app-integration` branch/draft PR until runtime acceptance is complete.
+The matching server-side bridge is maintained in `justyce2/chatpalez-backend-2` on the active `sngine-fresh` integration branch and must be deployed in step with mobile runtime acceptance.
 
 ## Deep Links
 
-The installed app registers:
+The installed Android app registers both the custom scheme and first-party HTTPS links:
 
 ```text
 chatpalez://open?path=/settings/notifications
+https://chatpalez.com/messages?thread=10
 ```
 
-or an encoded trusted same-origin URL through the `url` parameter. The bridge resolves only destinations that map back to the approved ChatPalez HTTPS origin. External hosts, script/data schemes, protocol-relative escape attempts and malformed targets are rejected.
+The custom scheme can also carry an encoded trusted same-origin URL through the `url` parameter. The bridge resolves only destinations that map back to the approved ChatPalez HTTPS origin. External hosts, script/data schemes, protocol-relative escape attempts and malformed targets are rejected.
 
 ## Push Notifications
 
@@ -147,7 +148,7 @@ The app does **not** automatically prompt on first launch. The user explicitly e
 
 ## Release Versioning
 
-The current generated Android `versionCode 1` and iOS build `1` are development placeholders. Because ChatPalez has an existing Android identity, the final Android version code must be strictly higher than the highest version already uploaded to Google Play. Do not guess this number.
+The default Android `versionCode 1` and iOS build `1` are development placeholders. Android builds can override the development values with `CHATPALEZ_VERSION_CODE` and `CHATPALEZ_VERSION_NAME` without editing Gradle source. Because ChatPalez has an existing Android identity, the final Android version code must be strictly higher than the highest version already uploaded to Google Play. Do not guess this number.
 
 See `docs/RELEASE_INPUTS.md` before producing a final signed release.
 
