@@ -52,6 +52,21 @@ export type MobileAccount = {
   two_factor_type?: string | null;
   email_verified?: boolean;
   phone_verified?: boolean;
+  privacy?: {
+    user_chat_enabled?: boolean;
+    user_newsletter_enabled?: boolean;
+    user_tips_enabled?: boolean;
+    user_suggestions_hidden?: boolean;
+    user_incognito_enabled?: boolean;
+    user_privacy_chat?: string;
+    user_privacy_wall?: string;
+    user_privacy_friends?: string;
+    user_privacy_followers?: string;
+    user_privacy_photos?: string;
+    user_privacy_pages?: string;
+    user_privacy_groups?: string;
+    user_privacy_events?: string;
+  };
 };
 
 export type ProfileUpdate = Partial<Pick<MobileAccount,
@@ -115,6 +130,10 @@ export class UserService {
 
   async updatePassword(payload: { current: string; new: string; confirm: string }): Promise<void> {
     await this.api.post<unknown>('mobile/account/password', payload);
+  }
+
+  async updatePrivacy(payload: Record<string, string | boolean>): Promise<void> {
+    await this.api.post<unknown>('mobile/account/privacy', payload);
   }
 
   async updateOneSignalId(oneSignalId: string): Promise<void> {
