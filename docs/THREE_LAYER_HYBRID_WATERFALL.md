@@ -133,12 +133,12 @@ Known regressions at start:
 | H2-02 | Native News Feed | Testing | Feed cards render from API inside native shell |
 | H2-03 | Native Popular/Discover/Saved/Scheduled/Memories | Testing | Drawer feed variants work without full website navigation |
 | H2-04 | Native post detail foundation | Testing | Post can open without losing native shell |
-| H2-05 | Add post reactions/comments API audit | In Progress | Decide native vs app-theme fallback per action |
+| H2-05 | Add post reactions/comments API audit | Testing | Decide native vs app-theme fallback per action |
 | H2-06 | Native Search API | Testing | Search results render in shell |
 | H2-07 | Native People/friend requests API | Testing | People and requests no longer require full website chrome |
-| H2-08 | Native Pages list/detail API | In Progress | Page list/detail render in shell where practical |
-| H2-09 | Native Groups list/detail API | In Progress | Group list/detail render in shell where practical |
-| H2-10 | Native Events list/detail API | In Progress | Events render in shell where practical |
+| H2-08 | Native Pages list/detail API | Testing | Page list/detail render in shell where practical |
+| H2-09 | Native Groups list/detail API | Testing | Group list/detail render in shell where practical |
+| H2-10 | Native Events list/detail API | Testing | Events render in shell where practical |
 | H2-11 | Native Reels API | Testing | Reels surface renders in app-owned experience |
 | H2-12 | Native Watch/video API audit | Testing | Native implementation where practical |
 
@@ -264,7 +264,7 @@ These are not reasons to stop implementation, but must be called out for runtime
 ## 7. Current Work Pointer
 
 **Current phase:** PHASE 2 — Core API/native content surfaces (Phase 1 source implementation is in Testing pending Android/iOS acceptance).  
-**Next task:** complete H2-05 native post interaction coverage (comment reactions/edit/delete as justified), then continue H2-08 through H2-10 detail coverage.  
-**Parallel testing gate:** deploy latest `sngine-fresh` and verify feed/community/search/people/reels/watch/post detail plus `chatpalez_app` fallback rendering in Android.
+**Next task:** H5-04/H5-05 native Create/Post composer audit and implementation, while retaining the app-theme fallback for complex create flows.  
+**Parallel testing gate:** deploy latest `sngine-fresh` and verify feed/community/search/people/reels/watch/post/community detail plus `chatpalez_app` fallback rendering in Android.
 
 This document supersedes older implementation notes that stated feed/groups/pages/search must remain full retained-web surfaces for v1. Those historical decisions remain useful context, but this document governs implementation from 2026-09-21 onward.
