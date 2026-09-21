@@ -112,4 +112,8 @@ export class FeedService {
   async deleteComment(commentId: number | string): Promise<void> {
     await this.api.post<unknown>('mobile/comment/delete', { comment_id: commentId });
   }
+
+  createTextPost(message: string, privacy: 'me' | 'friends' | 'public'): Promise<FeedPost> {
+    return this.api.post<FeedPost>('mobile/post/create', { message, privacy });
+  }
 }
