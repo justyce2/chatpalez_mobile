@@ -92,6 +92,10 @@ export class UserService {
     await this.api.post<unknown>('user/delete', { password });
   }
 
+  async deleteProfilePicture(): Promise<void> {
+    await this.api.post<unknown>('user/image_delete', { handle: 'picture-user' });
+  }
+
   getAccount(): Promise<MobileAccount> {
     return this.api.get<MobileAccount>('mobile/account');
   }
