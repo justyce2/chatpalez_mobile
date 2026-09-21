@@ -3,7 +3,7 @@ import { projectEnvValue } from './project-env.mjs';
 
 const checks = [
   ['capacitor config is bundled (no remote server.url app root)', 'capacitor.config.ts', (s) => !/\burl\s*:\s*['"]https?:\/\//.test(s)],
-  ['broad top-level allowNavigation is not enabled', 'capacitor.config.ts', (s) => !/\ballowNavigation\s*:/.test(s)],
+  ['website-first navigation is limited to ChatPalez hosts', 'capacitor.config.ts', (s) => /allowNavigation:\s*\['chatpalez\.com',\s*'www\.chatpalez\.com'\]/.test(s)],
   ['published Android application ID is retained', 'capacitor.config.ts', (s) => s.includes("'chatpalez.app.webview'")],
   ['Android Gradle package matches the published application ID', 'android/app/build.gradle', (s) => s.includes('namespace = "chatpalez.app.webview"') && s.includes('applicationId "chatpalez.app.webview"')],
   ['Android Gradle reads release metadata from project .env', 'android/app/build.gradle', (s) => s.includes('chatpalezEnvFile') && s.includes('CHATPALEZ_VERSION_CODE') && s.includes('CHATPALEZ_VERSION_NAME')],
@@ -30,7 +30,8 @@ const checks = [
   ['JWT session persistence has no browser-storage fallback', 'src/auth/session.ts', (s) => !/\b(?:sessionStorage|localStorage)\s*[.\[]/.test(s)],
   ['retained-web bridge posts without a JWT query string', 'src/web-session.ts', (s) => s.includes("form.method = 'POST'") && !/mobile-session\.php\?.*token/.test(s)],
   ['auth screens explicitly lock the root viewport', 'src/styles.css', (s) => s.includes('body.auth-mode') && s.includes('overscroll-behavior: none')],
-  ['auth shell toggles viewport mode across auth/authenticated states', 'src/app-shell.ts', (s) => s.includes("document.body.classList.add('auth-mode')") && s.includes("document.body.classList.remove('auth-mode')")]
+  ['native auth shell locks the authentication viewport', 'src/auth-shell.ts', (s) => s.includes("document.body.classList.add('auth-mode')")],
+  ['post-login flow hands off to the main mobile website', 'src/main.ts', (s) => s.includes('openAuthenticatedWebModule') && s.includes('Native authentication completed; handing off to mobile website')]
 ];
 
 const files = new Map();
