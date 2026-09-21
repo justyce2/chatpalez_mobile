@@ -1,5 +1,5 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
-import type { MobileEvent, MobileGroup, MobilePage, MobilePerson, MobileSearchResult } from './api/community';
+import type { CommunityDetail, MobileEvent, MobileGroup, MobilePage, MobilePerson, MobileSearchResult } from './api/community';
 import type { NotificationItem } from './api/notifications';
 import type { FeedPost, FeedView, PostComment, ReelItem, VideoItem } from './api/feed';
 import type { BlockedUser } from './api/user';
@@ -32,6 +32,7 @@ export type AppShellHandlers = {
   onLoadEvents?: (view: 'discover' | 'going' | 'interested' | 'invited' | 'manage', offset: number) => Promise<PageResult<MobileEvent>>;
   onLoadPeople?: (view: 'discover' | 'requests' | 'sent' | 'friends', offset: number) => Promise<PageResult<MobilePerson>>;
   onSearch?: (query: string) => Promise<MobileSearchResult[]>;
+  onLoadCommunityDetail?: (type: 'page' | 'group' | 'event', id: number | string) => Promise<CommunityDetail>;
   onConnect?: (action: string, id: number | string) => Promise<void>;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
@@ -911,7 +912,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const card = communityCard(item.page_picture, item.page_title, `${item.page_likes || 0} likes`);
       const open = secondaryButton('Open');
       open.classList.add('community-card-action');
-      open.addEventListener('click', () => showRetainedModule(item.url || `/pages/${item.page_name}`, item.page_title));
+      open.addEventListener('click', () => { void showCommunityDetail('page', item.page_id); });
 
       if (handlers.onConnect) {
         const like = secondaryButton(item.i_like ? 'Unlike' : 'Like');
@@ -937,7 +938,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const card = communityCard(item.group_picture, item.group_title, `${item.group_members || 0} members`);
       const open = secondaryButton('Open');
       open.classList.add('community-card-action');
-      open.addEventListener('click', () => showRetainedModule(item.url || `/groups/${item.group_name}`, item.group_title));
+      open.addEventListener('click', () => { void showCommunityDetail('group', item.group_id); });
 
       if (handlers.onConnect) {
         const join = secondaryButton(item.i_joined === 'pending' ? 'Pending' : item.i_joined === 'approved' ? 'Joined' : 'Join');
@@ -963,7 +964,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const card = communityCard(item.event_picture, item.event_title, `${item.event_interested || 0} interested`);
       const open = secondaryButton('Open');
       open.classList.add('community-card-action');
-      open.addEventListener('click', () => showRetainedModule(item.url || `/events/${item.event_id}`, item.event_title));
+      open.addEventListener('click', () => { void showCommunityDetail('event', item.event_id); });
 
       if (handlers.onConnect) {
         const interest = secondaryButton(item.i_joined?.is_interested ? 'Interested' : 'Interested?');
@@ -985,6 +986,137 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       }
       card.append(open);
       return card;
+    }
+
+    async function showCommunityDetail(type: 'page' | 'group' | 'event', id: number | string): Promise<void> {
+      backAction = () => {
+        if (type === 'page') void showPages('discover');
+        else if (type === 'group') void showGroups('discover');
+        else void showEvents('discover');
+      };
+      setActiveTab('');
+      content.replaceChildren();
+
+      const header = element('div', 'conversation-header');
+      const back = secondaryButton('Back');
+      back.classList.add('compact-button');
+      back.addEventListener('click', () => {
+        if (type === 'page') void showPages('discover');
+        else if (type === 'group') void showGroups('discover');
+        else void showEvents('discover');
+      });
+      header.append(back, screenTitle(type === 'page' ? 'Page' : type === 'group' ? 'Group' : 'Event'));
+      content.append(header);
+
+      const body = element('div', 'community-detail');
+      body.append(paragraph('Loading…'));
+      content.append(body);
+
+      if (!handlers.onLoadCommunityDetail) {
+        body.replaceChildren(paragraph('This detail is not available through the mobile API yet.'));
+        return;
+      }
+
+      try {
+        const detail = await handlers.onLoadCommunityDetail(type, id);
+        body.replaceChildren();
+
+        const hero = element('section', 'community-detail-hero');
+        if (detail.cover) {
+          const cover = document.createElement('img');
+          cover.className = 'community-detail-cover';
+          cover.src = detail.cover;
+          cover.alt = '';
+          hero.append(cover);
+        }
+
+        const identity = element('div', 'community-detail-identity');
+        if (detail.picture) {
+          const picture = document.createElement('img');
+          picture.className = 'community-detail-picture';
+          picture.src = detail.picture;
+          picture.alt = detail.title;
+          identity.append(picture);
+        }
+        const text = element('div', 'community-detail-text');
+        text.append(elementWithText('h2', detail.title));
+        if (detail.members_label) text.append(elementWithText('span', detail.members_label));
+        if (detail.description) text.append(elementWithText('p', detail.description));
+        identity.append(text);
+        hero.append(identity);
+
+        const actions = element('div', 'community-detail-actions');
+        if (handlers.onConnect) {
+          if (type === 'page') {
+            const liked = detail.relationship === 'liked';
+            const button = secondaryButton(liked ? 'Unlike' : 'Like');
+            button.addEventListener('click', () => {
+              const currentLiked = button.textContent === 'Unlike';
+              button.disabled = true;
+              void handlers.onConnect!(currentLiked ? 'page-unlike' : 'page-like', detail.id)
+                .then(() => { button.textContent = currentLiked ? 'Like' : 'Unlike'; })
+                .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update page.'))
+                .finally(() => { button.disabled = false; });
+            });
+            actions.append(button);
+          }
+
+          if (type === 'group') {
+            const relationship = String(detail.relationship || 'none');
+            const button = secondaryButton(relationship === 'pending' ? 'Pending' : relationship === 'approved' ? 'Joined' : 'Join');
+            button.addEventListener('click', () => {
+              const joined = button.textContent === 'Joined' || button.textContent === 'Pending';
+              button.disabled = true;
+              void handlers.onConnect!(joined ? 'group-leave' : 'group-join', detail.id)
+                .then(() => {
+                  if (joined) button.textContent = 'Join';
+                  else button.textContent = detail.privacy === 'public' ? 'Joined' : 'Pending';
+                })
+                .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update group membership.'))
+                .finally(() => { button.disabled = false; });
+            });
+            actions.append(button);
+          }
+
+          if (type === 'event') {
+            const relation = detail.relationship && typeof detail.relationship === 'object'
+              ? detail.relationship as Record<string, unknown>
+              : {};
+            const interested = Boolean(relation.is_interested);
+            const button = secondaryButton(interested ? 'Interested' : 'Interested?');
+            button.addEventListener('click', () => {
+              const current = button.textContent === 'Interested';
+              button.disabled = true;
+              void handlers.onConnect!(current ? 'event-uninterest' : 'event-interest', detail.id)
+                .then(() => { button.textContent = current ? 'Interested?' : 'Interested'; })
+                .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update event interest.'))
+                .finally(() => { button.disabled = false; });
+            });
+            actions.append(button);
+          }
+        }
+        if (actions.childElementCount > 0) hero.append(actions);
+        body.append(hero);
+
+        const postsSection = element('section', 'community-detail-posts');
+        postsSection.append(elementWithText('h3', 'Posts'));
+
+        if (detail.can_view_posts === false) {
+          postsSection.append(paragraph('Join this community to view its posts.'));
+        } else if (!detail.posts?.length) {
+          postsSection.append(paragraph('No posts to show yet.'));
+        } else {
+          const list = element('div', 'native-feed');
+          for (const post of detail.posts) {
+            list.append(feedCard(post, (postId) => { void showPostDetail(postId); }));
+          }
+          postsSection.append(list);
+        }
+
+        body.append(postsSection);
+      } catch (error) {
+        body.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load this community.'));
+      }
     }
 
     function showAccountMenu(): void {
