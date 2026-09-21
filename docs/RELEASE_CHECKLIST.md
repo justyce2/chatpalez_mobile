@@ -35,8 +35,9 @@ This is the authoritative go/no-go checklist for the first Android/iOS Capacitor
 - [x] Custom `chatpalez://open` scheme registered on Android/iOS.
 - [x] Android first-party `https://chatpalez.com/...` App Link intent filter registered with verification requested.
 - [x] iOS Associated Domains entitlement declares ChatPalez Universal Links.
-- [ ] Production `.well-known/assetlinks.json` published with the real Play signing certificate fingerprint.
-- [ ] Production `.well-known/apple-app-site-association` published with the confirmed Apple Team ID.
+- [x] Fail-closed domain-association generator implemented (`npm run build:domain-links`).
+- [ ] Production `.well-known/assetlinks.json` generated/published with the real Play signing certificate fingerprint.
+- [ ] Production `.well-known/apple-app-site-association` generated/published with the confirmed Apple Team ID.
 - [x] Deep-link trusted-origin validation implemented and unit tested.
 - [x] Selective haptic feedback implemented.
 - [x] Privacy-safe bounded diagnostics implemented.
