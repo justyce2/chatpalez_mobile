@@ -10,6 +10,7 @@
     "test": "vitest run",
     "verify:native": "node scripts/verify-native-config.mjs",
     "build:metadata": "node scripts/build-metadata.mjs",
+    "build:domain-links": "node scripts/generate-domain-association.mjs",
     "preview": "vite preview",
     "cap:sync": "npm run build && cap sync",
     "cap:copy": "npm run build && cap copy",
