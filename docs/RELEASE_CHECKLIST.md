@@ -33,6 +33,7 @@ This is the authoritative go/no-go checklist for the first Android/iOS Capacitor
 - [x] Android back-button handling implemented.
 - [x] iOS WKWebView back/forward gesture enabled.
 - [x] Custom `chatpalez://open` scheme registered on Android/iOS.
+- [x] Android first-party `https://chatpalez.com/...` deep-link intent filter registered.
 - [x] Deep-link trusted-origin validation implemented and unit tested.
 - [x] Selective haptic feedback implemented.
 - [x] Privacy-safe bounded diagnostics implemented.
@@ -74,6 +75,7 @@ Execute `docs/RUNTIME_QA_MATRIX.md` against the release candidate.
 - [ ] Android back behavior verified on device/emulator.
 - [ ] iOS swipe-back behavior verified in simulator/device.
 - [ ] Keyboard does not cover login/chat composer.
+- [ ] Login/signup/auth screens remain locked to the device viewport without blank-space overscroll.
 - [ ] Safe areas/notches/home indicator do not obstruct content.
 - [ ] External links, phone and email intents work.
 - [ ] Offline/reconnect and backend-unavailable recovery work.
