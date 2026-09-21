@@ -33,10 +33,30 @@ export type FeedPost = {
   url?: string;
 };
 
+export type ReelItem = {
+  post_id: number | string;
+  text?: string;
+  time?: string;
+  author_id?: number | string;
+  author_name?: string;
+  author_username?: string;
+  author_picture?: string;
+  comments?: number;
+  shares?: number;
+  reaction_like_count?: number;
+  source?: string | null;
+  thumbnail?: string | null;
+  url?: string;
+};
+
 export class FeedService {
   constructor(private readonly api: ChatPalezApiClient) {}
 
   getFeed(view: FeedView = 'newsfeed', offset = 0): Promise<ApiPage<FeedPost[]>> {
     return this.api.getPage<FeedPost[]>('mobile/feed', { view, offset });
+  }
+
+  getReels(offset = 0): Promise<ApiPage<ReelItem[]>> {
+    return this.api.getPage<ReelItem[]>('mobile/reels', { offset });
   }
 }
