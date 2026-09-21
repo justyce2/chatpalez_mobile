@@ -176,7 +176,7 @@ async function ensureNativeLifecycleRegistration(): Promise<void> {
     nativeLifecycleRegistration = registerNativeLifecycle(config, (route) => {
       logInfo('Trusted native route received', { path: route });
       void openWebModule(route);
-    }).catch((error) => {
+    }, () => shell.handleBack()).catch((error) => {
       nativeLifecycleRegistration = null;
       throw error;
     });
