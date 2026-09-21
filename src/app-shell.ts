@@ -15,7 +15,7 @@ export type PageResult<T> = { items: T[]; hasMore: boolean; };
 export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
-  onOpenWebModule: (path: string) => void;
+  onOpenWebModule: (path: string, target?: string) => void;
   onLoadFeed?: (view: FeedView, offset: number) => Promise<PageResult<FeedPost>>;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
@@ -98,6 +98,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     const displayName = String(user.user_fullname || user.user_firstname || user.user_name || 'ChatPalez');
     const layout = element('section', 'mobile-layout');
     const drawer = element('aside', 'native-drawer');
+    drawer.id = 'chatpalez-native-drawer';
     drawer.setAttribute('aria-hidden', 'true');
     const drawerBackdrop = element('button', 'native-drawer-backdrop');
     drawerBackdrop.type = 'button';
@@ -118,18 +119,18 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       { label: 'Saved', icon: 'saved', action: () => void showFeed('saved') },
       { label: 'Scheduled', icon: 'schedule', action: () => void showFeed('scheduled') },
       { label: 'Memories', icon: 'memories', action: () => void showFeed('memories') },
-      { label: 'People', icon: 'friends', action: () => handlers.onOpenWebModule('/people') },
-      { label: 'Pages', icon: 'pages', action: () => handlers.onOpenWebModule('/pages') },
-      { label: 'Groups', icon: 'groups', action: () => handlers.onOpenWebModule('/groups') },
-      { label: 'Events', icon: 'events', action: () => handlers.onOpenWebModule('/events') },
-      { label: 'Reels', icon: 'reels', action: () => handlers.onOpenWebModule('/reels') },
-      { label: 'Watch', icon: 'watch', action: () => handlers.onOpenWebModule('/watch') },
-      { label: 'Blogs', icon: 'blogs', action: () => handlers.onOpenWebModule('/blogs') },
-      { label: 'Market', icon: 'products', action: () => handlers.onOpenWebModule('/market') },
-      { label: 'Funding', icon: 'funding', action: () => handlers.onOpenWebModule('/funding') },
-      { label: 'Offers', icon: 'offers', action: () => handlers.onOpenWebModule('/offers') },
-      { label: 'Jobs', icon: 'jobs', action: () => handlers.onOpenWebModule('/jobs') },
-      { label: 'Courses', icon: 'courses', action: () => handlers.onOpenWebModule('/courses') }
+      { label: 'People', icon: 'friends', action: () => showRetainedModule('/people', 'People') },
+      { label: 'Pages', icon: 'pages', action: () => showRetainedModule('/pages', 'Pages') },
+      { label: 'Groups', icon: 'groups', action: () => showRetainedModule('/groups', 'Groups') },
+      { label: 'Events', icon: 'events', action: () => showRetainedModule('/events', 'Events') },
+      { label: 'Reels', icon: 'reels', action: () => showRetainedModule('/reels', 'Reels', 'reels') },
+      { label: 'Watch', icon: 'watch', action: () => showRetainedModule('/watch', 'Watch') },
+      { label: 'Blogs', icon: 'blogs', action: () => showRetainedModule('/blogs', 'Blogs') },
+      { label: 'Market', icon: 'products', action: () => showRetainedModule('/market', 'Market') },
+      { label: 'Funding', icon: 'funding', action: () => showRetainedModule('/funding', 'Funding') },
+      { label: 'Offers', icon: 'offers', action: () => showRetainedModule('/offers', 'Offers') },
+      { label: 'Jobs', icon: 'jobs', action: () => showRetainedModule('/jobs', 'Jobs') },
+      { label: 'Courses', icon: 'courses', action: () => showRetainedModule('/courses', 'Courses') }
     ];
 
     const drawerList = element('div', 'native-drawer-list');
@@ -148,17 +149,32 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     function openDrawer(): void {
       drawer.classList.add('is-open');
       drawer.setAttribute('aria-hidden', 'false');
+      menu.setAttribute('aria-expanded', 'true');
       document.body.classList.add('native-drawer-open');
+      window.setTimeout(() => {
+        drawerPanel.querySelector<HTMLButtonElement>('button')?.focus();
+      }, 0);
     }
     function closeDrawer(): void {
       drawer.classList.remove('is-open');
       drawer.setAttribute('aria-hidden', 'true');
+      menu.setAttribute('aria-expanded', 'false');
       document.body.classList.remove('native-drawer-open');
     }
+
+    drawer.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeDrawer();
+        menu.focus();
+      }
+    });
 
     const topbar = element('header', 'mobile-topbar');
     const topLeft = element('div', 'native-topbar-left');
     const menu = iconButton('header-menu', 'Open navigation');
+    menu.setAttribute('aria-expanded', 'false');
+    menu.setAttribute('aria-controls', 'chatpalez-native-drawer');
     menu.addEventListener('click', openDrawer);
     const brand = element('button', 'topbar-brand');
     brand.type = 'button';
@@ -168,7 +184,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     const topActions = element('div', 'native-topbar-actions');
     const requests = iconButton('header-friends', 'Friend requests');
-    requests.addEventListener('click', () => handlers.onOpenWebModule('/people/friend_requests'));
+    requests.addEventListener('click', () => showRetainedModule('/people/friend_requests', 'Friend Requests'));
     const messages = iconButton('header-messages', 'Messages');
     messages.addEventListener('click', () => void showConversationList());
     const alerts = iconButton('header-notifications', 'Notifications');
@@ -182,9 +198,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     nav.setAttribute('aria-label', 'Primary');
     const bottomItems = [
       { id: 'home', label: 'Home', icon: 'header-home', action: () => void showFeed('newsfeed') },
-      { id: 'reels', label: 'Reels', icon: 'reels', action: () => handlers.onOpenWebModule('/reels') },
+      { id: 'reels', label: 'Reels', icon: 'reels', action: () => showRetainedModule('/reels', 'Reels', 'reels') },
       { id: 'add', label: 'Add', icon: 'header-plus', action: () => showQuickAdd() },
-      { id: 'search', label: 'Search', icon: 'header-search', action: () => handlers.onOpenWebModule('/search') },
+      { id: 'search', label: 'Search', icon: 'header-search', action: () => showRetainedModule('/search', 'Search', 'search') },
       { id: 'menu', label: 'Menu', icon: 'user_information', action: () => showAccountMenu() }
     ] as const;
 
@@ -199,7 +215,46 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     function setActiveTab(id: string): void {
-      for (const [tabId, button] of buttons) button.classList.toggle('is-active', tabId === id);
+      for (const [tabId, button] of buttons) {
+        const active = tabId === id;
+        button.classList.toggle('is-active', active);
+        if (active) button.setAttribute('aria-current', 'page');
+        else button.removeAttribute('aria-current');
+      }
+    }
+
+    function showRetainedModule(path: string, title: string, activeTab?: string): void {
+      closeDrawer();
+      if (activeTab) setActiveTab(activeTab);
+      else setActiveTab('');
+
+      content.replaceChildren();
+      const frameName = 'chatpalez-retained-module';
+      const wrapper = element('section', 'retained-module');
+      const header = element('div', 'retained-module-header');
+      header.append(screenTitle(title));
+
+      const close = iconButton('close', `Close ${title}`);
+      close.classList.add('retained-module-close');
+      close.addEventListener('click', () => void showFeed('newsfeed'));
+      header.append(close);
+
+      const loading = paragraph(`Opening ${title}…`);
+      loading.className = 'retained-module-loading';
+
+      const frame = document.createElement('iframe');
+      frame.className = 'retained-module-frame';
+      frame.name = frameName;
+      frame.title = title;
+      frame.setAttribute('allow', 'camera; microphone; autoplay; clipboard-write');
+      frame.addEventListener('load', () => {
+        loading.hidden = true;
+        frame.classList.add('is-ready');
+      });
+
+      wrapper.append(header, loading, frame);
+      content.append(wrapper);
+      handlers.onOpenWebModule(path, frameName);
     }
 
     function showQuickAdd(): void {
@@ -221,7 +276,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       for (const [icon, label, route] of actions) {
         const button = navigationButton(icon, label);
         button.classList.add('quick-add-item');
-        button.addEventListener('click', () => handlers.onOpenWebModule(route));
+        button.addEventListener('click', () => showRetainedModule(route, label));
         grid.append(button);
       }
       content.append(grid);
@@ -301,10 +356,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           { icon: 'notifications', label: 'Notifications', action: () => void showNotifications() }
         ],
         [
-          { icon: 'privacy', label: 'Privacy Policy', action: () => handlers.onOpenWebModule('/static/privacy') },
-          { icon: 'privacy', label: 'Terms & Conditions', action: () => handlers.onOpenWebModule('/static/terms') },
-          { icon: 'security', label: 'Child Safety', action: () => handlers.onOpenWebModule('/static/child-safety') },
-          { icon: 'delete', label: 'Account deletion help', action: () => handlers.onOpenWebModule('/account-deletion.php') }
+          { icon: 'privacy', label: 'Privacy Policy', action: () => showRetainedModule('/static/privacy', 'Privacy Policy') },
+          { icon: 'privacy', label: 'Terms & Conditions', action: () => showRetainedModule('/static/terms', 'Terms & Conditions') },
+          { icon: 'security', label: 'Child Safety', action: () => showRetainedModule('/static/child-safety', 'Child Safety') },
+          { icon: 'delete', label: 'Account deletion help', action: () => showRetainedModule('/account-deletion.php', 'Account Deletion') }
         ]
       ];
 
