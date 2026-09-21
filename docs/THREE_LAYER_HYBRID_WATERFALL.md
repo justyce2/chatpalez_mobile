@@ -264,7 +264,7 @@ These are not reasons to stop implementation, but must be called out for runtime
 ## 7. Current Work Pointer
 
 **Current phase:** PHASE 4/5 — retained-content integration hardening and native account/settings expansion (source implementation in Testing pending device acceptance).  
-**Next task:** complete the Switch Accounts backend/native contract so account identities can be listed/switched without exposing credentials, then close remaining H4/H5 regression items with Android/iOS device acceptance.  
+**Next task:** close remaining H4 retained-route/session/deep-link regression items, then perform Android/iOS acceptance of the native account/profile/settings surfaces and account switching.  
 **Parallel testing gate:** deploy latest `sngine-fresh` and verify native feed/community/search/people/reels/watch/post/community detail, native text-post creation, native account/profile/privacy settings, deep/push routing, retained history/back behavior, and `chatpalez_app` fallback rendering.
 
 This document supersedes older implementation notes that stated feed/groups/pages/search must remain full retained-web surfaces for v1. Those historical decisions remain useful context, but this document governs implementation from 2026-09-21 onward.
@@ -290,3 +290,32 @@ Commits:
 Remaining Switch Accounts work is the actual account-list/switch API contract. Until that backend contract exists, the native Switch Accounts surface deliberately hands off to the authenticated first-party switcher rather than collecting/storing secondary account credentials in the app.
 
 GitHub Actions remain disabled and were not triggered.
+
+
+### Source checkpoint — 2026-09-21 (native Switch Accounts)
+
+Implemented across backend `sngine-fresh` and mobile `develop`:
+
+- mobile endpoint lists only identities belonging to the authenticated Sngine connected-account family;
+- switching validates the target against Sngine's existing connected-account relationship;
+- a successful switch creates a fresh device-bound API JWT/session for the selected account;
+- the old mobile API session is deleted after the replacement session has been created;
+- the app stores the replacement token only through the existing protected native session store;
+- the native shell remounts under the switched identity and native push identity is reinitialized;
+- the current account is marked and cannot be redundantly selected;
+- connecting a brand-new account remains on the authenticated first-party Sngine flow so password/2FA handling is not duplicated insecurely in the mobile client.
+
+Backend commits:
+
+- `a6477f5` — native connected-account listing/session-switch contract;
+- `da076ff` — mobile connected-account routes;
+- `5b9630a` — redundant self-switch rejection.
+
+Mobile commits:
+
+- `43e5222` — connected-account API client;
+- `d4e5744` — native session rotation and identity remount;
+- `beb2cd8` — native connected-account picker;
+- `b630ffc` — connected-account picker styles.
+
+Runtime acceptance still requires the latest backend `sngine-fresh` deployment before testing Switch Accounts on-device. GitHub Actions remain disabled and were not triggered.
