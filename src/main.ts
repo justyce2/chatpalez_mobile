@@ -91,7 +91,7 @@ function registrationOptions(): RegistrationOptions {
     },
     onReturnToLogin: () => {
       void clearSession();
-      renderLogin();
+      openPublicWebModule('/signin');
     }
   };
 }
@@ -200,7 +200,7 @@ function renderTwoFactor(challenge: TwoFactorChallenge): void {
     onSuccess: (session) => {
       void completeAuthenticatedSession(session);
     },
-    onCancel: () => renderLogin()
+    onCancel: () => openPublicWebModule('/signin')
   });
 }
 
@@ -240,7 +240,7 @@ const shell = createAppShell(root, {
       });
       await clearSession();
       shell.setBusy(false);
-      renderLogin();
+      openPublicWebModule('/signin');
     }
   },
   onOpenWebModule: openWebModule,
