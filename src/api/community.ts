@@ -24,6 +24,32 @@ export type MobileGroup = {
   url?: string;
 };
 
+export type MobilePerson = {
+  user_id: number | string;
+  user_name?: string;
+  user_firstname?: string;
+  user_lastname?: string;
+  user_fullname?: string;
+  user_picture?: string;
+  user_verified?: boolean;
+  user_subscribed?: boolean;
+  mutual_friends_count?: number;
+  connection?: unknown;
+  url?: string;
+};
+
+export type MobileSearchResult = {
+  type: 'user' | 'page' | 'group' | 'event';
+  id?: number | string;
+  user_id?: number | string;
+  title?: string;
+  subtitle?: string;
+  picture?: string;
+  user_name?: string;
+  user_fullname?: string;
+  url?: string;
+};
+
 export type MobileEvent = {
   event_id: number | string;
   event_title: string;
@@ -53,5 +79,13 @@ export class CommunityService {
 
   getEvents(view: 'discover' | 'going' | 'interested' | 'invited' | 'manage' = 'discover', offset = 0): Promise<ApiPage<MobileEvent[]>> {
     return this.api.getPage<MobileEvent[]>('mobile/events', { view, offset });
+  }
+
+  getPeople(view: 'discover' | 'requests' | 'sent' | 'friends' = 'discover', offset = 0): Promise<ApiPage<MobilePerson[]>> {
+    return this.api.getPage<MobilePerson[]>('mobile/people', { view, offset });
+  }
+
+  search(query: string): Promise<MobileSearchResult[]> {
+    return this.api.get<MobileSearchResult[]>('mobile/search', { query });
   }
 }
