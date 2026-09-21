@@ -64,6 +64,8 @@ export type AppShellHandlers = {
   onUpdateSocial?: (payload: { facebook: string; twitter: string; youtube: string; instagram: string; twitch: string; linkedin: string; vkontakte: string }) => Promise<void>;
   onUpdatePassword?: (payload: { current: string; new: string; confirm: string }) => Promise<void>;
   onUpdatePrivacy?: (payload: Record<string, string | boolean>) => Promise<void>;
+  onUploadProfilePicture?: (file: File) => Promise<MobileAccount>;
+  onDeleteProfilePicture?: () => Promise<MobileAccount>;
   onDeleteAccount?: (password: string) => Promise<void>;
 };
 
@@ -1634,13 +1636,67 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         const account = await loadAccountSnapshot();
         card.replaceChildren();
 
+        const media = element('div', 'native-profile-media');
         if (account.picture) {
           const picture = document.createElement('img');
           picture.className = 'native-profile-picture';
           picture.src = account.picture;
           picture.alt = account.fullname || displayName;
-          card.append(picture);
+          media.append(picture);
         }
+
+        if (handlers.onUploadProfilePicture) {
+          const picker = document.createElement('input');
+          picker.type = 'file';
+          picker.accept = 'image/*';
+          picker.className = 'native-profile-file';
+          picker.setAttribute('aria-label', 'Choose profile picture');
+
+          const choose = secondaryButton(account.picture ? 'Change photo' : 'Add photo');
+          choose.classList.add('compact-button');
+          choose.addEventListener('click', () => picker.click());
+
+          picker.addEventListener('change', () => {
+            const file = picker.files?.[0];
+            if (!file) return;
+            choose.disabled = true;
+            choose.textContent = 'Uploading…';
+            void handlers.onUploadProfilePicture!(file)
+              .then((updated) => {
+                cachedAccount = updated;
+                invalidateAccountSnapshot();
+                void showProfile();
+              })
+              .catch((error: unknown) => {
+                window.alert(error instanceof Error ? error.message : 'Unable to update profile picture.');
+                choose.disabled = false;
+                choose.textContent = account.picture ? 'Change photo' : 'Add photo';
+              });
+          });
+          media.append(picker, choose);
+        }
+
+        if (account.picture && handlers.onDeleteProfilePicture) {
+          const remove = secondaryButton('Remove photo');
+          remove.classList.add('compact-button', 'danger-link-button');
+          remove.addEventListener('click', () => {
+            if (!window.confirm('Remove your profile picture?')) return;
+            remove.disabled = true;
+            void handlers.onDeleteProfilePicture!()
+              .then((updated) => {
+                cachedAccount = updated;
+                invalidateAccountSnapshot();
+                void showProfile();
+              })
+              .catch((error: unknown) => {
+                window.alert(error instanceof Error ? error.message : 'Unable to remove profile picture.');
+                remove.disabled = false;
+              });
+          });
+          media.append(remove);
+        }
+
+        if (media.childElementCount > 0) card.append(media);
 
         const identity = element('div', 'native-profile-identity');
         identity.append(elementWithText('h2', account.fullname || displayName));
