@@ -1,5 +1,10 @@
-def chatpalezVersionCode = (System.getenv("CHATPALEZ_VERSION_CODE") ?: "1").toInteger()
-def chatpalezVersionName = System.getenv("CHATPALEZ_VERSION_NAME") ?: "1.0"
+def chatpalezEnv = new Properties()
+def chatpalezEnvFile = rootProject.file("../.env")
+if (chatpalezEnvFile.exists()) {
+    chatpalezEnvFile.withInputStream { chatpalezEnv.load(it) }
+}
+def chatpalezVersionCode = (System.getenv("CHATPALEZ_VERSION_CODE") ?: chatpalezEnv.getProperty("CHATPALEZ_VERSION_CODE") ?: "1").toInteger()
+def chatpalezVersionName = System.getenv("CHATPALEZ_VERSION_NAME") ?: chatpalezEnv.getProperty("CHATPALEZ_VERSION_NAME") ?: "1.0"
 
 apply plugin: 'com.android.application'
 
