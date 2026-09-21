@@ -121,12 +121,17 @@ function renderLogin(error?: string): void {
 async function showAuthenticatedSession(session: AuthSession): Promise<void> {
   await setSession(session);
   logInfo('Mobile authentication completed', { userId: session.user.user_id });
-  shell.showAuthenticated(session);
+
+  // ChatPalez already has a complete responsive mobile UI. After API authentication,
+  // bridge the JWT into the normal Sngine web session and continue inside the same
+  // Capacitor WebView instead of rendering a competing local dashboard.
   void initializeNativeNotifications(config, users, session.user.user_id, openWebModule).catch((error) => {
     logWarn('Native notification identity could not be initialized', {
       detail: error instanceof Error ? error.message : String(error ?? '')
     });
   });
+
+  await openWebModule('/');
 }
 
 async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
