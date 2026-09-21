@@ -1907,3 +1907,58 @@ body.native-drawer-open {
   min-height: 34px;
   margin: 0;
 }
+
+
+/* App-owned appearance modes. Retained web content keeps its own theme contract. */
+body.native-theme-night {
+  --chatpalez-bg: #111827;
+  --chatpalez-surface: #18212f;
+  --chatpalez-text: #f8fafc;
+  --chatpalez-muted: #a8b3c2;
+  --chatpalez-divider: #2c394b;
+  --chatpalez-link: #8ea2ff;
+  background: var(--chatpalez-bg);
+  color: var(--chatpalez-text);
+}
+
+body.native-theme-night .mobile-layout,
+body.native-theme-night .mobile-content {
+  background: var(--chatpalez-bg);
+}
+
+body.native-theme-night .mobile-topbar,
+body.native-theme-night .bottom-tabs,
+body.native-theme-night .native-drawer-panel,
+body.native-theme-night .native-post-card,
+body.native-theme-night .profile-card,
+body.native-theme-night .settings-card,
+body.native-theme-night .conversation-item,
+body.native-theme-night .notification-item,
+body.native-theme-night .contact-item,
+body.native-theme-night .selected-contact,
+body.native-theme-night .quick-add-item,
+body.native-theme-night .account-menu-head,
+body.native-theme-night .account-menu-section,
+body.native-theme-night .retained-module {
+  background: var(--chatpalez-surface);
+  color: var(--chatpalez-text);
+}
+
+body.native-theme-night .native-navigation-button,
+body.native-theme-night .account-menu-item,
+body.native-theme-night .tab-button,
+body.native-theme-night .native-icon-button {
+  color: var(--chatpalez-text);
+}
+
+body.native-theme-night .field input,
+body.native-theme-night .field select,
+body.native-theme-night .delete-account-form input,
+body.native-theme-night .contact-search input,
+body.native-theme-night .native-post-composer textarea,
+body.native-theme-night .native-comment-form textarea,
+body.native-theme-night .initial-message-form textarea {
+  background: #111827;
+  border-color: var(--chatpalez-divider);
+  color: var(--chatpalez-text);
+}
