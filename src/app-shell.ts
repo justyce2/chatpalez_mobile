@@ -25,6 +25,7 @@ export type AppShellHandlers = {
   onReactToComment?: (commentId: number | string, reaction: string, remove: boolean) => Promise<void>;
   onEditComment?: (commentId: number | string, message: string) => Promise<void>;
   onDeleteComment?: (commentId: number | string) => Promise<void>;
+  onCreatePost?: (message: string, privacy: 'me' | 'friends' | 'public') => Promise<FeedPost>;
   onLoadReels?: (offset: number) => Promise<PageResult<ReelItem>>;
   onLoadWatch?: (offset: number) => Promise<PageResult<VideoItem>>;
   onLoadPages?: (view: 'discover' | 'liked' | 'manage', offset: number) => Promise<PageResult<MobilePage>>;
@@ -297,7 +298,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       for (const [icon, label, route] of actions) {
         const button = navigationButton(icon, label);
         button.classList.add('quick-add-item');
-        button.addEventListener('click', () => showRetainedModule(route, label));
+        if (label === 'Post') {
+          button.addEventListener('click', showPostComposer);
+        } else {
+          button.addEventListener('click', () => showRetainedModule(route, label));
+        }
         grid.append(button);
       }
       content.append(grid);
@@ -504,6 +509,81 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           window.alert(error instanceof Error ? error.message : 'Unable to update this connection.');
           button.disabled = false;
         });
+    }
+
+    function showPostComposer(): void {
+      backAction = showQuickAdd;
+      setActiveTab('add');
+      content.replaceChildren();
+
+      const header = element('div', 'conversation-header');
+      const back = secondaryButton('Back');
+      back.classList.add('compact-button');
+      back.addEventListener('click', showQuickAdd);
+      header.append(back, screenTitle('Create post'));
+      content.append(header);
+
+      if (!handlers.onCreatePost) {
+        content.append(paragraph('Native post creation is not available yet.'));
+        return;
+      }
+
+      const form = document.createElement('form');
+      form.className = 'native-post-composer';
+
+      const message = document.createElement('textarea');
+      message.rows = 6;
+      message.placeholder = 'What’s on your mind?';
+      message.required = true;
+      message.setAttribute('aria-label', 'Post text');
+
+      const privacyField = document.createElement('label');
+      privacyField.className = 'field';
+      privacyField.append(elementWithText('span', 'Who can see this?'));
+      const privacy = document.createElement('select');
+      for (const [value, label] of [
+        ['public', 'Public'],
+        ['friends', 'Friends'],
+        ['me', 'Only me']
+      ] as const) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        privacy.append(option);
+      }
+      privacyField.append(privacy);
+
+      const error = element('p', 'form-error');
+      error.hidden = true;
+      const submit = actionButton('Post');
+      submit.type = 'submit';
+
+      form.append(message, privacyField, error, submit);
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const text = message.value.trim();
+        if (!text) return;
+
+        error.hidden = true;
+        submit.disabled = true;
+        submit.textContent = 'Posting…';
+
+        void handlers.onCreatePost!(
+          text,
+          privacy.value as 'me' | 'friends' | 'public'
+        ).then((post) => {
+          void showPostDetail(post.post_id);
+        }).catch((reason: unknown) => {
+          error.textContent = reason instanceof Error ? reason.message : 'Unable to publish post.';
+          error.hidden = false;
+        }).finally(() => {
+          submit.disabled = false;
+          submit.textContent = 'Post';
+        });
+      });
+
+      content.append(form);
+      window.setTimeout(() => message.focus(), 0);
     }
 
     async function showPostDetail(postId: number | string): Promise<void> {
