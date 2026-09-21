@@ -115,9 +115,9 @@ Known regressions at start:
 
 | ID | Task | Status | Acceptance |
 |---|---|---|---|
-| H1-01 | Fix login viewport pinning | Planned | Login fills device viewport; no blank top/bottom overscroll |
-| H1-02 | Fix signup/activation/onboarding viewport behavior | Planned | Long forms scroll inside viewport; no document bounce gap |
-| H1-03 | Fix password recovery/2FA viewport behavior | Planned | Same viewport contract as login |
+| H1-01 | Fix login viewport pinning | Testing | Login fills device viewport; no blank top/bottom overscroll |
+| H1-02 | Fix signup/activation/onboarding viewport behavior | Testing | Long forms scroll inside viewport; no document bounce gap |
+| H1-03 | Fix password recovery/2FA viewport behavior | Testing | Same viewport contract as login |
 | H1-04 | Stabilize native top bar | Planned | App-owned header, correct icons/spacing/safe area |
 | H1-05 | Stabilize native hamburger drawer | Planned | Smooth slide-in/out; app-owned; no web offcanvas duplicate |
 | H1-06 | Stabilize five-item bottom navigation | Planned | Home, Reels/Watch, Add, Search, Menu; correct active state |
