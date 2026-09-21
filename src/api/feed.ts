@@ -100,4 +100,16 @@ export class FeedService {
   commentOnPost(postId: number | string, message: string): Promise<PostComment> {
     return this.api.post<PostComment>('mobile/post/comment', { post_id: postId, message });
   }
+
+  async reactToComment(commentId: number | string, reaction = 'like', remove = false): Promise<void> {
+    await this.api.post<unknown>('mobile/comment/react', { comment_id: commentId, reaction, remove });
+  }
+
+  async editComment(commentId: number | string, message: string): Promise<void> {
+    await this.api.post<unknown>('mobile/comment/edit', { comment_id: commentId, message });
+  }
+
+  async deleteComment(commentId: number | string): Promise<void> {
+    await this.api.post<unknown>('mobile/comment/delete', { comment_id: commentId });
+  }
 }
