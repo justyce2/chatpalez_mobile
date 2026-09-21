@@ -1,3 +1,7 @@
+# ChatPalez Mobile — Legacy Backlog
+
+> **Superseded execution source:** `docs/THREE_LAYER_HYBRID_WATERFALL.md` is authoritative from 2026-09-21 onward. This file remains as historical traceability only; rows below that describe feed, messaging, search, pages, groups, events or creation as retained-web-first are historical decisions and must not override the three-layer plan.
+
 # ChatPalez Mobile — Delivery Backlog and Status Tracker
 
 **Repository:** `justyce2/chatpalez_mobile`  
@@ -243,7 +247,7 @@
 | N-06 | Implement API-driven profile/account summary | Testing | Local account identity/profile summary works | N-01,N-02,N-04 | Deeper profile remains web-backed |
 | N-07 | Implement local/API settings shell | Testing | Settings shell exposes native permissions + key account options | N-01,N-02,N-04 | Source complete; runtime validation pending |
 | N-08 | Create local↔web module router/session bridge | Testing | Users move between local and retained web modules without broken auth/navigation | D-03,N-03 | Existing isolated bridge; Android/iOS validation required |
-| N-09 | Decide whether feed migrates in v1 | Testing | Retained-web v1 decision documented and entry point implemented | N-01,N-08 | Official fresh API lacks feed/post contract; validate bridge on devices |
+| N-09 | Decide whether feed migrates in v1 | Completed | Feed migration decision superseded by the three-layer plan | N-01,N-08 | Native mobile feed/post adapters now exist; runtime validation remains under the authoritative waterfall |
 
 ---
 
@@ -257,10 +261,10 @@
 | Notifications | API-driven local |
 | Profile/account summary | API-driven local |
 | Settings shell | Local/API-driven |
-| Feed | Controlled retained web module; official API audit found no feed/post contract |
-| Post/media composer | Controlled retained web module; no official post contract |
-| Messaging | Retained web initially |
-| Groups/pages/search | Controlled retained web modules; no official API contracts |
+| Feed | Native/API-driven; retained fallback only for unsupported actions |
+| Post/media composer | Native text composer; retained fallback for unsupported rich creation |
+| Messaging | Native/API-driven |
+| Groups/pages/search | Native/API-driven; retained fallback only where detail/action support is intentionally absent |
 | Calls | Existing implementation first; remediate separately |
 
 ---
