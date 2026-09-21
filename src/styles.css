@@ -1654,3 +1654,48 @@ body.native-drawer-open {
   box-shadow: none;
   border: 1px solid var(--chatpalez-divider);
 }
+
+
+/* Native text post composer */
+.native-post-composer {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+}
+
+.native-post-composer textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  border: 0;
+  border-bottom: 1px solid var(--chatpalez-divider);
+  border-radius: 0;
+  padding: 8px 0 14px;
+  background: transparent;
+  color: var(--chatpalez-text);
+  outline: none;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.native-post-composer textarea::placeholder {
+  color: #98a2b3;
+}
+
+.native-post-composer .field select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--chatpalez-divider);
+  border-radius: 12px;
+  padding: 9px 12px;
+  background: #fff;
+  color: var(--chatpalez-text);
+  outline: none;
+}
+
+.native-post-composer .primary-button {
+  min-height: 44px;
+}
