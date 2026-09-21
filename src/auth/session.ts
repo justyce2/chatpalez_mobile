@@ -20,6 +20,7 @@ export type AuthSession = {
 const SESSION_KEY = 'mobile.session.v1';
 let current: AuthSession | null = null;
 let storageReady: Promise<void> | null = null;
+let clearPending = false;
 
 /**
  * Restores a session only from the operating system's protected store.
@@ -31,6 +32,13 @@ export async function restoreSession(): Promise<AuthSession | null> {
 
   try {
     await prepareNativeStorage();
+
+    if (clearPending) {
+      await SecureStorage.removeItem(SESSION_KEY);
+      clearPending = false;
+      return null;
+    }
+
     const raw = await SecureStorage.getItem(SESSION_KEY);
     if (!raw) return null;
 
@@ -68,6 +76,7 @@ export async function setSession(session: AuthSession): Promise<void> {
   try {
     await prepareNativeStorage();
     await SecureStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    clearPending = false;
   } catch {
     // Do not write a JWT to sessionStorage/localStorage as a fallback.
   }
@@ -77,12 +86,15 @@ export async function clearSession(): Promise<void> {
   current = null;
   if (!isNative()) return;
 
+  clearPending = true;
   try {
     await prepareNativeStorage();
     await SecureStorage.removeItem(SESSION_KEY);
+    clearPending = false;
   } catch {
-    // Clearing the in-memory value is still required even if the native store
-    // cannot be reached; a later restore may retry the removal.
+    // Keep clearPending set so any later restore in this app process retries
+    // deletion instead of resurrecting a session the user already cleared.
+    storageReady = null;
   }
 }
 
