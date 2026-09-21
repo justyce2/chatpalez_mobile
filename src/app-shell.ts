@@ -302,8 +302,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         ],
         [
           { icon: 'privacy', label: 'Privacy Policy', action: () => handlers.onOpenWebModule('/static/privacy') },
-          { icon: 'terms', label: 'Terms & Conditions', action: () => handlers.onOpenWebModule('/static/terms') },
-          { icon: 'shield', label: 'Child Safety', action: () => handlers.onOpenWebModule('/static/child-safety') },
+          { icon: 'privacy', label: 'Terms & Conditions', action: () => handlers.onOpenWebModule('/static/terms') },
+          { icon: 'security', label: 'Child Safety', action: () => handlers.onOpenWebModule('/static/child-safety') },
           { icon: 'delete', label: 'Account deletion help', action: () => handlers.onOpenWebModule('/account-deletion.php') }
         ]
       ];
