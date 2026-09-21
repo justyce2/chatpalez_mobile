@@ -243,6 +243,10 @@ const shell = createAppShell(root, {
     const page = await feed.getReels(offset);
     return { items: page.data, hasMore: page.hasMore };
   },
+  onLoadWatch: async (offset) => {
+    const page = await feed.getWatch(offset);
+    return { items: page.data, hasMore: page.hasMore };
+  },
   onLoadFeed: async (view, offset) => {
     const page = await feed.getFeed(view, offset);
     logInfo('Native feed loaded', { view, count: page.data.length, offset, hasMore: page.hasMore });
