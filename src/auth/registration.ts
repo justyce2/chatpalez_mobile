@@ -7,6 +7,7 @@ export type RegistrationOptions = {
   onSessionCreated: (session: AuthSession) => void;
   onComplete: (session: AuthSession) => void;
   onReturnToLogin: () => void;
+  onOpenPublicPage?: (path: string) => void;
 };
 
 export function installRegistration(options: RegistrationOptions): void {
@@ -85,7 +86,10 @@ function renderSignUpForm(options: RegistrationOptions, metadata: RegistrationMe
   const gender = metadata.genders.length > 0 ? selectFromRecords(metadata.genders, 'Select gender', ['gender_id', 'id'], ['gender_name', 'name']) : null;
   if (gender) form.append(field('Gender', gender));
 
-  form.append(field('Password', password), field('Confirm password', confirm));
+  form.append(field('Password', passwordField(password)), field('Confirm password', passwordField(confirm)));
+  if (options.onOpenPublicPage) {
+    form.append(consentLinks(options.onOpenPublicPage));
+  }
   const error = errorBox();
   const submit = primaryButton('Create account');
   form.append(error, submit, linkButton('Back to sign in', options.onReturnToLogin));
@@ -279,13 +283,51 @@ function firstValue(record: Record<string, unknown>, keys: string[]): string {
   return '';
 }
 
-function field(label: string, control: HTMLInputElement | HTMLSelectElement): HTMLLabelElement {
+function field(label: string, control: HTMLElement): HTMLLabelElement {
   const wrapper = document.createElement('label');
   wrapper.className = 'field';
   const text = document.createElement('span');
   text.textContent = label;
   wrapper.append(text, control);
   return wrapper;
+}
+
+function passwordField(inputControl: HTMLInputElement): HTMLDivElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'password-field';
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'password-toggle';
+  toggle.setAttribute('aria-label', 'Show password');
+  toggle.setAttribute('aria-pressed', 'false');
+  toggle.textContent = '👁';
+  toggle.addEventListener('click', () => {
+    const showing = inputControl.type === 'text';
+    inputControl.type = showing ? 'password' : 'text';
+    toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    toggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
+    inputControl.focus({ preventScroll: true });
+  });
+  wrap.append(inputControl, toggle);
+  return wrap;
+}
+
+function consentLinks(openPublicPage: (path: string) => void): HTMLParagraphElement {
+  const note = document.createElement('p');
+  note.className = 'auth-consent-note';
+  note.append(document.createTextNode('By creating your account, you agree to our '));
+  const terms = document.createElement('button');
+  terms.type = 'button';
+  terms.className = 'auth-policy-link';
+  terms.textContent = 'Terms';
+  terms.addEventListener('click', () => openPublicPage('/static/terms'));
+  const privacy = document.createElement('button');
+  privacy.type = 'button';
+  privacy.className = 'auth-policy-link';
+  privacy.textContent = 'Privacy Policy';
+  privacy.addEventListener('click', () => openPublicPage('/static/privacy'));
+  note.append(terms, document.createTextNode(' and '), privacy, document.createTextNode('.'));
+  return note;
 }
 
 function primaryButton(text: string): HTMLButtonElement {
