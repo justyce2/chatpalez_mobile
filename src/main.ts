@@ -6,6 +6,7 @@ import { createAppShell } from './app-shell';
 import { ChatPalezApiClient, ApiError } from './api/client';
 import { AuthService, type TwoFactorChallenge } from './api/auth';
 import { ChatService } from './api/chat';
+import { CommunityService } from './api/community';
 import { FeedService } from './api/feed';
 import { NotificationsService } from './api/notifications';
 import { RegistrationService } from './api/registration';
@@ -74,6 +75,7 @@ const api = new ChatPalezApiClient({
 });
 const auth = new AuthService(api);
 const chat = new ChatService(api);
+const community = new CommunityService(api);
 const feed = new FeedService(api);
 const notifications = new NotificationsService(api);
 const registration = new RegistrationService(api);
@@ -241,6 +243,21 @@ const shell = createAppShell(root, {
     const page = await feed.getFeed(view, offset);
     logInfo('Native feed loaded', { view, count: page.data.length, offset, hasMore: page.hasMore });
     return { items: page.data, hasMore: page.hasMore };
+  },
+  onLoadPages: async (view, offset) => {
+    const page = await community.getPages(view, offset);
+    return { items: page.data, hasMore: page.hasMore };
+  },
+  onLoadGroups: async (view, offset) => {
+    const page = await community.getGroups(view, offset);
+    return { items: page.data, hasMore: page.hasMore };
+  },
+  onLoadEvents: async (view, offset) => {
+    const page = await community.getEvents(view, offset);
+    return { items: page.data, hasMore: page.hasMore };
+  },
+  onConnect: async (action, id) => {
+    await users.connect(action, id);
   },
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
   onManageNotifications: async () => {
