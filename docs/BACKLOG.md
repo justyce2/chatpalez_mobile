@@ -4,6 +4,8 @@
 **Architecture source:** `docs/ARCHITECTURE_AND_SCOPE.md`  
 **Compliance source:** `docs/APP_STORE_COMPLIANCE.md`  
 **Target:** Android + iOS progressive hybrid application using Capacitor + selective APIs + retained web-backed modules  
+**Authoritative current plan:** `docs/THREE_LAYER_HYBRID_WATERFALL.md`  
+**Supersession note:** Historical v1 decisions below that require feed/groups/pages/search to remain full retained-web screens are superseded by the three-layer native-first hybrid decision dated 2026-09-21.  
 **Initial delivery window:** 2 weeks / 10 working days
 
 ---
