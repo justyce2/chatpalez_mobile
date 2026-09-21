@@ -1,3 +1,5 @@
+> **SUPERSEDED 2026-09-21:** This plan is no longer active. Use `docs/WEBSITE_FIRST_WATERFALL.md`. The app now keeps native authentication and push only; all post-login UI is the mobile website.
+
 # ChatPalez Mobile — Three-Layer Hybrid Waterfall Plan
 
 **Status:** Active / authoritative implementation plan  
