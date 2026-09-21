@@ -130,16 +130,16 @@ Known regressions at start:
 | ID | Task | Status | Acceptance |
 |---|---|---|---|
 | H2-01 | Deploy/validate `/mobile/feed` | Planned | Authenticated app receives feed JSON; no 404 |
-| H2-02 | Native News Feed | In Progress | Feed cards render from API inside native shell |
-| H2-03 | Native Popular/Discover/Saved/Scheduled/Memories | In Progress | Drawer feed variants work without full website navigation |
+| H2-02 | Native News Feed | Testing | Feed cards render from API inside native shell |
+| H2-03 | Native Popular/Discover/Saved/Scheduled/Memories | Testing | Drawer feed variants work without full website navigation |
 | H2-04 | Native post detail foundation | Planned | Post can open without losing native shell |
 | H2-05 | Add post reactions/comments API audit | Planned | Decide native vs app-theme fallback per action |
 | H2-06 | Native Search API | Planned | Search results render in shell |
 | H2-07 | Native People/friend requests API | Planned | People and requests no longer require full website chrome |
-| H2-08 | Native Pages list/detail API | Planned | Page list/detail render in shell where practical |
-| H2-09 | Native Groups list/detail API | Planned | Group list/detail render in shell where practical |
-| H2-10 | Native Events list/detail API | Planned | Events render in shell where practical |
-| H2-11 | Native Reels API | Planned | Reels surface renders in app-owned experience |
+| H2-08 | Native Pages list/detail API | In Progress | Page list/detail render in shell where practical |
+| H2-09 | Native Groups list/detail API | In Progress | Group list/detail render in shell where practical |
+| H2-10 | Native Events list/detail API | In Progress | Events render in shell where practical |
+| H2-11 | Native Reels API | Testing | Reels surface renders in app-owned experience |
 | H2-12 | Native Watch/video API audit | Planned | Native implementation where practical |
 
 Existing working native surfaces to retain:
@@ -175,7 +175,7 @@ Existing working native surfaces to retain:
 
 | ID | Task | Status | Acceptance |
 |---|---|---|---|
-| H4-01 | Define shell-safe retained-content container | Planned | Fallback content does not permanently replace native shell |
+| H4-01 | Define shell-safe retained-content container | Testing | Fallback content does not permanently replace native shell |
 | H4-02 | Session continuity for fallback content | Testing | JWT→web cookie bridge remains secure |
 | H4-03 | Route unsupported actions to app theme | Planned | Only unsupported functionality uses fallback |
 | H4-04 | Suppress native/web duplicate controls | Planned | One header, one drawer, one bottom bar |
@@ -264,7 +264,7 @@ These are not reasons to stop implementation, but must be called out for runtime
 ## 7. Current Work Pointer
 
 **Current phase:** PHASE 2 — Core API/native content surfaces (Phase 1 source implementation is in Testing pending Android/iOS acceptance).  
-**Next task:** H2-01 through H2-03, validate/deploy feed API and complete native feed variants.  
-**Then:** H2-06 through H2-12, progressively replace retained Pages/Groups/Events/Reels/Search/People surfaces with API/native screens.
+**Next task:** H2-06 and H2-07, implement native Search and People/Friend Requests.  
+**Then:** complete native detail/action coverage for Pages/Groups/Events/Reels and continue Watch/video migration.
 
 This document supersedes older implementation notes that stated feed/groups/pages/search must remain full retained-web surfaces for v1. Those historical decisions remain useful context, but this document governs implementation from 2026-09-21 onward.
