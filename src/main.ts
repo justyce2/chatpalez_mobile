@@ -419,6 +419,14 @@ const shell = createAppShell(root, {
   onUpdatePrivacy: async (payload) => {
     await users.updatePrivacy(payload);
   },
+  onUploadProfilePicture: async (file) => {
+    await uploads.uploadProfilePicture(file);
+    return users.getAccount();
+  },
+  onDeleteProfilePicture: async () => {
+    await users.deleteProfilePicture();
+    return users.getAccount();
+  },
   onDeleteAccount: async (password) => {
     await users.deleteAccount(password);
     await logoutNativeNotifications().catch((error) => {
