@@ -368,6 +368,10 @@ void Network.addListener('networkStatusChange', (status) => {
   if (!status.connected) {
     logWarn('Device went offline while app was active');
   }
+}).catch((error) => {
+  logDebug('Network listener could not be registered', {
+    detail: error instanceof Error ? error.message : String(error ?? '')
+  });
 });
 
 window.addEventListener('error', (event) => {
