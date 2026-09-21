@@ -2,7 +2,7 @@ import type { ChatContact, Conversation, Message, MessagesResult } from './api/c
 import type { CommunityCreatePayload, CommunityCreationMeta, CommunityDetail, CreationCustomField, MobileEvent, MobileGroup, MobilePage, MobilePerson, MobileSearchResult } from './api/community';
 import type { NotificationItem } from './api/notifications';
 import type { FeedPost, FeedView, PostComment, ReelItem, VideoItem } from './api/feed';
-import type { BlockedUser, MobileAccount, ProfileUpdate } from './api/user';
+import type { BlockedUser, ConnectedAccount, MobileAccount, ProfileUpdate } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
 
@@ -56,6 +56,8 @@ export type AppShellHandlers = {
   onLoadNotifications?: () => Promise<NotificationItem[]>;
   onLoadBlockedUsers?: (offset: number) => Promise<PageResult<BlockedUser>>;
   onLoadAccount?: () => Promise<MobileAccount>;
+  onLoadConnectedAccounts?: () => Promise<ConnectedAccount[]>;
+  onSwitchAccount?: (userId: number | string) => Promise<AuthSession>;
   onUpdateProfile?: (payload: ProfileUpdate) => Promise<void>;
   onUpdateIdentity?: (payload: { username: string; email: string; phone: string; password: string }) => Promise<void>;
   onUpdateWork?: (payload: { work_title: string; work_place: string; work_url: string }) => Promise<void>;
@@ -1645,7 +1647,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.append(header, card);
     }
 
-    function showSwitchAccounts(): void {
+    async function showSwitchAccounts(): Promise<void> {
       backAction = showAccountMenu;
       setActiveTab('menu');
       content.replaceChildren();
@@ -1658,13 +1660,74 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
       const card = element('section', 'settings-card');
       card.append(
-        elementWithText('h3', displayName),
-        paragraph('Account switching uses ChatPalez’s authenticated first-party session. Your mobile API token is never placed in the URL.')
+        elementWithText('h3', 'Connected accounts'),
+        paragraph('Switch between accounts already connected to this ChatPalez account.')
       );
-      const open = secondaryButton('Open account switcher');
-      open.addEventListener('click', () => showRetainedModule('/settings', 'Switch Accounts', 'menu'));
-      card.append(open);
       content.append(header, card);
+
+      if (!handlers.onLoadConnectedAccounts || !handlers.onSwitchAccount) {
+        const fallback = secondaryButton('Open account switcher');
+        fallback.addEventListener('click', () => showRetainedModule('/settings', 'Switch Accounts', 'menu'));
+        card.append(paragraph('Native account switching is not available in this build.'), fallback);
+        return;
+      }
+
+      const list = element('div', 'settings-list');
+      list.append(paragraph('Loading connected accounts…'));
+      card.append(list);
+
+      try {
+        const accounts = await handlers.onLoadConnectedAccounts();
+        list.replaceChildren();
+
+        if (!accounts.length) {
+          list.append(paragraph('No connected accounts were found.'));
+        }
+
+        for (const account of accounts) {
+          const row = element('div', 'settings-row connected-account-row');
+          const identity = element('div', 'settings-row-identity');
+
+          if (account.user_picture) {
+            const avatar = document.createElement('img');
+            avatar.className = 'connected-account-avatar';
+            avatar.src = account.user_picture;
+            avatar.alt = '';
+            identity.append(avatar);
+          }
+
+          const text = element('div', 'connected-account-text');
+          text.append(elementWithText('strong', account.user_fullname || account.user_name || `User ${account.user_id}`));
+          if (account.user_name) text.append(elementWithText('span', `@${account.user_name}`));
+          identity.append(text);
+          row.append(identity);
+
+          const action = secondaryButton(account.is_current ? 'Current' : 'Switch');
+          action.classList.add('compact-button');
+          action.disabled = Boolean(account.is_current);
+          action.addEventListener('click', () => {
+            action.disabled = true;
+            action.textContent = 'Switching…';
+            void handlers.onSwitchAccount!(account.user_id)
+              .catch((error: unknown) => {
+                window.alert(error instanceof Error ? error.message : 'Unable to switch account.');
+                action.disabled = false;
+                action.textContent = 'Switch';
+              });
+          });
+          row.append(action);
+          list.append(row);
+        }
+
+        const connectAnother = secondaryButton('Connect another account');
+        connectAnother.addEventListener('click', () => showRetainedModule('/settings', 'Connect Account', 'menu'));
+        card.append(connectAnother);
+      } catch (error) {
+        list.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load connected accounts.'));
+        const fallback = secondaryButton('Open account switcher');
+        fallback.addEventListener('click', () => showRetainedModule('/settings', 'Switch Accounts', 'menu'));
+        card.append(fallback);
+      }
     }
 
     function showAccountMenu(): void {
@@ -1730,7 +1793,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           if (menu.switch_accounts_enabled) {
             const switcher = navigationButton('accounts_switcher', 'Switch Accounts');
             switcher.classList.add('account-menu-item');
-            switcher.addEventListener('click', showSwitchAccounts);
+            switcher.addEventListener('click', () => { void showSwitchAccounts(); });
             enabledServices.append(switcher);
           }
           if (menu.packages_enabled && !menu.user_subscribed) {
