@@ -12,11 +12,6 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   appendUserAgent: ' ChatPalezMobile/1.0',
   loggingBehavior: 'debug',
-  server: {
-    // Keep first-party ChatPalez navigation inside the Capacitor WebView.
-    // External domains continue to be handled by the explicit external-link bridge.
-    allowNavigation: ['chatpalez.com', '*.chatpalez.com']
-  },
   android: {
     allowMixedContent: false,
     backgroundColor: '#0066B2',
