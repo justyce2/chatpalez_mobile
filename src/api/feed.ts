@@ -49,6 +49,8 @@ export type ReelItem = {
   url?: string;
 };
 
+export type VideoItem = ReelItem;
+
 export class FeedService {
   constructor(private readonly api: ChatPalezApiClient) {}
 
@@ -58,5 +60,9 @@ export class FeedService {
 
   getReels(offset = 0): Promise<ApiPage<ReelItem[]>> {
     return this.api.getPage<ReelItem[]>('mobile/reels', { offset });
+  }
+
+  getWatch(offset = 0): Promise<ApiPage<VideoItem[]>> {
+    return this.api.getPage<VideoItem[]>('mobile/watch', { offset });
   }
 }
