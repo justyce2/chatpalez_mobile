@@ -5,6 +5,7 @@ import type { FeedPost, FeedView, PostComment, ReelItem, VideoItem } from './api
 import type { BlockedUser, ConnectedAccount, MobileAccount, ProfileUpdate } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
+import { appendRetainedHistory, normalizeRetainedPath, resolveShellRoute, retainedBack } from './shell-navigation';
 
 export type LoginCredentials = {
   usernameEmail: string;
@@ -307,18 +308,6 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     let retainedHistory: string[] = [];
     let retainedTitle = '';
 
-    const normalizeRetainedPath = (rawPath: string): string | null => {
-      if (!handlers.trustedWebOrigin) return null;
-      try {
-        const trusted = new URL(handlers.trustedWebOrigin);
-        const destination = new URL(rawPath || '/', trusted);
-        if (destination.origin !== trusted.origin) return null;
-        return `${destination.pathname}${destination.search}${destination.hash}` || '/';
-      } catch {
-        return null;
-      }
-    };
-
     const retainedMessageListener = (event: MessageEvent): void => {
       if (!handlers.trustedWebOrigin || event.origin !== handlers.trustedWebOrigin) return;
       if (!retainedFrameName || !retainedFrameWindow || event.source !== retainedFrameWindow) return;
@@ -340,14 +329,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       }
 
       if (!['ready', 'navigate'].includes(payload.type || '')) return;
-      const normalizedPath = normalizeRetainedPath(payload.path || '');
+      const normalizedPath = normalizeRetainedPath(payload.path || '', handlers.trustedWebOrigin);
       if (!normalizedPath) return;
 
-      const current = retainedHistory[retainedHistory.length - 1];
-      if (current !== normalizedPath) {
-        retainedHistory.push(normalizedPath);
-        if (retainedHistory.length > 40) retainedHistory.splice(0, retainedHistory.length - 40);
-      }
+      retainedHistory = appendRetainedHistory(retainedHistory, normalizedPath);
       retainedTitle = payload.title || retainedTitle;
 
       backAction = () => {
@@ -356,9 +341,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           return;
         }
         if (retainedHistory.length > 1) {
-          retainedHistory.pop();
-          const previous = retainedHistory[retainedHistory.length - 1];
-          handlers.onOpenWebModule(previous, retainedFrameName);
+          const backState = retainedBack(retainedHistory);
+          retainedHistory = backState.history;
+          if (backState.previous) handlers.onOpenWebModule(backState.previous, retainedFrameName);
           return;
         }
         retainedFrameName = null;
@@ -403,71 +388,53 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     function dispatchRoute(rawPath: string): void {
-      const url = new URL(rawPath || '/', handlers.trustedWebOrigin || 'https://chatpalez.com');
-      const path = url.pathname.replace(/\/+$/, '') || '/';
-
-      if (path === '/' || path === '/index') {
-        void showFeed('newsfeed');
-        return;
+      const route = resolveShellRoute(rawPath, handlers.trustedWebOrigin);
+      switch (route.kind) {
+        case 'feed':
+          void showFeed(route.view);
+          return;
+        case 'reels':
+          void showReels();
+          return;
+        case 'watch':
+          void showWatch();
+          return;
+        case 'search':
+          showSearch();
+          return;
+        case 'people':
+          void showPeople(route.view);
+          return;
+        case 'pages':
+          void showPages('discover');
+          return;
+        case 'groups':
+          void showGroups('discover');
+          return;
+        case 'events':
+          void showEvents('discover');
+          return;
+        case 'notifications':
+          void showNotifications();
+          return;
+        case 'messages':
+          void showConversationList();
+          return;
+        case 'settings':
+          void showSettings();
+          return;
+        case 'post':
+          void showPostDetail(route.id);
+          return;
+        case 'event':
+          void showCommunityDetail('event', route.id);
+          return;
+        case 'fallback':
+          showRetainedModule(route.path, document.title || 'ChatPalez');
+          return;
+        case 'invalid':
+          return;
       }
-      if (path === '/reels') {
-        void showReels();
-        return;
-      }
-      if (path === '/watch') {
-        void showWatch();
-        return;
-      }
-      if (path === '/search') {
-        showSearch();
-        return;
-      }
-      if (path === '/people') {
-        void showPeople('discover');
-        return;
-      }
-      if (path === '/people/friend_requests') {
-        void showPeople('requests');
-        return;
-      }
-      if (path === '/pages') {
-        void showPages('discover');
-        return;
-      }
-      if (path === '/groups') {
-        void showGroups('discover');
-        return;
-      }
-      if (path === '/events') {
-        void showEvents('discover');
-        return;
-      }
-      if (path === '/notifications') {
-        void showNotifications();
-        return;
-      }
-      if (path === '/messages' || path === '/chat') {
-        void showConversationList();
-        return;
-      }
-      if (path === '/settings') {
-        void showSettings();
-        return;
-      }
-
-      const postMatch = path.match(/^\/posts\/(\d+)$/);
-      if (postMatch) {
-        void showPostDetail(postMatch[1]);
-        return;
-      }
-
-      const eventMatch = path.match(/^\/events\/(\d+)$/);
-      if (eventMatch) {
-        void showCommunityDetail('event', eventMatch[1]);
-        return;
-      }
-
-      showRetainedModule(`${path}${url.search}${url.hash}`, document.title || 'ChatPalez');
     }
 
     routeAction = dispatchRoute;
@@ -482,7 +449,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const frameName = 'chatpalez-retained-module';
       retainedFrameName = frameName;
       retainedFrameWindow = null;
-      retainedHistory = [normalizeRetainedPath(path) || path];
+      retainedHistory = [normalizeRetainedPath(path, handlers.trustedWebOrigin) || '/'];
       retainedTitle = title;
       backAction = () => {
         retainedFrameName = null;
