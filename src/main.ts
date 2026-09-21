@@ -91,7 +91,7 @@ function registrationOptions(): RegistrationOptions {
     },
     onReturnToLogin: () => {
       void clearSession();
-      openPublicWebModule('/signin');
+      renderLogin();
     }
   };
 }
@@ -157,7 +157,7 @@ async function openWebModule(path: string): Promise<void> {
   const token = getAuthToken();
   if (!token) {
     void clearSession();
-    openPublicWebModule(path);
+    renderLogin();
     return;
   }
 
@@ -200,7 +200,7 @@ function renderTwoFactor(challenge: TwoFactorChallenge): void {
     onSuccess: (session) => {
       void completeAuthenticatedSession(session);
     },
-    onCancel: () => openPublicWebModule('/signin')
+    onCancel: () => renderLogin()
   });
 }
 
@@ -240,7 +240,7 @@ const shell = createAppShell(root, {
       });
       await clearSession();
       shell.setBusy(false);
-      openPublicWebModule('/signin');
+      renderLogin();
     }
   },
   onOpenWebModule: openWebModule,
@@ -356,10 +356,10 @@ async function bootstrap(): Promise<void> {
       logInfo('Restored in-process mobile API session', { userId: session.user.user_id });
       await completeAuthenticatedSession(session);
     } else {
-      // Use ChatPalez's real responsive mobile login/registration experience.
-      // The first-party origin is whitelisted in Capacitor, so this remains inside
-      // the app and preserves normal Sngine cookies across authenticated pages.
-      openPublicWebModule('/');
+      // Authentication remains API-first. Once authenticated, the JWT is bridged
+      // into the retained first-party web session and the responsive feed opens
+      // inside the same Capacitor WebView.
+      renderLogin();
     }
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'The app could not start.';
