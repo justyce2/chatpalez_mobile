@@ -12,6 +12,11 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   appendUserAgent: ' ChatPalezMobile/1.0',
   loggingBehavior: 'debug',
+  server: {
+    // Intentional in the website-first architecture: after native authentication,
+    // the main Capacitor WebView transitions to the first-party mobile website.
+    allowNavigation: ['chatpalez.com', 'www.chatpalez.com']
+  },
   android: {
     allowMixedContent: false,
     backgroundColor: '#0066B2',
