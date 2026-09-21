@@ -104,7 +104,7 @@ async function handleSessionExpiry(): Promise<void> {
   try {
     await logoutNativeNotifications().catch(() => undefined);
     await clearSession();
-    openPublicWebModule('/');
+    renderLogin('Your session has expired. Please sign in again.');
   } finally {
     handlingSessionExpiry = false;
   }
