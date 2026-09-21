@@ -19,7 +19,7 @@ A customization remains only when the official Sngine API/function audit proves 
 - Mobile TypeScript API services: client-side adapters over official Sngine routes; not backend APIs.
 - OneSignal user/device association: use the official `POST /user/onesignal` route; do not create a duplicate endpoint.
 - Auth, signup, activation, onboarding, 2FA, password recovery, account deletion, blocked users, upload/reporting and messaging: use confirmed official Sngine routes.
-- App-specific retained-web styling: duplicate theme only; not part of these backend extensions.
+- App-specific retained-web styling is isolated in the `chatpalez_app` overlay and tracked as CUS-005 because `init_smarty()` contains the app-only selection hook.
 
 ## Upgrade procedure
 
@@ -30,7 +30,9 @@ A customization remains only when the official Sngine API/function audit proves 
 5. Run the applicable contract and device tests:
    - CUS-001: public bootstrap/auth and protected JWT request authorization;
    - CUS-002: POST-only transition, rejected external destinations, cookie continuity and logout/expiry;
-   - CUS-003: pagination, notification rendering and authorization.
+   - CUS-003: pagination, notification rendering and authorization;
+   - CUS-004: feed/community/search/people/reels authorization, pagination, privacy and action regression;
+   - CUS-005: app-UA template selection, default-web isolation, required JS/forms, and absence of duplicate header/footer/navigation.
 6. Update this register with the upstream version, implementation commit, retained/removed decision and test result.
 
 ## Next audit actions
@@ -38,3 +40,5 @@ A customization remains only when the official Sngine API/function audit proves 
 1. Determine whether CUS-001 can be moved from the stock utility file into a more isolated server integration boundary without weakening request validation.
 2. Reconfirm CUS-002 remains necessary after the v1 retained-web module list is finalized.
 3. Re-audit CUS-003 against every new Sngine API release before retaining it.
+4. Re-audit CUS-004 when Sngine adds or changes official feed/community/search routes; remove custom routes where stock coverage becomes sufficient.
+5. Re-test CUS-005 against any Smarty/theme-loader change and keep the stock website theme untouched.
