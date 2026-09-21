@@ -9,6 +9,22 @@
 * { box-sizing: border-box; }
 html, body, #app { width: 100%; min-height: 100%; margin: 0; }
 body { min-height: 100vh; min-height: 100dvh; background: #f4f9fd; }
+
+body.auth-mode {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body.auth-mode #app,
+body.auth-mode .app-shell {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
 button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 .app-shell { min-height: 100vh; min-height: 100dvh; }
@@ -16,13 +32,16 @@ button { cursor: pointer; }
 .state-card,
 .auth-screen {
   width: min(100% - 32px, 420px);
+  height: 100%;
+  min-height: 0;
   margin: 0 auto;
-  min-height: 100vh;
-  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: max(28px, env(safe-area-inset-top)) 0 max(28px, env(safe-area-inset-bottom));
+  padding: max(20px, env(safe-area-inset-top)) 0 max(20px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .state-card { text-align: center; align-items: center; }
@@ -2052,4 +2071,24 @@ body.native-theme-night .native-network-banner {
   background: #3a2512;
   border-color: #6b4423;
   color: #fed7aa;
+}
+
+
+@media (max-height: 640px) {
+  body.auth-mode .auth-screen,
+  body.auth-mode .state-card {
+    justify-content: flex-start;
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  body.auth-mode .auth-header {
+    margin-bottom: 16px;
+  }
+
+  body.auth-mode .brand-mark {
+    width: 52px;
+    height: 52px;
+    margin-bottom: 12px;
+  }
 }
