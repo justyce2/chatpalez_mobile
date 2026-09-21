@@ -1699,3 +1699,136 @@ body.native-drawer-open {
 .native-post-composer .primary-button {
   min-height: 44px;
 }
+
+
+/* Native profile and settings editors */
+.native-profile-card {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 20px 16px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+  text-align: center;
+}
+
+.native-profile-picture {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eef1f4;
+}
+
+.native-profile-identity {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.native-profile-identity h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.native-profile-identity span,
+.native-profile-meta span {
+  color: var(--chatpalez-muted);
+  font-size: 12px;
+}
+
+.native-profile-identity p {
+  margin: 6px 0 0;
+  max-width: 38rem;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.native-profile-meta {
+  width: 100%;
+  display: grid;
+  gap: 5px;
+  padding-top: 10px;
+  border-top: 1px solid var(--chatpalez-divider);
+}
+
+.settings-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.settings-action-button {
+  width: 100%;
+  min-height: 42px;
+  margin: 0;
+  text-align: center;
+}
+
+.native-settings-form {
+  display: grid;
+  gap: 13px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+}
+
+.native-settings-form .field {
+  display: grid;
+  gap: 6px;
+}
+
+.native-settings-form .field > span {
+  color: #475467;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.native-settings-form input,
+.native-settings-form textarea,
+.native-settings-form select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--chatpalez-divider);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  color: var(--chatpalez-text);
+  outline: none;
+  font: inherit;
+}
+
+.native-settings-form textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.native-settings-form input:focus,
+.native-settings-form textarea:focus,
+.native-settings-form select:focus {
+  border-color: var(--chatpalez-link);
+  box-shadow: 0 0 0 3px rgb(94 114 228 / 12%);
+}
+
+.native-settings-form input:disabled {
+  background: #f5f6f8;
+  color: #98a2b3;
+}
+
+.settings-form-status {
+  min-height: 18px;
+  margin: 0;
+  color: var(--chatpalez-muted);
+  font-size: 11px;
+}
+
+@media (max-width: 380px) {
+  .settings-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
