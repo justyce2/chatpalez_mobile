@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 const checks = [
-  ['capacitor config is bundled (no remote app root)', 'capacitor.config.ts', (s) => !/\bserver\s*:/.test(s)],
+  ['capacitor config is bundled (no remote server.url app root)', 'capacitor.config.ts', (s) => !/\burl\s*:\s*['"]https?:\/\//.test(s)],
   ['published Android application ID is retained', 'capacitor.config.ts', (s) => s.includes("'chatpalez.app.webview'")],
   ['Android Gradle package matches the published application ID', 'android/app/build.gradle', (s) => s.includes('namespace = "chatpalez.app.webview"') && s.includes('applicationId "chatpalez.app.webview"')],
   ['mobile user agent is configured for the session bridge', 'capacitor.config.ts', (s) => s.includes('ChatPalezMobile/1.0')],
@@ -9,7 +9,8 @@ const checks = [
   ['native splash cannot remain indefinitely on startup failure', 'capacitor.config.ts', (s) => s.includes('launchAutoHide: true')],
   ['production origin has a safe local-build fallback', 'src/config.ts', (s) => s.includes("'https://chatpalez.com'")],
   ['Android cleartext traffic is disabled', 'android/app/src/main/AndroidManifest.xml', (s) => s.includes('android:usesCleartextTraffic="false"')],
-  ['Android deep link is declared', 'android/app/src/main/AndroidManifest.xml', (s) => s.includes('android:scheme="chatpalez"') && s.includes('android:host="open"')],
+  ['Android custom deep link is declared', 'android/app/src/main/AndroidManifest.xml', (s) => s.includes('android:scheme="chatpalez"') && s.includes('android:host="open"')],
+  ['Android first-party HTTPS deep link is declared', 'android/app/src/main/AndroidManifest.xml', (s) => s.includes('android:scheme="https"') && s.includes('android:host="chatpalez.com"')],
   ['Android camera permission is declared', 'android/app/src/main/AndroidManifest.xml', (s) => s.includes('android.permission.CAMERA')],
   ['Android microphone permission is declared', 'android/app/src/main/AndroidManifest.xml', (s) => s.includes('android.permission.RECORD_AUDIO')],
   ['iOS deep link is declared', 'ios/App/App/Info.plist', (s) => s.includes('<string>chatpalez</string>')],
@@ -21,7 +22,9 @@ const checks = [
   ['local welcome screen uses the ChatPalez icon asset', 'src/app-shell.ts', (s) => s.includes("/brand/chatpalez-app-icon.png")],
   ['mobile client contains no Sngine server API secret', 'src', (s) => !s.includes('system_api_secret')],
   ['JWT session persistence has no browser-storage fallback', 'src/auth/session.ts', (s) => !/\b(?:sessionStorage|localStorage)\s*[.\[]/.test(s)],
-  ['retained-web bridge posts without a JWT query string', 'src/web-session.ts', (s) => s.includes("form.method = 'POST'") && !/mobile-session\.php\?.*token/.test(s)]
+  ['retained-web bridge posts without a JWT query string', 'src/web-session.ts', (s) => s.includes("form.method = 'POST'") && !/mobile-session\.php\?.*token/.test(s)],
+  ['auth screens explicitly lock the root viewport', 'src/styles.css', (s) => s.includes('body.auth-mode') && s.includes('overscroll-behavior: none')],
+  ['auth shell toggles viewport mode across auth/authenticated states', 'src/app-shell.ts', (s) => s.includes("document.body.classList.add('auth-mode')") && s.includes("document.body.classList.remove('auth-mode')")]
 ];
 
 const files = new Map();
@@ -52,4 +55,9 @@ if (failures.length) {
   process.exitCode = 1;
 } else {
   console.log(`Native configuration verified: ${checks.length} checks passed.`);
+}
+
+const androidGradle = files.get('android/app/build.gradle');
+if (/versionCode\s+(?:chatpalezVersionCode|1)\b/.test(androidGradle) && !process.env.CHATPALEZ_VERSION_CODE) {
+  console.warn('Release note: Android is using development versionCode 1. Set CHATPALEZ_VERSION_CODE to a value higher than the highest Google Play upload before a release build.');
 }
