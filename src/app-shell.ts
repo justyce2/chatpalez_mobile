@@ -17,6 +17,7 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string, target?: string) => void;
+  trustedWebOrigin?: string;
   onLoadFeed?: (view: FeedView, offset: number) => Promise<PageResult<FeedPost>>;
   onLoadPost?: (postId: number | string) => Promise<FeedPost>;
   onLoadPostComments?: (postId: number | string, offset: number) => Promise<PageResult<PostComment>>;
@@ -221,6 +222,38 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     topbar.append(topLeft, topActions);
 
     const content = element('main', 'mobile-content');
+    let retainedFrameName: string | null = null;
+    let retainedHistory: string[] = [];
+    let retainedTitle = '';
+
+    const retainedMessageListener = (event: MessageEvent): void => {
+      if (!handlers.trustedWebOrigin || event.origin !== handlers.trustedWebOrigin) return;
+      if (!event.data || typeof event.data !== 'object') return;
+      const payload = event.data as { source?: string; type?: string; path?: string; title?: string };
+      if (payload.source !== 'chatpalez-retained' || payload.type !== 'ready') return;
+      if (!retainedFrameName || !payload.path || payload.path[0] !== '/') return;
+
+      const current = retainedHistory[retainedHistory.length - 1];
+      if (current !== payload.path) retainedHistory.push(payload.path);
+      retainedTitle = payload.title || retainedTitle;
+
+      backAction = () => {
+        if (!retainedFrameName) {
+          void showFeed('newsfeed');
+          return;
+        }
+        if (retainedHistory.length > 1) {
+          retainedHistory.pop();
+          const previous = retainedHistory[retainedHistory.length - 1];
+          handlers.onOpenWebModule(previous, retainedFrameName);
+          return;
+        }
+        retainedFrameName = null;
+        retainedHistory = [];
+        void showFeed('newsfeed');
+      };
+    };
+    window.addEventListener('message', retainedMessageListener);
 
     const nav = element('nav', 'bottom-tabs');
     nav.setAttribute('aria-label', 'Primary');
@@ -253,12 +286,19 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     function showRetainedModule(path: string, title: string, activeTab?: string): void {
       closeDrawer();
-      backAction = () => { void showFeed('newsfeed'); };
       if (activeTab) setActiveTab(activeTab);
       else setActiveTab('');
 
       content.replaceChildren();
       const frameName = 'chatpalez-retained-module';
+      retainedFrameName = frameName;
+      retainedHistory = [path];
+      retainedTitle = title;
+      backAction = () => {
+        retainedFrameName = null;
+        retainedHistory = [];
+        void showFeed('newsfeed');
+      };
       const wrapper = element('section', 'retained-module');
       const header = element('div', 'retained-module-header');
       header.append(screenTitle(title));
@@ -279,6 +319,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       frame.addEventListener('load', () => {
         loading.hidden = true;
         frame.classList.add('is-ready');
+      });
+      frame.addEventListener('error', () => {
+        loading.hidden = false;
+        loading.textContent = `Unable to open ${retainedTitle || title}. Check your connection and try again.`;
       });
 
       wrapper.append(header, loading, frame);
