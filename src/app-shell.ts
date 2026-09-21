@@ -102,6 +102,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   };
 
   const showStartup = (title: string, message: string, canRetry = false): void => {
+    document.body.classList.add('auth-mode');
     root.replaceChildren();
     const card = element('section', 'state-card');
     card.append(brandMark(), heading(title), paragraph(message));
@@ -115,6 +116,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
   const showLogin = (error?: string): void => {
     routeAction = null;
+    document.body.classList.add('auth-mode');
     root.replaceChildren();
     const wrap = element('section', 'auth-screen');
     const header = element('div', 'auth-header');
@@ -149,6 +151,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   };
 
   const showAuthenticated = (session: AuthSession): void => {
+    document.body.classList.remove('auth-mode');
     authenticatedCleanup?.();
     authenticatedCleanup = null;
     root.replaceChildren();
