@@ -24,6 +24,7 @@ export function openAuthenticatedWebModule(options: WebSessionTransitionOptions)
   form.append(hiddenInput('token', transition.token), hiddenInput('path', transition.path));
   document.body.append(form);
   form.submit();
+  window.setTimeout(() => form.remove(), 0);
 }
 
 export type WebSessionTransition = {
