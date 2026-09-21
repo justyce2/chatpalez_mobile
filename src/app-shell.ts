@@ -2346,6 +2346,44 @@ function brandMark(size?: 'small'): HTMLImageElement {
 function actionButton(text: string): HTMLButtonElement { const button = elementWithText('button', text); button.type = 'button'; button.className = 'primary-button'; return button; }
 function secondaryButton(text: string): HTMLButtonElement { const button = elementWithText('button', text); button.type = 'button'; button.className = 'secondary-button'; return button; }
 function input(type: string, placeholder: string, name: string): HTMLInputElement { const node = document.createElement('input'); node.type = type; node.placeholder = placeholder; node.name = name; node.required = true; return node; }
+function settingsInput(label: string, type: string, value: string): { wrapper: HTMLLabelElement; control: HTMLInputElement } {
+  const wrapper = element('label', 'field') as HTMLLabelElement;
+  const control = document.createElement('input');
+  control.type = type;
+  control.value = value;
+  control.placeholder = label;
+  wrapper.append(elementWithText('span', label), control);
+  return { wrapper, control };
+}
+
+function settingsTextarea(label: string, value: string, rows = 3): { wrapper: HTMLLabelElement; control: HTMLTextAreaElement } {
+  const wrapper = element('label', 'field') as HTMLLabelElement;
+  const control = document.createElement('textarea');
+  control.rows = rows;
+  control.value = value;
+  control.placeholder = label;
+  wrapper.append(elementWithText('span', label), control);
+  return { wrapper, control };
+}
+
+function settingsSelect(
+  label: string,
+  options: Array<[string, string]>,
+  value: string
+): { wrapper: HTMLLabelElement; control: HTMLSelectElement } {
+  const wrapper = element('label', 'field') as HTMLLabelElement;
+  const control = document.createElement('select');
+  for (const [optionValue, optionLabel] of options) {
+    const option = document.createElement('option');
+    option.value = optionValue;
+    option.textContent = optionLabel;
+    option.selected = optionValue === value;
+    control.append(option);
+  }
+  wrapper.append(elementWithText('span', label), control);
+  return { wrapper, control };
+}
+
 function field(label: string, control: HTMLInputElement): HTMLLabelElement { const node = element('label', 'field'); node.append(elementWithText('span', label), control); return node; }
 
 
