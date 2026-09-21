@@ -27,9 +27,14 @@ const config: CapacitorConfig = {
     contentInset: 'automatic',
     preferredContentMode: 'mobile',
     allowsLinkPreview: false,
+    limitsNavigationsToAppBoundDomains: true,
     handleApplicationNotifications: false
   },
   plugins: {
+    CapacitorCookies: {
+      // Keep first-party ChatPalez web-session cookies in the native cookie store.
+      enabled: true
+    },
     SplashScreen: {
       // Never let a JavaScript/configuration failure strand the user behind
       // the native splash. bootstrap() still hides it explicitly when ready.
