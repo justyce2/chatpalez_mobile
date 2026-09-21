@@ -63,7 +63,8 @@ function registrationOptions(): RegistrationOptions {
     onReturnToLogin: () => {
       void clearSession();
       renderLogin();
-    }
+    },
+    onOpenPublicPage: openPublicModule
   };
 }
 
@@ -113,6 +114,14 @@ async function completeAuthenticatedSession(session: AuthSession): Promise<void>
     return;
   }
   await showAuthenticatedSession(session);
+}
+
+function openPublicModule(path: string): void {
+  const destination = new URL(path, config.origin);
+  if (!config.allowedHosts.has(destination.hostname.toLowerCase())) {
+    throw new Error('ChatPalez blocked an untrusted public destination.');
+  }
+  window.location.assign(destination.toString());
 }
 
 async function openWebModule(path: string): Promise<void> {
@@ -206,6 +215,7 @@ const shell = createAppShell(root, {
     }
   },
   onOpenWebModule: openWebModule,
+  onOpenPublicPage: openPublicModule,
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
   onManageNotifications: async () => {
     const session = getSession();
