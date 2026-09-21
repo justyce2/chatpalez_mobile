@@ -74,6 +74,7 @@ export type AppShell = {
 export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): AppShell {
   let retryAction: (() => void) | null = null;
   let backAction: (() => void) | null = null;
+  let authenticatedCleanup: (() => void) | null = null;
 
   const showStartup = (title: string, message: string, canRetry = false): void => {
     root.replaceChildren();
@@ -122,6 +123,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   };
 
   const showAuthenticated = (session: AuthSession): void => {
+    authenticatedCleanup?.();
+    authenticatedCleanup = null;
     root.replaceChildren();
     const user = session.user;
     const displayName = String(user.user_fullname || user.user_firstname || user.user_name || 'ChatPalez');
@@ -254,6 +257,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       };
     };
     window.addEventListener('message', retainedMessageListener);
+    authenticatedCleanup = () => window.removeEventListener('message', retainedMessageListener);
 
     const nav = element('nav', 'bottom-tabs');
     nav.setAttribute('aria-label', 'Primary');
