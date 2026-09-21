@@ -163,6 +163,7 @@ async function openWebModule(path: string, target?: string): Promise<void> {
 
   try {
     const network = await Network.getStatus();
+    shell.setNetworkState(network.connected);
     if (!network.connected) {
       window.alert('This ChatPalez section needs an internet connection. Reconnect and try again.');
       return;
@@ -518,6 +519,7 @@ async function bootstrap(): Promise<void> {
 }
 
 void Network.addListener('networkStatusChange', (status) => {
+  shell.setNetworkState(status.connected);
   logInfo('Network state changed', {
     connected: status.connected,
     connectionType: status.connectionType
