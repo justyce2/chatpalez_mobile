@@ -68,6 +68,7 @@ const mobileBridge = installMobileBridge(config);
 bindWebBridgeEvents(mobileBridge);
 let handlingSessionExpiry = false;
 let nativeLifecycleRegistration: Promise<void> | null = null;
+let pendingTrustedRoute: string | null = null;
 const api = new ChatPalezApiClient({
   config,
   getAuthToken,
@@ -126,16 +127,20 @@ async function showAuthenticatedSession(session: AuthSession): Promise<void> {
   await setSession(session);
   logInfo('Mobile authentication completed', { userId: session.user.user_id });
 
-  // Keep the API/native shell authoritative after authentication. Retained web
-  // modules are opened only when a feature is not yet available through the native
-  // API surface.
-  void initializeNativeNotifications(config, users, session.user.user_id, openWebModule).catch((error) => {
+  // Mount the native shell before any push/deep-link callback can open content.
+  shell.showAuthenticated(session);
+
+  if (pendingTrustedRoute) {
+    const route = pendingTrustedRoute;
+    pendingTrustedRoute = null;
+    shell.openRoute(route);
+  }
+
+  void initializeNativeNotifications(config, users, session.user.user_id, openTrustedRoute).catch((error) => {
     logWarn('Native notification identity could not be initialized', {
       detail: error instanceof Error ? error.message : String(error ?? '')
     });
   });
-
-  shell.showAuthenticated(session);
 }
 
 async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
@@ -173,11 +178,20 @@ async function openWebModule(path: string, target?: string): Promise<void> {
   }
 }
 
+function openTrustedRoute(path: string): void {
+  if (shell.openRoute(path)) {
+    logInfo('Trusted route opened through native shell', { path });
+    return;
+  }
+  pendingTrustedRoute = path;
+  logDebug('Trusted route queued until native shell is ready', { path });
+}
+
 async function ensureNativeLifecycleRegistration(): Promise<void> {
   if (!nativeLifecycleRegistration) {
     nativeLifecycleRegistration = registerNativeLifecycle(config, (route) => {
       logInfo('Trusted native route received', { path: route });
-      void openWebModule(route);
+      openTrustedRoute(route);
     }, () => shell.handleBack()).catch((error) => {
       nativeLifecycleRegistration = null;
       throw error;
@@ -307,7 +321,7 @@ const shell = createAppShell(root, {
   onManageNotifications: async () => {
     const session = getSession();
     if (!session) throw new Error('Your session has expired. Sign in again to continue.');
-    return requestNativeNotificationPermission(config, users, session.user.user_id, openWebModule);
+    return requestNativeNotificationPermission(config, users, session.user.user_id, openTrustedRoute);
   },
   onLoadConversations: async (offset) => {
     const page = await chat.getConversationsPage(offset);
