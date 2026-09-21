@@ -367,3 +367,31 @@ Commits:
 **Current implementation pointer:** source preflight is complete enough to move to installed-device runtime acceptance. Priority order is Android first: cold start/auth viewport → feed/API routes → drawer/bottom navigation → retained fallback/history/back → external/deep links → account switch → profile/settings → offline/reconnect → push identity. iOS follows the same matrix with safe-area/keyboard/status-bar emphasis.
 
 GitHub Actions remain disabled and were not triggered.
+
+
+### Source checkpoint — 2026-09-21 (Android acceptance infrastructure)
+
+Completed additional Android acceptance and release-preflight work:
+
+- registered first-party `https://chatpalez.com/...` Android deep links alongside `chatpalez://open`;
+- added regression coverage preserving query/hash components for HTTPS deep links;
+- auth/startup screens now use an explicit body-level viewport lock to prevent blank-space document overscroll while preserving internal keyboard scrolling;
+- short-height/keyboard layouts switch auth content to top-aligned scrolling instead of creating empty space above/below;
+- repaired `verify:native` so safe `server.allowNavigation` no longer fails the “no remote app root” check;
+- expanded native verification to cover HTTPS deep links and auth viewport locking;
+- Android release versionCode/versionName can now be supplied through `CHATPALEZ_VERSION_CODE` / `CHATPALEZ_VERSION_NAME` without editing Gradle;
+- repaired `build:metadata` to validate the real published identity `chatpalez.app.webview`, the current production origin, and environment-driven Android versions.
+
+Commits:
+
+- `85095a4` — Android HTTPS deep-link registration;
+- `50b9de6` — auth-shell viewport-mode lifecycle;
+- `4c5ec49` — auth overscroll/short-height CSS;
+- `c264bbe` — HTTPS deep-link regression test;
+- `1cf8800` — native preflight verification repair/expansion;
+- `8301e0b` — environment-driven Android version metadata;
+- `db9bf02` — documented release version inputs;
+- `2ae7164` — README alignment;
+- `cab35c3` — build metadata identity/version parser repair.
+
+The Android source acceptance path is now substantially hardened. Remaining P0/P1 acceptance requires an installed build and production backend runtime verification.
