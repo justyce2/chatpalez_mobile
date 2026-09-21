@@ -59,6 +59,7 @@ export type AppShellHandlers = {
   onUpdateEducation?: (payload: { edu_major: string; edu_school: string; edu_class: string }) => Promise<void>;
   onUpdateSocial?: (payload: { facebook: string; twitter: string; youtube: string; instagram: string; twitch: string; linkedin: string; vkontakte: string }) => Promise<void>;
   onUpdatePassword?: (payload: { current: string; new: string; confirm: string }) => Promise<void>;
+  onUpdatePrivacy?: (payload: Record<string, string | boolean>) => Promise<void>;
   onDeleteAccount?: (password: string) => Promise<void>;
 };
 
@@ -1384,6 +1385,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
             ['Location', () => void showLocationEditor(details)],
             ['Education', () => void showEducationEditor(details)],
             ['Social links', () => void showSocialEditor(details)],
+            ['Privacy', () => void showPrivacyEditor(details)],
             ['Change password', () => void showPasswordEditor()]
           ];
 
@@ -1668,6 +1670,92 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           vkontakte: values[6]
         });
       });
+    }
+
+    async function showPrivacyEditor(account?: MobileAccount): Promise<void> {
+      const details = account || (handlers.onLoadAccount ? await handlers.onLoadAccount() : undefined);
+      if (!details || !handlers.onUpdatePrivacy) return;
+
+      backAction = () => { void showSettings(); };
+      content.replaceChildren(settingsEditorHeader('Privacy'));
+
+      const privacy = details.privacy || {};
+      const form = element('form', 'native-settings-form') as HTMLFormElement;
+
+      const chat = settingsSelect('Who can message me?', [
+        ['public', 'Everyone'],
+        ['friends', 'Friends'],
+        ['me', 'Nobody']
+      ], privacy.user_privacy_chat || 'public');
+
+      const wall = settingsSelect('Who can post on my profile?', [
+        ['public', 'Everyone'],
+        ['friends', 'Friends'],
+        ['me', 'Only me']
+      ], privacy.user_privacy_wall || 'public');
+
+      const friends = settingsSelect('Who can see my friends?', [
+        ['public', 'Everyone'],
+        ['friends', 'Friends'],
+        ['me', 'Only me']
+      ], privacy.user_privacy_friends || 'public');
+
+      const groups = settingsSelect('Who can see my groups?', [
+        ['public', 'Everyone'],
+        ['friends', 'Friends'],
+        ['me', 'Only me']
+      ], privacy.user_privacy_groups || 'public');
+
+      const pages = settingsSelect('Who can see my pages?', [
+        ['public', 'Everyone'],
+        ['friends', 'Friends'],
+        ['me', 'Only me']
+      ], privacy.user_privacy_pages || 'public');
+
+      const events = settingsSelect('Who can see my events?', [
+        ['public', 'Everyone'],
+        ['friends', 'Friends'],
+        ['me', 'Only me']
+      ], privacy.user_privacy_events || 'public');
+
+      const chatEnabled = settingsCheckbox('Enable chat', privacy.user_chat_enabled !== false);
+      const newsletter = settingsCheckbox('Email newsletter', Boolean(privacy.user_newsletter_enabled));
+      const suggestionsHidden = settingsCheckbox('Hide me from people suggestions', Boolean(privacy.user_suggestions_hidden));
+      const incognito = settingsCheckbox('Incognito mode', Boolean(privacy.user_incognito_enabled));
+
+      const message = element('p', 'settings-form-status');
+      const submit = actionButton('Save privacy');
+      submit.type = 'submit';
+
+      form.append(
+        chat.wrapper, wall.wrapper, friends.wrapper, groups.wrapper, pages.wrapper, events.wrapper,
+        chatEnabled.wrapper, newsletter.wrapper, suggestionsHidden.wrapper, incognito.wrapper,
+        message, submit
+      );
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        submit.disabled = true;
+        message.textContent = 'Saving…';
+        void handlers.onUpdatePrivacy!({
+          user_privacy_chat: chat.control.value,
+          user_privacy_wall: wall.control.value,
+          user_privacy_friends: friends.control.value,
+          user_privacy_groups: groups.control.value,
+          user_privacy_pages: pages.control.value,
+          user_privacy_events: events.control.value,
+          user_chat_enabled: chatEnabled.control.checked,
+          user_newsletter_enabled: newsletter.control.checked,
+          user_suggestions_hidden: suggestionsHidden.control.checked,
+          user_incognito_enabled: incognito.control.checked
+        }).then(() => {
+          message.textContent = 'Privacy settings updated.';
+        }).catch((error: unknown) => {
+          message.textContent = error instanceof Error ? error.message : 'Unable to update privacy settings.';
+        }).finally(() => { submit.disabled = false; });
+      });
+
+      content.append(form);
     }
 
     async function showPasswordEditor(): Promise<void> {
@@ -2428,6 +2516,15 @@ function settingsTextarea(label: string, value: string, rows = 3): { wrapper: HT
   control.value = value;
   control.placeholder = label;
   wrapper.append(elementWithText('span', label), control);
+  return { wrapper, control };
+}
+
+function settingsCheckbox(label: string, checked: boolean): { wrapper: HTMLLabelElement; control: HTMLInputElement } {
+  const wrapper = element('label', 'settings-checkbox') as HTMLLabelElement;
+  const control = document.createElement('input');
+  control.type = 'checkbox';
+  control.checked = checked;
+  wrapper.append(control, elementWithText('span', label));
   return { wrapper, control };
 }
 
