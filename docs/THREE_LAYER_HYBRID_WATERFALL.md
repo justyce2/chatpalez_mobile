@@ -177,19 +177,19 @@ Existing working native surfaces to retain:
 |---|---|---|---|
 | H4-01 | Define shell-safe retained-content container | Testing | Fallback content does not permanently replace native shell |
 | H4-02 | Session continuity for fallback content | Testing | JWT→web cookie bridge remains secure |
-| H4-03 | Route unsupported actions to app theme | Planned | Only unsupported functionality uses fallback |
-| H4-04 | Suppress native/web duplicate controls | Planned | One header, one drawer, one bottom bar |
+| H4-03 | Route unsupported actions to app theme | Testing | Only unsupported functionality uses fallback |
+| H4-04 | Suppress native/web duplicate controls | Testing | One header, one drawer, one bottom bar |
 | H4-05 | External URL handling | Testing | External destinations leave app safely |
-| H4-06 | Android back behavior across fallback content | Planned | Back returns through app navigation correctly |
+| H4-06 | Android back behavior across fallback content | Testing | Back returns through app navigation correctly |
 | H4-07 | Deep links/push links | Testing | Trusted routes open correct native/fallback surface |
 
 ### PHASE 5 — Profile, account and creation expansion
 
 | ID | Task | Status | Acceptance |
 |---|---|---|---|
-| H5-01 | Expand native account menu | Planned | Full mobile account navigation |
-| H5-02 | Native profile detail/edit API audit | Planned | Native where supported; app-theme fallback otherwise |
-| H5-03 | Native privacy/settings expansion | Planned | Common account controls local/API driven |
+| H5-01 | Expand native account menu | Testing | Full mobile account navigation |
+| H5-02 | Native profile detail/edit API audit | Testing | Native where supported; app-theme fallback otherwise |
+| H5-03 | Native privacy/settings expansion | Testing | Common account controls local/API driven |
 | H5-04 | Native Create menu | Testing | App-owned action sheet/grid mirrors website capabilities |
 | H5-05 | Post composer API implementation/audit | Testing | Native composer where safe |
 | H5-06 | Page/Group/Event creation | Planned | Native API or stripped app-theme fallback by complexity |
@@ -263,8 +263,8 @@ These are not reasons to stop implementation, but must be called out for runtime
 
 ## 7. Current Work Pointer
 
-**Current phase:** PHASE 2 — Core API/native content surfaces (Phase 1 source implementation is in Testing pending Android/iOS acceptance).  
-**Next task:** H4-02 through H4-07 retained-content/session/navigation regression and then H5-01 through H5-03 account/profile/settings expansion.  
-**Parallel testing gate:** deploy latest `sngine-fresh` and verify native feed/community/search/people/reels/watch/post/community detail, native text-post creation, and `chatpalez_app` fallback rendering in Android.
+**Current phase:** PHASE 4/5 — retained-content integration hardening and native account/settings expansion (source implementation in Testing pending device acceptance).  
+**Next task:** H5-06 Page/Group/Event creation audit plus profile image/avatar update audit; then close remaining H4 regression items with Android/iOS device acceptance.  
+**Parallel testing gate:** deploy latest `sngine-fresh` and verify native feed/community/search/people/reels/watch/post/community detail, native text-post creation, native account/profile/privacy settings, deep/push routing, retained history/back behavior, and `chatpalez_app` fallback rendering.
 
 This document supersedes older implementation notes that stated feed/groups/pages/search must remain full retained-web surfaces for v1. Those historical decisions remain useful context, but this document governs implementation from 2026-09-21 onward.
