@@ -24,6 +24,11 @@ describe('resolveAppDeepLink', () => {
     expect(resolveAppDeepLink('https://chatpalez.com/profile/justice', config)).toBe('/profile/justice');
   });
 
+  it('accepts first-party HTTPS deep links with query and hash intact', () => {
+    expect(resolveAppDeepLink('https://chatpalez.com/messages?thread=42#latest', config))
+      .toBe('/messages?thread=42#latest');
+  });
+
   it('maps the registered custom scheme to a trusted internal path', () => {
     expect(resolveAppDeepLink('chatpalez://open?path=%2Fsettings%2Fnotifications', config)).toBe('/settings/notifications');
   });
