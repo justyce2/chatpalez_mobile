@@ -648,6 +648,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       button.append(body);
 
       button.addEventListener('click', () => {
+        if ((item.type === 'page' || item.type === 'group' || item.type === 'event') && item.id != null) {
+          void showCommunityDetail(item.type, item.id);
+          return;
+        }
         const route = item.url || (item.type === 'user' && item.user_name ? `/${item.user_name}` : '/');
         showRetainedModule(route, item.title || item.user_fullname || 'Result', 'search');
       });
