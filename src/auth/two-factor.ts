@@ -11,7 +11,7 @@ export type TwoFactorOptions = {
 
 export function renderTwoFactorChallenge(options: TwoFactorOptions): void {
   const screen = document.createElement('section');
-  screen.className = 'auth-screen';
+  screen.className = 'auth-screen auth-screen-compact';
 
   const header = document.createElement('div');
   header.className = 'auth-header';
