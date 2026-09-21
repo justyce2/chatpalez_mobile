@@ -22,6 +22,9 @@ export type AppShellHandlers = {
   onLoadPostComments?: (postId: number | string, offset: number) => Promise<PageResult<PostComment>>;
   onReactToPost?: (postId: number | string, reaction: string, remove: boolean) => Promise<void>;
   onCommentOnPost?: (postId: number | string, message: string) => Promise<PostComment>;
+  onReactToComment?: (commentId: number | string, reaction: string, remove: boolean) => Promise<void>;
+  onEditComment?: (commentId: number | string, message: string) => Promise<void>;
+  onDeleteComment?: (commentId: number | string) => Promise<void>;
   onLoadReels?: (offset: number) => Promise<PageResult<ReelItem>>;
   onLoadWatch?: (offset: number) => Promise<PageResult<VideoItem>>;
   onLoadPages?: (view: 'discover' | 'liked' | 'manage', offset: number) => Promise<PageResult<MobilePage>>;
@@ -583,7 +586,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
             const page = await handlers.onLoadPostComments(post.post_id, commentOffset);
             if (!append) commentsList.replaceChildren();
             if (!append && page.items.length === 0) commentsList.append(paragraph('No comments yet.'));
-            for (const item of page.items) commentsList.append(commentCard(item));
+            for (const item of page.items) commentsList.append(commentCard(item, handlers, () => loadComments()));
             commentHasMore = page.hasMore;
             moreComments.hidden = !commentHasMore;
           } catch (error) {
@@ -616,7 +619,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
               .then((comment) => {
                 const empty = commentsList.querySelector('p');
                 if (empty && commentsList.children.length === 1) commentsList.replaceChildren();
-                commentsList.prepend(commentCard(comment));
+                commentsList.prepend(commentCard(comment, handlers, () => loadComments()));
                 inputBox.value = '';
               })
               .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to post comment.'))
@@ -1628,7 +1631,11 @@ function feedCard(post: FeedPost, onOpenPost?: (postId: number | string) => void
   return card;
 }
 
-function commentCard(comment: PostComment): HTMLElement {
+function commentCard(
+  comment: PostComment,
+  handlers: AppShellHandlers,
+  refresh?: () => Promise<void>
+): HTMLElement {
   const item = element('article', 'native-comment');
   if (comment.author_picture) {
     const avatar = document.createElement('img');
@@ -1637,14 +1644,78 @@ function commentCard(comment: PostComment): HTMLElement {
     avatar.alt = '';
     item.append(avatar);
   }
+
   const body = element('div', 'native-comment-body');
   body.append(elementWithText('strong', comment.author_name || 'ChatPalez'));
-  if (comment.text) body.append(elementWithText('p', comment.text));
+  const text = elementWithText('p', comment.text || '');
+  body.append(text);
+
   const meta = element('div', 'native-comment-meta');
   if (comment.time) meta.append(elementWithText('span', comment.time));
   if (comment.reactions_total_count) meta.append(elementWithText('span', `${comment.reactions_total_count} reactions`));
   if (comment.replies) meta.append(elementWithText('span', `${comment.replies} replies`));
   body.append(meta);
+
+  const actions = element('div', 'native-comment-actions');
+
+  if (handlers.onReactToComment) {
+    const like = secondaryButton(comment.i_react ? 'Unlike' : 'Like');
+    like.classList.add('native-comment-action');
+    like.addEventListener('click', () => {
+      const remove = Boolean(comment.i_react);
+      const reaction = comment.i_reaction || 'like';
+      like.disabled = true;
+      void handlers.onReactToComment!(comment.comment_id, reaction, remove)
+        .then(() => {
+          comment.i_react = !remove;
+          comment.i_reaction = comment.i_react ? reaction : null;
+          comment.reactions_total_count = Math.max(0, Number(comment.reactions_total_count || 0) + (comment.i_react ? 1 : -1));
+          like.textContent = comment.i_react ? 'Unlike' : 'Like';
+        })
+        .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to react to comment.'))
+        .finally(() => { like.disabled = false; });
+    });
+    actions.append(like);
+  }
+
+  if (comment.edit_comment && handlers.onEditComment) {
+    const edit = secondaryButton('Edit');
+    edit.classList.add('native-comment-action');
+    edit.addEventListener('click', () => {
+      const next = window.prompt('Edit comment', comment.text || '');
+      if (next === null || !next.trim()) return;
+      edit.disabled = true;
+      void handlers.onEditComment!(comment.comment_id, next.trim())
+        .then(() => {
+          comment.text = next.trim();
+          text.textContent = comment.text;
+        })
+        .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to edit comment.'))
+        .finally(() => { edit.disabled = false; });
+    });
+    actions.append(edit);
+  }
+
+  if (comment.delete_comment && handlers.onDeleteComment) {
+    const remove = secondaryButton('Delete');
+    remove.classList.add('native-comment-action', 'danger-link-button');
+    remove.addEventListener('click', () => {
+      if (!window.confirm('Delete this comment?')) return;
+      remove.disabled = true;
+      void handlers.onDeleteComment!(comment.comment_id)
+        .then(async () => {
+          if (refresh) await refresh();
+          else item.remove();
+        })
+        .catch((error: unknown) => {
+          window.alert(error instanceof Error ? error.message : 'Unable to delete comment.');
+          remove.disabled = false;
+        });
+    });
+    actions.append(remove);
+  }
+
+  if (actions.childElementCount > 0) body.append(actions);
   item.append(body);
   return item;
 }
