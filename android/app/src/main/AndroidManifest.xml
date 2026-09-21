@@ -30,9 +30,9 @@
                 <data android:scheme="chatpalez" android:host="open" />
             </intent-filter>
 
-            <!-- First-party ChatPalez HTTPS deep links. Domain verification can be
-                 enabled later with assetlinks.json without changing app routing. -->
-            <intent-filter>
+            <!-- First-party ChatPalez App Links. Verification becomes active once
+                 chatpalez.com serves the signing-certificate-specific assetlinks.json. -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
