@@ -1,9 +1,12 @@
 import { readFile } from 'node:fs/promises';
+import { projectEnvValue } from './project-env.mjs';
 
 const checks = [
   ['capacitor config is bundled (no remote server.url app root)', 'capacitor.config.ts', (s) => !/\burl\s*:\s*['"]https?:\/\//.test(s)],
+  ['broad top-level allowNavigation is not enabled', 'capacitor.config.ts', (s) => !/\ballowNavigation\s*:/.test(s)],
   ['published Android application ID is retained', 'capacitor.config.ts', (s) => s.includes("'chatpalez.app.webview'")],
   ['Android Gradle package matches the published application ID', 'android/app/build.gradle', (s) => s.includes('namespace = "chatpalez.app.webview"') && s.includes('applicationId "chatpalez.app.webview"')],
+  ['Android Gradle reads release metadata from project .env', 'android/app/build.gradle', (s) => s.includes('chatpalezEnvFile') && s.includes('CHATPALEZ_VERSION_CODE') && s.includes('CHATPALEZ_VERSION_NAME')],
   ['mobile user agent is configured for the session bridge', 'capacitor.config.ts', (s) => s.includes('ChatPalezMobile/1.0')],
   ['mixed content is disabled', 'capacitor.config.ts', (s) => s.includes('allowMixedContent: false')],
   ['native splash cannot remain indefinitely on startup failure', 'capacitor.config.ts', (s) => s.includes('launchAutoHide: true')],
@@ -58,6 +61,7 @@ if (failures.length) {
 }
 
 const androidGradle = files.get('android/app/build.gradle');
-if (/versionCode\s+(?:chatpalezVersionCode|1)\b/.test(androidGradle) && !process.env.CHATPALEZ_VERSION_CODE) {
-  console.warn('Release note: Android is using development versionCode 1. Set CHATPALEZ_VERSION_CODE to a value higher than the highest Google Play upload before a release build.');
+const configuredVersionCode = Number(projectEnvValue('CHATPALEZ_VERSION_CODE', '1'));
+if (/versionCode\s+(?:chatpalezVersionCode|1)\b/.test(androidGradle) && configuredVersionCode === 1) {
+  console.warn('Release note: Android is using development versionCode 1. Set CHATPALEZ_VERSION_CODE in .env or the operating-system environment to a value higher than the highest Google Play upload before a release build.');
 }
