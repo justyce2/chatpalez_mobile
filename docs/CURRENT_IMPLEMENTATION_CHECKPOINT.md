@@ -277,3 +277,42 @@ Implemented on `develop`:
 The Android application ID is now fixed to **`chatpalez.app.webview`**, the existing Google Play identity specified for this product. The Android Gradle namespace/application ID, Java package, generated Capacitor configuration, release documents and iOS project identifier were aligned before release preparation. The existing Android upload/signing identity must still be used for Play Console acceptance.
 
 The supplied ChatPalez logo has been converted into a native icon master and used to provision Android launcher/adaptive-icon density assets, iOS app icon assets, portrait/landscape Android splash screens and iOS splash screens. The bundled local startup/login experience now displays the ChatPalez icon and uses its blue brand colour; retained web UI and stock theme were not modified.
+
+
+---
+
+## Three-layer hybrid checkpoint — 2026-09-21
+
+Authoritative plan: `docs/THREE_LAYER_HYBRID_WATERFALL.md`.
+
+Architecture is now native shell + narrow mobile APIs + `chatpalez_app` retained-content overlay.
+
+Implemented in source since the three-layer decision:
+
+- authentication viewport pinning for login/signup/activation/onboarding/recovery/2FA;
+- native top bar, hamburger drawer, five-item bottom navigation and account menu;
+- shell-aware Android back routing;
+- shell-safe retained-content iframe target through the existing JWT-to-web-session bridge;
+- native feed views: News Feed, Popular, Discover, Saved, Scheduled and Memories;
+- native Reels list;
+- native Watch/video list;
+- native global Search;
+- native People, Friend Requests, Sent Requests and Friends;
+- native Pages, Groups and Events lists plus Like/Join/Interest actions;
+- native Page/Group/Event detail with privacy-aware recent posts;
+- native post detail, media playback, comments, post Like/unlike and comment creation;
+- native comment Like/unlike, Edit and Delete;
+- native text-post composer with privacy;
+- `chatpalez_app` Smarty overlay selected only for `ChatPalezMobile/1.0`, inheriting untouched templates/assets from the active website theme while stripping duplicate website header/footer/bottom navigation/sidebar/PWA chrome;
+- upgrade register updated for mobile social API and app-theme overlay.
+
+Backend `sngine-fresh` must be deployed before runtime acceptance of the new mobile routes. A live 404 from `/apis/php/mobile/feed` means the live backend has not yet pulled the relevant `sngine-fresh` commits.
+
+All items above remain **Testing** until Android/iOS runtime acceptance. GitHub Actions remain disabled by owner instruction.
+
+Next implementation priority:
+
+1. retained-content/session/navigation regression (H4-02 through H4-07);
+2. account/profile/settings expansion (H5-01 through H5-03);
+3. runtime regression of native social surfaces and app-theme fallback;
+4. complex Create flows remain app-theme backed until individually audited.
