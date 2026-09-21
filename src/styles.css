@@ -2008,3 +2008,21 @@ body.native-theme-night .initial-message-form textarea {
 body.native-theme-night .connected-account-avatar {
   background: #111827;
 }
+
+
+/* Night-mode coverage for native shell surfaces added during acceptance sweep. */
+body.native-theme-night .retained-module-header,
+body.native-theme-night .local-tab,
+body.native-theme-night .community-card,
+body.native-theme-night .native-search-result,
+body.native-theme-night .native-create-card,
+body.native-theme-night .native-profile-card {
+  background: var(--chatpalez-surface);
+  color: var(--chatpalez-text);
+  border-color: var(--chatpalez-divider);
+}
+
+body.native-theme-night .local-tab.is-active {
+  background: #24314a;
+  color: var(--chatpalez-link);
+}
