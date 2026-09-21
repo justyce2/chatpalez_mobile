@@ -265,6 +265,15 @@ const shell = createAppShell(root, {
   onCommentOnPost: async (postId, message) => {
     return feed.commentOnPost(postId, message);
   },
+  onReactToComment: async (commentId, reaction, remove) => {
+    await feed.reactToComment(commentId, reaction, remove);
+  },
+  onEditComment: async (commentId, message) => {
+    await feed.editComment(commentId, message);
+  },
+  onDeleteComment: async (commentId) => {
+    await feed.deleteComment(commentId);
+  },
   onLoadPages: async (view, offset) => {
     const page = await community.getPages(view, offset);
     return { items: page.data, hasMore: page.hasMore };
