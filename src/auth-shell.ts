@@ -38,7 +38,7 @@ export function createAuthShell(
     root.replaceChildren();
 
     const screen = document.createElement('section');
-    screen.className = 'auth-screen';
+    screen.className = 'auth-screen auth-screen-login';
     const header = document.createElement('div');
     header.className = 'auth-header';
     header.append(
