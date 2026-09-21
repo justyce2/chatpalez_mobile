@@ -192,7 +192,7 @@ Existing working native surfaces to retain:
 | H5-03 | Native privacy/settings expansion | Testing | Common account controls local/API driven |
 | H5-04 | Native Create menu | Testing | App-owned action sheet/grid mirrors website capabilities |
 | H5-05 | Post composer API implementation/audit | Testing | Native composer where safe |
-| H5-06 | Page/Group/Event creation | Planned | Native API or stripped app-theme fallback by complexity |
+| H5-06 | Page/Group/Event creation | Testing | Native API or stripped app-theme fallback by complexity |
 | H5-07 | Legal/safety/account-deletion links | Testing | Accessible from native account menu |
 
 ### PHASE 6 — Device validation, compliance and release
@@ -264,7 +264,7 @@ These are not reasons to stop implementation, but must be called out for runtime
 ## 7. Current Work Pointer
 
 **Current phase:** PHASE 4/5 — retained-content integration hardening and native account/settings expansion (source implementation in Testing pending device acceptance).  
-**Next task:** H5-06 Page/Group/Event creation audit plus profile image/avatar update audit; then close remaining H4 regression items with Android/iOS device acceptance.  
+**Next task:** JWT-safe Switch Accounts contract and native appearance/theme behavior; then close remaining H4/H5 regression items with Android/iOS device acceptance.  
 **Parallel testing gate:** deploy latest `sngine-fresh` and verify native feed/community/search/people/reels/watch/post/community detail, native text-post creation, native account/profile/privacy settings, deep/push routing, retained history/back behavior, and `chatpalez_app` fallback rendering.
 
 This document supersedes older implementation notes that stated feed/groups/pages/search must remain full retained-web surfaces for v1. Those historical decisions remain useful context, but this document governs implementation from 2026-09-21 onward.
