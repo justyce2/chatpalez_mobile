@@ -340,3 +340,30 @@ Commits:
 - mobile `fc3b395` — retained session-expiry handoff to native auth lifecycle.
 
 H4 source work is now at the runtime acceptance gate. GitHub Actions remain disabled and were not triggered.
+
+
+### Source checkpoint — 2026-09-21 (acceptance preflight hardening)
+
+Additional source-side defects and H6 preflight items were completed before device testing:
+
+- fixed a runtime initialization-order defect where native appearance could be applied before its media-query state existed;
+- native Appearance now synchronizes Android/iOS status-bar icon contrast for Day, Night, and System modes;
+- System appearance follows live device color-scheme changes while the authenticated shell is mounted;
+- extended night-mode coverage to retained headers, local tabs, community cards, search results, create cards, and native profile surfaces;
+- added live shell connectivity state from Capacitor Network;
+- authenticated screens now show an in-shell offline banner instead of failing silently after connectivity loss;
+- reconnecting clears the banner without remounting the shell or destroying navigation state.
+
+Commits:
+
+- `a21ed46` — system appearance change tracking;
+- `818a7f7` — status-bar synchronization;
+- `fa0bb15` — expanded night-mode surface coverage;
+- `10a0040` — fix appearance initialization order;
+- `1737ee3` — native connectivity-state surface;
+- `fe528f2` — network listener → shell synchronization;
+- `4dff300` — offline banner styling.
+
+**Current implementation pointer:** source preflight is complete enough to move to installed-device runtime acceptance. Priority order is Android first: cold start/auth viewport → feed/API routes → drawer/bottom navigation → retained fallback/history/back → external/deep links → account switch → profile/settings → offline/reconnect → push identity. iOS follows the same matrix with safe-area/keyboard/status-bar emphasis.
+
+GitHub Actions remain disabled and were not triggered.
