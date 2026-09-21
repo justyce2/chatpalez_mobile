@@ -200,6 +200,7 @@ function renderTwoFactor(challenge: TwoFactorChallenge): void {
 }
 
 const shell = createAppShell(root, {
+  trustedWebOrigin: config.origin.origin,
   onLogin: async ({ usernameEmail, password }) => {
     shell.setBusy(true, 'Signing in…');
     try {
