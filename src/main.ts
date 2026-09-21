@@ -2,22 +2,17 @@ import { Capacitor } from '@capacitor/core';
 import { Network } from '@capacitor/network';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
-import { createAppShell } from './app-shell';
 import { ChatPalezApiClient, ApiError } from './api/client';
 import { AuthService, type TwoFactorChallenge } from './api/auth';
-import { ChatService } from './api/chat';
-import { CommunityService } from './api/community';
-import { FeedService } from './api/feed';
 import { NotificationsService } from './api/notifications';
 import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
-import { UploadService } from './api/uploads';
-import { clearSession, getAuthToken, getSession, restoreSession, setSession, type AuthSession } from './auth/session';
+import { clearSession, getAuthToken, restoreSession, setSession, type AuthSession } from './auth/session';
+import { createAuthShell } from './auth-shell';
 import { installPasswordRecovery } from './auth/password-recovery';
 import { installRegistration, needsRegistrationCompletion, resumeRegistration, type RegistrationOptions } from './auth/registration';
 import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
-import { getChatPhotoUrl } from './media';
 import {
   initializeNativeNotifications,
   logoutNativeNotifications,
@@ -26,36 +21,11 @@ import {
 import { logDebug, logError, logInfo, logWarn } from './diagnostics';
 import { registerNativeLifecycle } from './native-lifecycle';
 import { openAuthenticatedWebModule } from './web-session';
-import { installMobileBridge } from './bridge';
-import { bindWebBridgeEvents } from './web-bridge-events';
 import './styles.css';
 
 const appRoot = document.querySelector<HTMLElement>('#app');
 if (!appRoot) throw new Error('ChatPalez app root was not found.');
 const root: HTMLElement = appRoot;
-
-function showFatalStartup(error: unknown): void {
-  const detail = error instanceof Error ? error.message : 'The app could not start.';
-  root.replaceChildren();
-
-  const card = document.createElement('section');
-  card.className = 'state-card';
-  const title = document.createElement('h1');
-  title.textContent = 'Unable to start ChatPalez';
-  const message = document.createElement('p');
-  message.textContent = detail;
-  const retry = document.createElement('button');
-  retry.type = 'button';
-  retry.className = 'primary-button';
-  retry.textContent = 'Try again';
-  retry.addEventListener('click', () => window.location.reload());
-  card.append(title, message, retry);
-  root.append(card);
-
-  if (Capacitor.isNativePlatform()) {
-    void SplashScreen.hide().catch(() => undefined);
-  }
-}
 
 let config: ReturnType<typeof getAppConfig>;
 try {
@@ -64,24 +34,41 @@ try {
   showFatalStartup(error);
   throw error;
 }
-const mobileBridge = installMobileBridge(config);
-bindWebBridgeEvents(mobileBridge);
+
 let handlingSessionExpiry = false;
-let nativeLifecycleRegistration: Promise<void> | null = null;
 let pendingTrustedRoute: string | null = null;
+let nativeLifecycleRegistration: Promise<void> | null = null;
+let websiteTransitionStarted = false;
+
 const api = new ChatPalezApiClient({
   config,
   getAuthToken,
   onUnauthorized: () => { void handleSessionExpiry(); }
 });
 const auth = new AuthService(api);
-const chat = new ChatService(api);
-const community = new CommunityService(api);
-const feed = new FeedService(api);
 const notifications = new NotificationsService(api);
 const registration = new RegistrationService(api);
 const users = new UserService(api);
-const uploads = new UploadService(api);
+
+const shell = createAuthShell(root, async ({ usernameEmail, password }) => {
+  shell.setBusy(true, 'Signing in…');
+  try {
+    const result = await auth.signIn({ usernameEmail, password });
+    if ('requiresTwoFactor' in result) {
+      renderTwoFactor(result);
+      return;
+    }
+    await completeAuthenticatedSession(result);
+  } catch (error) {
+    logWarn('API sign-in failed', {
+      status: error instanceof ApiError ? error.status : null,
+      detail: error instanceof Error ? error.message : String(error ?? '')
+    });
+    throw error;
+  } finally {
+    shell.setBusy(false);
+  }
+});
 
 function registrationOptions(): RegistrationOptions {
   return {
@@ -92,7 +79,7 @@ function registrationOptions(): RegistrationOptions {
       logInfo('Mobile registration session stored', { userId: session.user.user_id });
     },
     onComplete: (session) => {
-      void showAuthenticatedSession(session);
+      void completeAuthenticatedSession(session);
     },
     onReturnToLogin: () => {
       void clearSession();
@@ -101,19 +88,8 @@ function registrationOptions(): RegistrationOptions {
   };
 }
 
-async function handleSessionExpiry(): Promise<void> {
-  if (handlingSessionExpiry) return;
-  handlingSessionExpiry = true;
-  try {
-    await logoutNativeNotifications().catch(() => undefined);
-    await clearSession();
-    renderLogin('Your session has expired. Please sign in again.');
-  } finally {
-    handlingSessionExpiry = false;
-  }
-}
-
 function renderLogin(error?: string): void {
+  websiteTransitionStarted = false;
   shell.showLogin(error);
   installPasswordRecovery({
     root,
@@ -121,84 +97,6 @@ function renderLogin(error?: string): void {
     onReturnToLogin: () => renderLogin()
   });
   installRegistration(registrationOptions());
-}
-
-async function showAuthenticatedSession(session: AuthSession): Promise<void> {
-  await setSession(session);
-  logInfo('Mobile authentication completed', { userId: session.user.user_id });
-
-  // Mount the native shell before any push/deep-link callback can open content.
-  shell.showAuthenticated(session);
-
-  if (pendingTrustedRoute) {
-    const route = pendingTrustedRoute;
-    pendingTrustedRoute = null;
-    shell.openRoute(route);
-  }
-
-  void initializeNativeNotifications(config, users, session.user.user_id, openTrustedRoute).catch((error) => {
-    logWarn('Native notification identity could not be initialized', {
-      detail: error instanceof Error ? error.message : String(error ?? '')
-    });
-  });
-}
-
-async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
-  if (needsRegistrationCompletion(session)) {
-    await setSession(session);
-    logInfo('Mobile account requires registration completion', { userId: session.user.user_id });
-    await resumeRegistration(registrationOptions(), session);
-    return;
-  }
-  await showAuthenticatedSession(session);
-}
-
-async function openWebModule(path: string, target?: string): Promise<void> {
-  const token = getAuthToken();
-  if (!token) {
-    void clearSession();
-    renderLogin();
-    return;
-  }
-
-  try {
-    const network = await Network.getStatus();
-    shell.setNetworkState(network.connected);
-    if (!network.connected) {
-      window.alert('This ChatPalez section needs an internet connection. Reconnect and try again.');
-      return;
-    }
-    logInfo('Authenticated retained-web transition requested', { path, target: target || null });
-    openAuthenticatedWebModule({ config, token, path, target });
-  } catch (error) {
-    logWarn('Retained-web transition was blocked', {
-      path,
-      detail: error instanceof Error ? error.message : String(error ?? '')
-    });
-    window.alert(error instanceof Error ? error.message : 'Unable to open this ChatPalez section.');
-  }
-}
-
-function openTrustedRoute(path: string): void {
-  if (shell.openRoute(path)) {
-    logInfo('Trusted route opened through native shell', { path });
-    return;
-  }
-  pendingTrustedRoute = path;
-  logDebug('Trusted route queued until native shell is ready', { path });
-}
-
-async function ensureNativeLifecycleRegistration(): Promise<void> {
-  if (!nativeLifecycleRegistration) {
-    nativeLifecycleRegistration = registerNativeLifecycle(config, (route) => {
-      logInfo('Trusted native route received', { path: route });
-      openTrustedRoute(route);
-    }, () => shell.handleBack()).catch((error) => {
-      nativeLifecycleRegistration = null;
-      throw error;
-    });
-  }
-  await nativeLifecycleRegistration;
 }
 
 function renderTwoFactor(challenge: TwoFactorChallenge): void {
@@ -214,264 +112,113 @@ function renderTwoFactor(challenge: TwoFactorChallenge): void {
   });
 }
 
-const shell = createAppShell(root, {
-  trustedWebOrigin: config.origin.origin,
-  onLogin: async ({ usernameEmail, password }) => {
-    shell.setBusy(true, 'Signing in…');
-    try {
-      const result = await auth.signIn({ usernameEmail, password });
-      if ('requiresTwoFactor' in result) {
-        renderTwoFactor(result);
-        return;
-      }
-      await completeAuthenticatedSession(result);
-    } catch (error) {
-      logWarn('API sign-in failed', {
-        status: error instanceof ApiError ? error.status : null,
-        detail: error instanceof Error ? error.message : String(error ?? '')
-      });
-      throw error;
-    } finally {
-      shell.setBusy(false);
-    }
-  },
-  onSessionExpired: () => { void handleSessionExpiry(); },
-  onAppearanceChanged: (_mode, resolvedNight) => {
-    if (!Capacitor.isNativePlatform()) return;
-    void StatusBar.setStyle({ style: resolvedNight ? Style.Light : Style.Dark }).catch((error) => {
-      logDebug('Status bar appearance could not be synchronized', {
-        detail: error instanceof Error ? error.message : String(error ?? '')
-      });
-    });
-  },
-  onLogout: async () => {
-    shell.setBusy(true, 'Signing out…');
-    try {
-      await auth.signOut();
-    } catch (error) {
-      logWarn('Server sign-out did not complete cleanly', {
-        detail: error instanceof Error ? error.message : String(error ?? '')
-      });
-    } finally {
-      await logoutNativeNotifications().catch((error) => {
-        logWarn('Native notification identity could not be cleared', {
-          detail: error instanceof Error ? error.message : String(error ?? '')
-        });
-      });
-      await clearSession();
-      shell.setBusy(false);
-      renderLogin();
-    }
-  },
-  onOpenWebModule: openWebModule,
-  onLoadReels: async (offset) => {
-    const page = await feed.getReels(offset);
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onLoadWatch: async (offset) => {
-    const page = await feed.getWatch(offset);
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onLoadFeed: async (view, offset) => {
-    const page = await feed.getFeed(view, offset);
-    logInfo('Native feed loaded', { view, count: page.data.length, offset, hasMore: page.hasMore });
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onLoadPost: async (postId) => {
-    return feed.getPost(postId);
-  },
-  onLoadPostComments: async (postId, offset) => {
-    const page = await feed.getPostComments(postId, offset);
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onReactToPost: async (postId, reaction, remove) => {
-    await feed.reactToPost(postId, reaction, remove);
-  },
-  onCommentOnPost: async (postId, message) => {
-    return feed.commentOnPost(postId, message);
-  },
-  onReactToComment: async (commentId, reaction, remove) => {
-    await feed.reactToComment(commentId, reaction, remove);
-  },
-  onEditComment: async (commentId, message) => {
-    await feed.editComment(commentId, message);
-  },
-  onDeleteComment: async (commentId) => {
-    await feed.deleteComment(commentId);
-  },
-  onCreatePost: async (message, privacy) => {
-    return feed.createTextPost(message, privacy);
-  },
-  onLoadPages: async (view, offset) => {
-    const page = await community.getPages(view, offset);
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onLoadGroups: async (view, offset) => {
-    const page = await community.getGroups(view, offset);
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onLoadEvents: async (view, offset) => {
-    const page = await community.getEvents(view, offset);
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onLoadPeople: async (view, offset) => {
-    const page = await community.getPeople(view, offset);
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onSearch: async (query) => {
-    return community.search(query);
-  },
-  onLoadCommunityDetail: async (type, id) => {
-    return community.getDetail(type, id);
-  },
-  onLoadCreationMeta: async (type) => {
-    return community.getCreationMeta(type);
-  },
-  onCreatePage: async (payload) => {
-    return community.createPage(payload);
-  },
-  onCreateGroup: async (payload) => {
-    return community.createGroup(payload);
-  },
-  onCreateEvent: async (payload) => {
-    return community.createEvent(payload);
-  },
-  onConnect: async (action, id) => {
-    await users.connect(action, id);
-  },
-  resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
-  onManageNotifications: async () => {
-    const session = getSession();
-    if (!session) throw new Error('Your session has expired. Sign in again to continue.');
-    return requestNativeNotificationPermission(config, users, session.user.user_id, openTrustedRoute);
-  },
-  onLoadConversations: async (offset) => {
-    const page = await chat.getConversationsPage(offset);
-    logInfo('Conversation list loaded', { count: page.data.length, offset, hasMore: page.hasMore });
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onLoadContacts: async (query, offset) => {
-    const page = await chat.getContactsPage(query, offset);
-    logDebug('Chat contacts loaded', { query, count: page.data.length, offset, hasMore: page.hasMore });
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onStartConversation: async (recipientId, message) => {
-    const conversation = await chat.startConversation(recipientId, message);
-    logInfo('Conversation started', { conversationId: conversation.conversation_id, recipientId });
-    return conversation;
-  },
-  onLoadMessages: async (conversationId, offset) => {
-    const result = await chat.getMessages(conversationId, offset);
-    logDebug('Conversation messages loaded', {
-      conversationId,
-      offset,
-      count: result.messages?.length ?? 0
-    });
-    return result;
-  },
-  onSendMessage: async (conversationId, message, photo) => {
-    const photoSource = photo ? await uploads.uploadChatPhoto(photo) : '';
-    await chat.sendMessage(conversationId, message, photoSource);
-    logInfo('Message sent', { conversationId });
-  },
-  onTyping: async (conversationId, isTyping) => {
-    await chat.setTyping(conversationId, isTyping);
-  },
-  onLeaveConversation: async (conversationId) => {
-    await chat.leaveConversation(conversationId);
-  },
-  onDeleteConversation: async (conversationId) => {
-    await chat.deleteConversation(conversationId);
-  },
-  onReactToMessage: async (messageId, reaction) => {
-    await chat.reactToMessage(messageId, reaction);
-  },
-  onDeleteMessage: async (messageId) => {
-    await chat.deleteMessage(messageId);
-  },
-  onMarkSeen: async (ids) => {
-    await chat.markSeen(ids);
-  },
-  onLoadNotifications: async () => {
-    const items = await notifications.getNotifications();
-    logInfo('Notifications loaded', { count: items.length });
-    return items;
-  },
-  onLoadBlockedUsers: async (offset) => {
-    const page = await users.getBlockedUsersPage(offset);
-    logInfo('Blocked-user list loaded', { count: page.data.length, offset, hasMore: page.hasMore });
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onLoadAccount: async () => {
-    return users.getAccount();
-  },
-  onLoadConnectedAccounts: async () => {
-    return users.getConnectedAccounts();
-  },
-  onSwitchAccount: async (userId) => {
-    const nextSession = await users.switchConnectedAccount(userId);
-    await logoutNativeNotifications().catch(() => undefined);
-    await showAuthenticatedSession(nextSession);
-    return nextSession;
-  },
-  onUpdateProfile: async (payload) => {
-    await users.updateProfile(payload);
-  },
-  onUpdateIdentity: async (payload) => {
-    await users.updateIdentity(payload);
-  },
-  onUpdateWork: async (payload) => {
-    await users.updateWork(payload);
-  },
-  onUpdateLocation: async (payload) => {
-    await users.updateLocation(payload);
-  },
-  onUpdateEducation: async (payload) => {
-    await users.updateEducation(payload);
-  },
-  onUpdateSocial: async (payload) => {
-    await users.updateSocial(payload);
-  },
-  onUpdatePassword: async (payload) => {
-    await users.updatePassword(payload);
-  },
-  onUpdatePrivacy: async (payload) => {
-    await users.updatePrivacy(payload);
-  },
-  onUploadProfilePicture: async (file) => {
-    await uploads.uploadProfilePicture(file);
-    return users.getAccount();
-  },
-  onDeleteProfilePicture: async () => {
-    await users.deleteProfilePicture();
-    return users.getAccount();
-  },
-  onDeleteAccount: async (password) => {
-    await users.deleteAccount(password);
-    await logoutNativeNotifications().catch((error) => {
-      logWarn('Native notification identity could not be cleared after account deletion', {
-        detail: error instanceof Error ? error.message : String(error ?? '')
-      });
-    });
-    await clearSession();
-    logInfo('Account deletion completed');
-    renderLogin('Your account has been deleted.');
+async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
+  if (needsRegistrationCompletion(session)) {
+    await setSession(session);
+    await resumeRegistration(registrationOptions(), session);
+    return;
   }
-});
+  await enterMobileWebsite(session, pendingTrustedRoute || '/');
+}
 
-shell.setRetryAction(() => { void bootstrap(); });
+async function enterMobileWebsite(session: AuthSession, path = '/'): Promise<void> {
+  if (websiteTransitionStarted) return;
+  websiteTransitionStarted = true;
+
+  await setSession(session);
+  logInfo('Native authentication completed; handing off to mobile website', {
+    userId: session.user.user_id,
+    path
+  });
+
+  try {
+    await initializeNativeNotifications(config, users, session.user.user_id, (route) => {
+      pendingTrustedRoute = route;
+    });
+
+    // Ask for native notification permission while the bundled native-auth page
+    // is still active. This keeps push native even though the website owns the
+    // post-login UI.
+    await requestNativeNotificationPermission(config, users, session.user.user_id, (route) => {
+      pendingTrustedRoute = route;
+    });
+  } catch (error) {
+    logWarn('Native notifications could not be initialized before website handoff', {
+      detail: error instanceof Error ? error.message : String(error ?? '')
+    });
+  }
+
+  const token = getAuthToken();
+  if (!token) {
+    websiteTransitionStarted = false;
+    await clearSession();
+    renderLogin('Your session is unavailable. Please sign in again.');
+    return;
+  }
+
+  const targetPath = pendingTrustedRoute || path || '/';
+  pendingTrustedRoute = null;
+  document.body.classList.remove('auth-mode');
+
+  // No target means the secure POST/303 transition replaces the local auth page
+  // in the main Capacitor WebView with the full responsive ChatPalez website.
+  openAuthenticatedWebModule({
+    config,
+    token,
+    path: targetPath
+  });
+}
+
+async function validateStoredSession(session: AuthSession): Promise<boolean> {
+  try {
+    // /notifications is an existing protected Sngine API endpoint. A successful
+    // response proves the restored JWT still maps to a live server session.
+    await notifications.getNotifications();
+    return true;
+  } catch (error) {
+    logWarn('Stored mobile session is no longer valid', {
+      detail: error instanceof Error ? error.message : String(error ?? '')
+    });
+    await logoutNativeNotifications().catch(() => undefined);
+    await clearSession();
+    return false;
+  }
+}
+
+async function handleSessionExpiry(): Promise<void> {
+  if (handlingSessionExpiry || websiteTransitionStarted) return;
+  handlingSessionExpiry = true;
+  try {
+    await logoutNativeNotifications().catch(() => undefined);
+    await clearSession();
+    renderLogin('Your session has expired. Please sign in again.');
+  } finally {
+    handlingSessionExpiry = false;
+  }
+}
+
+async function ensureNativeLifecycleRegistration(): Promise<void> {
+  if (!nativeLifecycleRegistration) {
+    nativeLifecycleRegistration = registerNativeLifecycle(
+      config,
+      (route) => {
+        logInfo('Trusted native route received', { path: route });
+        pendingTrustedRoute = route;
+      }
+    ).catch((error) => {
+      nativeLifecycleRegistration = null;
+      throw error;
+    });
+  }
+  await nativeLifecycleRegistration;
+}
 
 async function prepareNativeChrome(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
-
   try {
-    const storedAppearance = localStorage.getItem('chatpalez.appearance');
-    const prefersNight = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-    const resolvedNight = storedAppearance === 'night' || (storedAppearance !== 'day' && prefersNight);
-    await StatusBar.setStyle({ style: resolvedNight ? Style.Light : Style.Dark });
+    await StatusBar.setStyle({ style: Style.Dark });
   } catch (error) {
     logDebug('Status bar style was not applied', {
-      platform: Capacitor.getPlatform(),
       detail: error instanceof Error ? error.message : String(error ?? '')
     });
   }
@@ -479,74 +226,63 @@ async function prepareNativeChrome(): Promise<void> {
 
 async function bootstrap(): Promise<void> {
   shell.showStartup('Opening ChatPalez', 'Checking your connection…');
-  logInfo('Progressive shell bootstrap started', { platform: Capacitor.getPlatform() });
+  websiteTransitionStarted = false;
 
   try {
     await ensureNativeLifecycleRegistration();
+    await prepareNativeChrome();
 
     const network = await Network.getStatus();
     if (!network.connected) {
-      logWarn('Bootstrap paused because device is offline', {
-        connectionType: network.connectionType
-      });
       shell.showStartup('You are offline', 'Connect to the internet, then try again.', true);
       return;
     }
 
     const session = await restoreSession();
-    if (session) {
-      logInfo('Restored in-process mobile API session', { userId: session.user.user_id });
-      await completeAuthenticatedSession(session);
-    } else {
-      // Authentication remains API-first. Once authenticated, the JWT is bridged
-      // into the retained first-party web session and the responsive feed opens
-      // inside the same Capacitor WebView.
-      renderLogin();
+    if (session && await validateStoredSession(session)) {
+      await enterMobileWebsite(session, pendingTrustedRoute || '/');
+      return;
     }
+
+    renderLogin();
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'The app could not start.';
-    logError('Progressive shell bootstrap failed', error, { platform: Capacitor.getPlatform() });
+    logError('Auth-first website bootstrap failed', error, { platform: Capacitor.getPlatform() });
     shell.showStartup('Unable to start', detail, true);
   } finally {
     if (Capacitor.isNativePlatform()) {
-      await SplashScreen.hide().catch((error) => {
-        logDebug('Splash screen hide was unavailable', {
-          detail: error instanceof Error ? error.message : String(error ?? '')
-        });
-      });
+      await SplashScreen.hide().catch(() => undefined);
     }
   }
 }
 
-void Network.addListener('networkStatusChange', (status) => {
-  shell.setNetworkState(status.connected);
-  logInfo('Network state changed', {
-    connected: status.connected,
-    connectionType: status.connectionType
-  });
+function showFatalStartup(error: unknown): void {
+  document.body.classList.add('auth-mode');
+  root.replaceChildren();
+  const card = document.createElement('section');
+  card.className = 'state-card';
+  const title = document.createElement('h1');
+  title.textContent = 'Unable to start ChatPalez';
+  const message = document.createElement('p');
+  message.textContent = error instanceof Error ? error.message : 'The app could not start.';
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'primary-button';
+  retry.textContent = 'Try again';
+  retry.addEventListener('click', () => window.location.reload());
+  card.append(title, message, retry);
+  root.append(card);
+  if (Capacitor.isNativePlatform()) void SplashScreen.hide().catch(() => undefined);
+}
 
-  if (!status.connected) {
-    logWarn('Device went offline while app was active');
-  }
-}).catch((error) => {
-  logDebug('Network listener could not be registered', {
-    detail: error instanceof Error ? error.message : String(error ?? '')
-  });
-});
+shell.setRetryAction(() => { void bootstrap(); });
 
 window.addEventListener('error', (event) => {
-  logError('Unhandled window error', event.error ?? event.message, {
-    source: event.filename || null,
-    line: event.lineno || null,
-    column: event.colno || null
-  });
+  logError('Unhandled window error', event.error ?? event.message);
 });
 
 window.addEventListener('unhandledrejection', (event) => {
   logError('Unhandled promise rejection', event.reason);
 });
 
-void prepareNativeChrome().then(bootstrap).catch((error) => {
-  logError('Native bootstrap pipeline failed', error, { platform: Capacitor.getPlatform() });
-  showFatalStartup(error);
-});
+void bootstrap();
