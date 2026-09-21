@@ -255,18 +255,37 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     const content = element('main', 'mobile-content');
     let retainedFrameName: string | null = null;
+    let retainedFrameWindow: Window | null = null;
     let retainedHistory: string[] = [];
     let retainedTitle = '';
 
+    const normalizeRetainedPath = (rawPath: string): string | null => {
+      if (!handlers.trustedWebOrigin) return null;
+      try {
+        const trusted = new URL(handlers.trustedWebOrigin);
+        const destination = new URL(rawPath || '/', trusted);
+        if (destination.origin !== trusted.origin) return null;
+        return `${destination.pathname}${destination.search}${destination.hash}` || '/';
+      } catch {
+        return null;
+      }
+    };
+
     const retainedMessageListener = (event: MessageEvent): void => {
       if (!handlers.trustedWebOrigin || event.origin !== handlers.trustedWebOrigin) return;
+      if (!retainedFrameName || !retainedFrameWindow || event.source !== retainedFrameWindow) return;
       if (!event.data || typeof event.data !== 'object') return;
       const payload = event.data as { source?: string; type?: string; path?: string; title?: string };
-      if (payload.source !== 'chatpalez-retained' || payload.type !== 'ready') return;
-      if (!retainedFrameName || !payload.path || payload.path[0] !== '/') return;
+      if (payload.source !== 'chatpalez-retained' || !['ready', 'navigate'].includes(payload.type || '')) return;
+
+      const normalizedPath = normalizeRetainedPath(payload.path || '');
+      if (!normalizedPath) return;
 
       const current = retainedHistory[retainedHistory.length - 1];
-      if (current !== payload.path) retainedHistory.push(payload.path);
+      if (current !== normalizedPath) {
+        retainedHistory.push(normalizedPath);
+        if (retainedHistory.length > 40) retainedHistory.splice(0, retainedHistory.length - 40);
+      }
       retainedTitle = payload.title || retainedTitle;
 
       backAction = () => {
@@ -281,6 +300,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           return;
         }
         retainedFrameName = null;
+        retainedFrameWindow = null;
         retainedHistory = [];
         void showFeed('newsfeed');
       };
@@ -386,6 +406,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     routeAction = dispatchRoute;
+    applyAppearance(getAppearanceMode());
 
     function showRetainedModule(path: string, title: string, activeTab?: string): void {
       closeDrawer();
@@ -395,10 +416,12 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.replaceChildren();
       const frameName = 'chatpalez-retained-module';
       retainedFrameName = frameName;
-      retainedHistory = [path];
+      retainedFrameWindow = null;
+      retainedHistory = [normalizeRetainedPath(path) || path];
       retainedTitle = title;
       backAction = () => {
         retainedFrameName = null;
+        retainedFrameWindow = null;
         retainedHistory = [];
         void showFeed('newsfeed');
       };
@@ -420,6 +443,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       frame.title = title;
       frame.setAttribute('allow', 'camera; microphone; autoplay; clipboard-write');
       frame.addEventListener('load', () => {
+        retainedFrameWindow = frame.contentWindow;
         loading.hidden = true;
         frame.classList.add('is-ready');
       });
@@ -1570,6 +1594,79 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       }
     }
 
+    type NativeAppearanceMode = 'system' | 'day' | 'night';
+
+    function getAppearanceMode(): NativeAppearanceMode {
+      const stored = localStorage.getItem('chatpalez.appearance');
+      return stored === 'day' || stored === 'night' ? stored : 'system';
+    }
+
+    function applyAppearance(mode: NativeAppearanceMode): void {
+      localStorage.setItem('chatpalez.appearance', mode);
+      const prefersNight = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+      const night = mode === 'night' || (mode === 'system' && prefersNight);
+      document.body.classList.toggle('native-theme-night', night);
+      document.body.dataset.appearance = mode;
+    }
+
+    function showAppearanceSettings(): void {
+      backAction = showAccountMenu;
+      setActiveTab('menu');
+      content.replaceChildren();
+
+      const header = element('div', 'conversation-header');
+      const back = secondaryButton('Back');
+      back.classList.add('compact-button');
+      back.addEventListener('click', showAccountMenu);
+      header.append(back, screenTitle('Appearance'));
+
+      const card = element('section', 'settings-card');
+      card.append(
+        elementWithText('h3', 'App appearance'),
+        paragraph('Choose how the ChatPalez app shell appears on this device.')
+      );
+
+      const choices: Array<[NativeAppearanceMode, string]> = [
+        ['system', 'Use device setting'],
+        ['day', 'Day mode'],
+        ['night', 'Night mode']
+      ];
+      const current = getAppearanceMode();
+      for (const [mode, label] of choices) {
+        const button = secondaryButton(mode === current ? `✓ ${label}` : label);
+        button.classList.add('settings-action-button');
+        button.addEventListener('click', () => {
+          applyAppearance(mode);
+          showAppearanceSettings();
+        });
+        card.append(button);
+      }
+
+      content.append(header, card);
+    }
+
+    function showSwitchAccounts(): void {
+      backAction = showAccountMenu;
+      setActiveTab('menu');
+      content.replaceChildren();
+
+      const header = element('div', 'conversation-header');
+      const back = secondaryButton('Back');
+      back.classList.add('compact-button');
+      back.addEventListener('click', showAccountMenu);
+      header.append(back, screenTitle('Switch Accounts'));
+
+      const card = element('section', 'settings-card');
+      card.append(
+        elementWithText('h3', displayName),
+        paragraph('Account switching uses ChatPalez’s authenticated first-party session. Your mobile API token is never placed in the URL.')
+      );
+      const open = secondaryButton('Open account switcher');
+      open.addEventListener('click', () => showRetainedModule('/settings', 'Switch Accounts', 'menu'));
+      card.append(open);
+      content.append(header, card);
+    }
+
     function showAccountMenu(): void {
       backAction = () => { void showFeed('newsfeed'); };
       setActiveTab('menu');
@@ -1631,7 +1728,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           };
 
           if (menu.switch_accounts_enabled) {
-            add('accounts_switcher', 'Switch Accounts', '/settings');
+            const switcher = navigationButton('accounts_switcher', 'Switch Accounts');
+            switcher.classList.add('account-menu-item');
+            switcher.addEventListener('click', showSwitchAccounts);
+            enabledServices.append(switcher);
           }
           if (menu.packages_enabled && !menu.user_subscribed) {
             add('membership', 'Upgrade to Pro', '/packages');
@@ -1650,11 +1750,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           } else if (menu.is_moderator) {
             add('admin_panel', 'Moderator Panel', '/modcp');
           }
-          if ((menu.themes_count || 0) > 1) {
-            add('themes_switcher', 'Theme Switcher', '/settings');
-          }
-          if (menu.theme_mode_select) {
-            add('dark_light', menu.theme_mode_night ? 'Day Mode' : 'Night Mode', '/settings');
+          if ((menu.themes_count || 0) > 1 || menu.theme_mode_select) {
+            const appearance = navigationButton('dark_light', 'Appearance');
+            appearance.classList.add('account-menu-item');
+            appearance.addEventListener('click', showAppearanceSettings);
+            enabledServices.append(appearance);
           }
 
           if (enabledServices.childElementCount === 0) enabledServices.remove();
