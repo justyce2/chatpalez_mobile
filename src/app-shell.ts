@@ -1584,38 +1584,97 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       accountHead.append(accountAvatar, identity);
       content.append(accountHead);
 
-      const sections: Array<Array<{ icon: string; label: string; action: () => void }>> = [
-        [
-          { icon: 'user_information', label: 'View profile', action: showProfile },
-          { icon: 'settings', label: 'Account & settings', action: () => void showSettings() },
-          { icon: 'saved', label: 'Saved', action: () => void showFeed('saved') },
-          { icon: 'notifications', label: 'Notifications', action: () => void showNotifications() }
-        ],
-        [
-          { icon: 'privacy', label: 'Privacy Policy', action: () => showRetainedModule('/static/privacy', 'Privacy Policy') },
-          { icon: 'privacy', label: 'Terms & Conditions', action: () => showRetainedModule('/static/terms', 'Terms & Conditions') },
-          { icon: 'security', label: 'Child Safety', action: () => showRetainedModule('/static/child-safety', 'Child Safety') },
-          { icon: 'delete', label: 'Account deletion help', action: () => showRetainedModule('/account-deletion.php', 'Account Deletion') }
-        ]
-      ];
-
-      for (const group of sections) {
+      const appendMenuSection = (items: Array<{ icon: string; label: string; action: () => void }>, extraClass?: string): HTMLElement => {
         const section = element('section', 'account-menu-section');
-        for (const item of group) {
+        if (extraClass) section.classList.add(extraClass);
+        for (const item of items) {
           const button = navigationButton(item.icon, item.label);
           button.classList.add('account-menu-item');
           button.addEventListener('click', item.action);
           section.append(button);
         }
         content.append(section);
+        return section;
+      };
+
+      appendMenuSection([
+        { icon: 'user_information', label: 'View profile', action: () => { void showProfile(); } },
+        { icon: 'settings', label: 'Account & settings', action: () => { void showSettings(); } },
+        { icon: 'saved', label: 'Saved', action: () => { void showFeed('saved'); } },
+        { icon: 'notifications', label: 'Notifications', action: () => { void showNotifications(); } }
+      ]);
+
+      const enabledServices = element('section', 'account-menu-section');
+      enabledServices.append(paragraph('Loading account options…'));
+      content.append(enabledServices);
+
+      if (handlers.onLoadAccount) {
+        void loadAccountSnapshot().then((details) => {
+          enabledServices.replaceChildren();
+          const menu = details.menu || {};
+
+          if (details.picture) {
+            accountAvatar.textContent = '';
+            const img = document.createElement('img');
+            img.src = details.picture;
+            img.alt = '';
+            accountAvatar.append(img);
+          }
+          identity.replaceChildren(elementWithText('strong', details.fullname || displayName));
+          if (details.username) identity.append(elementWithText('span', `@${details.username}`));
+
+          const add = (icon: string, label: string, route: string): void => {
+            const button = navigationButton(icon, label);
+            button.classList.add('account-menu-item');
+            button.addEventListener('click', () => dispatchRoute(route));
+            enabledServices.append(button);
+          };
+
+          if (menu.switch_accounts_enabled) {
+            add('accounts_switcher', 'Switch Accounts', '/settings');
+          }
+          if (menu.packages_enabled && !menu.user_subscribed) {
+            add('membership', 'Upgrade to Pro', '/packages');
+          }
+          if (menu.points_enabled) {
+            add('points', `Points: ${menu.points ?? 0}`, '/settings/points');
+          }
+          if (menu.wallet_enabled) {
+            add('wallet', menu.wallet_balance ? `Wallet: ${menu.wallet_balance}` : 'Wallet', '/wallet');
+          }
+          if (menu.support_center_enabled) {
+            add('support', 'Support Center', '/support');
+          }
+          if (menu.is_admin) {
+            add('admin_panel', 'Admin Panel', '/admincp');
+          } else if (menu.is_moderator) {
+            add('admin_panel', 'Moderator Panel', '/modcp');
+          }
+          if ((menu.themes_count || 0) > 1) {
+            add('themes_switcher', 'Theme Switcher', '/settings');
+          }
+          if (menu.theme_mode_select) {
+            add('dark_light', menu.theme_mode_night ? 'Day Mode' : 'Night Mode', '/settings');
+          }
+
+          if (enabledServices.childElementCount === 0) enabledServices.remove();
+        }).catch(() => {
+          enabledServices.remove();
+        });
+      } else {
+        enabledServices.remove();
       }
 
-      const logout = navigationButton('logout', 'Sign out');
-      logout.classList.add('account-menu-item', 'account-menu-logout');
-      logout.addEventListener('click', () => void handlers.onLogout());
-      const logoutSection = element('section', 'account-menu-section');
-      logoutSection.append(logout);
-      content.append(logoutSection);
+      appendMenuSection([
+        { icon: 'privacy', label: 'Privacy Policy', action: () => showRetainedModule('/static/privacy', 'Privacy Policy') },
+        { icon: 'privacy', label: 'Terms & Conditions', action: () => showRetainedModule('/static/terms', 'Terms & Conditions') },
+        { icon: 'security', label: 'Child Safety', action: () => showRetainedModule('/static/child-safety', 'Child Safety') },
+        { icon: 'delete', label: 'Account deletion help', action: () => showRetainedModule('/account-deletion.php', 'Account Deletion') }
+      ], 'account-menu-legal');
+
+      appendMenuSection([
+        { icon: 'logout', label: 'Sign out', action: () => { void handlers.onLogout(); } }
+      ], 'account-menu-logout-section');
     }
 
     async function showProfile(): Promise<void> {
