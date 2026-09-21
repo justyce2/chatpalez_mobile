@@ -29,7 +29,8 @@ const checks = [
   ['mobile client contains no Sngine server API secret', 'src', (s) => !s.includes('system_api_secret')],
   ['JWT session persistence has no browser-storage fallback', 'src/auth/session.ts', (s) => !/\b(?:sessionStorage|localStorage)\s*[.\[]/.test(s)],
   ['retained-web bridge posts without a JWT query string', 'src/web-session.ts', (s) => s.includes("form.method = 'POST'") && !/mobile-session\.php\?.*token/.test(s)],
-  ['auth screens explicitly lock the root viewport', 'src/styles.css', (s) => s.includes('body.auth-mode') && s.includes('overscroll-behavior: none')],
+  ['auth screens explicitly lock the root viewport', 'src/styles.css', (s) => s.includes('body.auth-mode') && s.includes('position: fixed') && s.includes('overflow: hidden !important') && s.includes('overscroll-behavior: none')],
+  ['login and signup use fixed auth layouts', 'src/styles.css', (s) => s.includes('.auth-screen-login') && s.includes('.auth-screen-signup') && s.includes('overflow: hidden !important')],
   ['native auth shell locks the authentication viewport', 'src/auth-shell.ts', (s) => s.includes("document.body.classList.add('auth-mode')")],
   ['post-login flow hands off to the main mobile website', 'src/main.ts', (s) => s.includes('openAuthenticatedWebModule') && s.includes('Native authentication completed; handing off to mobile website')]
 ];
