@@ -32,7 +32,36 @@ const appRoot = document.querySelector<HTMLElement>('#app');
 if (!appRoot) throw new Error('ChatPalez app root was not found.');
 const root: HTMLElement = appRoot;
 
-const config = getAppConfig();
+function showFatalStartup(error: unknown): void {
+  const detail = error instanceof Error ? error.message : 'The app could not start.';
+  root.replaceChildren();
+
+  const card = document.createElement('section');
+  card.className = 'state-card';
+  const title = document.createElement('h1');
+  title.textContent = 'Unable to start ChatPalez';
+  const message = document.createElement('p');
+  message.textContent = detail;
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'primary-button';
+  retry.textContent = 'Try again';
+  retry.addEventListener('click', () => window.location.reload());
+  card.append(title, message, retry);
+  root.append(card);
+
+  if (Capacitor.isNativePlatform()) {
+    void SplashScreen.hide().catch(() => undefined);
+  }
+}
+
+let config: ReturnType<typeof getAppConfig>;
+try {
+  config = getAppConfig();
+} catch (error) {
+  showFatalStartup(error);
+  throw error;
+}
 const mobileBridge = installMobileBridge(config);
 bindWebBridgeEvents(mobileBridge);
 let handlingSessionExpiry = false;
@@ -355,4 +384,5 @@ window.addEventListener('unhandledrejection', (event) => {
 
 void prepareNativeChrome().then(bootstrap).catch((error) => {
   logError('Native bootstrap pipeline failed', error, { platform: Capacitor.getPlatform() });
+  showFatalStartup(error);
 });
