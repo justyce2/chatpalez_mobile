@@ -99,7 +99,7 @@ A phase is not considered complete until its acceptance criteria are met. Later 
 | ID | Task | Status | Acceptance |
 |---|---|---|---|
 | H0-01 | Record approved three-layer architecture | Completed | This document exists and is authoritative |
-| H0-02 | Mark older web-backed-v1 decisions as superseded | In Progress | Existing backlog points to this document |
+| H0-02 | Mark older web-backed-v1 decisions as superseded | Completed | Existing backlog points to this document |
 | H0-03 | Preserve existing working native/API features | In Progress | No deliberate removal of auth/chat/notifications/settings/etc |
 | H0-04 | Record current known regressions | Completed | Feed 404, duplicate web chrome, Menu=Profile, auth viewport overscroll documented |
 
@@ -121,7 +121,7 @@ Known regressions at start:
 | H1-04 | Stabilize native top bar | Planned | App-owned header, correct icons/spacing/safe area |
 | H1-05 | Stabilize native hamburger drawer | Planned | Smooth slide-in/out; app-owned; no web offcanvas duplicate |
 | H1-06 | Stabilize five-item bottom navigation | Planned | Home, Reels/Watch, Add, Search, Menu; correct active state |
-| H1-07 | Replace Menu→Profile shortcut with account/menu interface | Planned | Native menu includes Profile, Settings, Saved, notifications controls, legal, logout |
+| H1-07 | Replace Menu→Profile shortcut with account/menu interface | Testing | Native menu includes Profile, Settings, Saved, notifications controls, legal, logout |
 | H1-08 | Define native-shell navigation state | Planned | Back/navigation keeps shell stable and predictable |
 | H1-09 | Ensure no full-page fallback destroys shell silently | Planned | Fallback paths are explicit and controlled |
 
