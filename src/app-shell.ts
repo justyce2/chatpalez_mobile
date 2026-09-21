@@ -41,10 +41,12 @@ export type AppShell = {
   showAuthenticated: (session: AuthSession) => void;
   setBusy: (busy: boolean, message?: string) => void;
   setRetryAction: (action: () => void) => void;
+  handleBack: () => boolean;
 };
 
 export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): AppShell {
   let retryAction: (() => void) | null = null;
+  let backAction: (() => void) | null = null;
 
   const showStartup = (title: string, message: string, canRetry = false): void => {
     root.replaceChildren();
@@ -225,6 +227,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     function showRetainedModule(path: string, title: string, activeTab?: string): void {
       closeDrawer();
+      backAction = () => { void showFeed('newsfeed'); };
       if (activeTab) setActiveTab(activeTab);
       else setActiveTab('');
 
@@ -258,6 +261,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     function showQuickAdd(): void {
+      backAction = () => { void showFeed('newsfeed'); };
       setActiveTab('add');
       content.replaceChildren(screenTitle('Create'));
       const grid = element('div', 'quick-add-grid');
@@ -283,6 +287,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showFeed(view: FeedView = 'newsfeed'): Promise<void> {
+      backAction = view === 'newsfeed' ? null : () => { void showFeed('newsfeed'); };
       setActiveTab('home');
       content.replaceChildren();
       const headingRow = element('div', 'section-heading-row');
@@ -336,6 +341,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     function showAccountMenu(): void {
+      backAction = () => { void showFeed('newsfeed'); };
       setActiveTab('menu');
       content.replaceChildren();
 
@@ -383,6 +389,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     function showProfile(): void {
+      backAction = showAccountMenu;
       content.replaceChildren(screenTitle('Profile'));
       const profileCard = element('div', 'profile-card');
       profileCard.append(elementWithText('strong', displayName));
@@ -397,6 +404,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showSettings(): Promise<void> {
+      backAction = showAccountMenu;
       content.replaceChildren();
       const header = element('div', 'conversation-header');
       const back = secondaryButton('Back');
@@ -511,6 +519,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showNotifications(): Promise<void> {
+      backAction = () => { void showFeed('newsfeed'); };
+      setActiveTab('');
       content.replaceChildren(screenTitle('Notifications'));
       if (!handlers.onLoadNotifications) {
         content.append(paragraph('Notifications are not wired yet.'));
@@ -553,6 +563,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showConversationList(): Promise<void> {
+      backAction = () => { void showFeed('newsfeed'); };
+      setActiveTab('');
       content.replaceChildren();
       const headingRow = element('div', 'section-heading-row');
       headingRow.append(screenTitle('Messages'));
@@ -593,6 +605,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showNewConversation(): Promise<void> {
+      backAction = () => { void showConversationList(); };
       content.replaceChildren();
       const header = element('div', 'conversation-header');
       const back = secondaryButton('Back');
@@ -690,6 +703,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showConversation(conversation: Conversation): Promise<void> {
+      backAction = () => { void showConversationList(); };
       const conversationId = conversation.conversation_id;
       const titleText = String(conversation.name || conversation.name_list || 'Conversation');
       content.replaceChildren();
@@ -845,7 +859,22 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   const setRetryAction = (action: () => void): void => {
     retryAction = action;
   };
-  return { showStartup, showLogin, showAuthenticated, setBusy, setRetryAction };
+  const handleBack = (): boolean => {
+    const openDrawer = root.querySelector<HTMLElement>('.native-drawer.is-open');
+    if (openDrawer) {
+      openDrawer.classList.remove('is-open');
+      openDrawer.setAttribute('aria-hidden', 'true');
+      root.querySelector<HTMLButtonElement>('[aria-controls="chatpalez-native-drawer"]')?.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('native-drawer-open');
+      return true;
+    }
+    if (!backAction) return false;
+    const action = backAction;
+    backAction = null;
+    action();
+    return true;
+  };
+  return { showStartup, showLogin, showAuthenticated, setBusy, setRetryAction, handleBack };
 }
 
 function iconAsset(icon: string): string {
