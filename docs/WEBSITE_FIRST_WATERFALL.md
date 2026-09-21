@@ -108,7 +108,7 @@ Future native-feeling website improvements belong in this app-specific theme ins
 | W12 | Restore intentional first-party WebView navigation | Completed | Capacitor allows only ChatPalez/www hosts |
 | W13 | Android debug build | Testing | `assembleDebug` succeeds |
 | W14 | Login→website device test | Planned | Website opens authenticated after native login |
-| W15 | Signup/recovery/2FA device test | Planned | Native auth flows work then website opens |
+| W15 | Signup/recovery/2FA device test | Testing | Native auth flows use fixed viewport; verify on-device then website opens |
 | W16 | Push permission/delivery test | Planned | Device receives native push |
 | W17 | Website logout/session-expiry return-to-auth | Planned | Logged-out app returns cleanly to native auth |
 | W18 | App-theme mobile polish | Planned | Website feels app-native without replacing Sngine logic |
@@ -151,3 +151,12 @@ The following previous work is no longer part of the active product architecture
 Files may remain in the repository temporarily for historical traceability, but the active entry point does not mount them.
 
 The previous `THREE_LAYER_HYBRID_WATERFALL.md` is superseded by this document.
+
+
+## Auth viewport refinement — 2026-09-21
+
+- Login is vertically centered and locked to the device viewport.
+- Login page/document scrolling and rubber-band overscroll are disabled.
+- Signup is compacted into a fixed two-column mobile layout and does not scroll the page.
+- Activation, password recovery and 2FA use the same fixed auth-screen contract.
+- The later profile-completion/onboarding form keeps the page fixed but may scroll its inner form region on short devices so optional fields are not clipped.
