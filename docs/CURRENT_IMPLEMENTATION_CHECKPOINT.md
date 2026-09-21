@@ -316,3 +316,25 @@ Next implementation priority:
 2. account/profile/settings expansion (H5-01 through H5-03);
 3. runtime regression of native social surfaces and app-theme fallback;
 4. complex Create flows remain app-theme backed until individually audited.
+
+
+### Follow-on checkpoint — retained navigation + native account/settings
+
+Added after the three-layer checkpoint:
+
+- retained app-theme pages now report their current route/title to the native shell via `postMessage`;
+- native shell validates retained bridge messages against the configured ChatPalez origin;
+- Android back traverses retained fallback history before returning to native Home;
+- hidden JWT bridge forms are removed from the local DOM immediately after submission;
+- trusted deep links, push routes and notification links now use one native route dispatcher;
+- trusted routes arriving before authentication are queued until the native shell is mounted;
+- Capacitor native cookie bridge enabled;
+- iOS `WKAppBoundDomains` added for `localhost`, `chatpalez.com`, and `www.chatpalez.com`, with `limitsNavigationsToAppBoundDomains` enabled;
+- native account snapshot API added;
+- native Profile screen expanded with picture, bio, work/location/education/website summary;
+- native editors added for Profile, Login & Contact, Work, Location, Education, Social Links, Password and Privacy;
+- account writes delegate to Sngine's existing `settings()` validation;
+- blocked-user list now supports native Unblock;
+- account snapshot cache invalidates after edits so native identity refreshes without app restart.
+
+Current device acceptance remains pending. The source-level next target is Page/Group/Event creation plus profile-avatar update audit, followed by Android/iOS regression closure.
