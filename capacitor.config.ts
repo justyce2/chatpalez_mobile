@@ -12,6 +12,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   appendUserAgent: ' ChatPalezMobile/1.0',
   loggingBehavior: 'debug',
+  server: {
+    allowNavigation: ['chatpalez.com', 'www.chatpalez.com']
+  },
   android: {
     allowMixedContent: false,
     backgroundColor: '#0066B2',
