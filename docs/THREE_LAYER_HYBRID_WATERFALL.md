@@ -410,3 +410,27 @@ Commits:
 - `c05add2` — 2FA branding consistency.
 
 Next source work should be limited to defects found by local `npm run verify:native`, `npm test`, `npm run build`, `npx cap sync android`, and installed Android runtime acceptance. GitHub Actions remain disabled.
+
+
+### Audit remediation checkpoint — 2026-09-21
+
+Source-side audit findings fixed:
+
+- removed broad Capacitor `server.allowNavigation` so unsupported first-party content cannot silently replace the native shell;
+- extracted trusted shell-route and retained-history policy into a pure tested module;
+- added tests for native route resolution, fallback containment, external-origin rejection, retained-history deduplication/capping and back traversal;
+- page/group/event search results now open native detail surfaces when an API identity is available;
+- Android App Links request domain verification;
+- iOS Associated Domains entitlement is attached to the app target;
+- Android Gradle, `build:metadata`, and `verify:native` now share project `.env` release metadata;
+- connected-account JWT/session issuance is isolated in a single backend compatibility helper;
+- the legacy backlog is explicitly superseded and its current surface map is aligned with the three-layer implementation.
+
+External/runtime gates remaining after source remediation:
+
+- deploy latest backend `sngine-fresh`;
+- publish Android `assetlinks.json` using the real Play signing fingerprint;
+- publish iOS `apple-app-site-association` after the Apple Team ID is confirmed;
+- run local verify/test/build/cap-sync and installed Android/iOS acceptance.
+
+GitHub Actions remain disabled and were not triggered.
