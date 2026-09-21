@@ -231,9 +231,10 @@ function authCard(title: string, text: string): HTMLElement {
   card.className = 'auth-screen';
   const header = document.createElement('div');
   header.className = 'auth-header';
-  const mark = document.createElement('div');
+  const mark = document.createElement('img');
   mark.className = 'brand-mark';
-  mark.textContent = 'C';
+  mark.src = '/brand/chatpalez-app-icon.png';
+  mark.alt = '';
   mark.setAttribute('aria-hidden', 'true');
   const heading = document.createElement('h1');
   heading.textContent = title;
