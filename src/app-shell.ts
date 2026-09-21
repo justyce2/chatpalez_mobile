@@ -1451,8 +1451,25 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
               for (const blockedUser of page.items) {
                 const name = String(blockedUser.user_firstname || blockedUser.user_name || `User ${blockedUser.user_id}`);
                 const row = element('div', 'settings-row');
-                row.append(elementWithText('strong', name));
-                if (blockedUser.user_name) row.append(elementWithText('span', `@${String(blockedUser.user_name)}`));
+                const identity = element('div', 'settings-row-identity');
+                identity.append(elementWithText('strong', name));
+                if (blockedUser.user_name) identity.append(elementWithText('span', `@${String(blockedUser.user_name)}`));
+                row.append(identity);
+
+                if (handlers.onConnect) {
+                  const unblock = secondaryButton('Unblock');
+                  unblock.classList.add('compact-button');
+                  unblock.addEventListener('click', () => {
+                    unblock.disabled = true;
+                    void handlers.onConnect!('unblock', blockedUser.user_id)
+                      .then(() => row.remove())
+                      .catch((error: unknown) => {
+                        window.alert(error instanceof Error ? error.message : 'Unable to unblock this user.');
+                        unblock.disabled = false;
+                      });
+                  });
+                  row.append(unblock);
+                }
                 blockedBody.append(row);
               }
             }
