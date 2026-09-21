@@ -1,4 +1,5 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
+import type { MobileEvent, MobileGroup, MobilePage } from './api/community';
 import type { NotificationItem } from './api/notifications';
 import type { FeedPost, FeedView } from './api/feed';
 import type { BlockedUser } from './api/user';
@@ -17,6 +18,10 @@ export type AppShellHandlers = {
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string, target?: string) => void;
   onLoadFeed?: (view: FeedView, offset: number) => Promise<PageResult<FeedPost>>;
+  onLoadPages?: (view: 'discover' | 'liked' | 'manage', offset: number) => Promise<PageResult<MobilePage>>;
+  onLoadGroups?: (view: 'discover' | 'joined' | 'manage', offset: number) => Promise<PageResult<MobileGroup>>;
+  onLoadEvents?: (view: 'discover' | 'going' | 'interested' | 'invited' | 'manage', offset: number) => Promise<PageResult<MobileEvent>>;
+  onConnect?: (action: string, id: number | string) => Promise<void>;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
   onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
@@ -122,9 +127,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       { label: 'Scheduled', icon: 'schedule', action: () => void showFeed('scheduled') },
       { label: 'Memories', icon: 'memories', action: () => void showFeed('memories') },
       { label: 'People', icon: 'friends', action: () => showRetainedModule('/people', 'People') },
-      { label: 'Pages', icon: 'pages', action: () => showRetainedModule('/pages', 'Pages') },
-      { label: 'Groups', icon: 'groups', action: () => showRetainedModule('/groups', 'Groups') },
-      { label: 'Events', icon: 'events', action: () => showRetainedModule('/events', 'Events') },
+      { label: 'Pages', icon: 'pages', action: () => void showPages('discover') },
+      { label: 'Groups', icon: 'groups', action: () => void showGroups('discover') },
+      { label: 'Events', icon: 'events', action: () => void showEvents('discover') },
       { label: 'Reels', icon: 'reels', action: () => showRetainedModule('/reels', 'Reels', 'reels') },
       { label: 'Watch', icon: 'watch', action: () => showRetainedModule('/watch', 'Watch') },
       { label: 'Blogs', icon: 'blogs', action: () => showRetainedModule('/blogs', 'Blogs') },
@@ -338,6 +343,182 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         void load(true);
       });
       await load();
+    }
+
+    async function showPages(view: 'discover' | 'liked' | 'manage' = 'discover'): Promise<void> {
+      backAction = () => { void showFeed('newsfeed'); };
+      setActiveTab('');
+      content.replaceChildren();
+
+      const tabs = localTabs([
+        ['Discover', () => void showPages('discover'), view === 'discover'],
+        ['Liked', () => void showPages('liked'), view === 'liked'],
+        ['My Pages', () => void showPages('manage'), view === 'manage']
+      ]);
+      content.append(screenTitle('Pages'), tabs);
+      await renderPagedCommunity<MobilePage>(
+        handlers.onLoadPages ? (offset) => handlers.onLoadPages!(view, offset) : undefined,
+        (item) => pageCard(item)
+      );
+    }
+
+    async function showGroups(view: 'discover' | 'joined' | 'manage' = 'discover'): Promise<void> {
+      backAction = () => { void showFeed('newsfeed'); };
+      setActiveTab('');
+      content.replaceChildren();
+
+      const tabs = localTabs([
+        ['Discover', () => void showGroups('discover'), view === 'discover'],
+        ['Joined', () => void showGroups('joined'), view === 'joined'],
+        ['My Groups', () => void showGroups('manage'), view === 'manage']
+      ]);
+      content.append(screenTitle('Groups'), tabs);
+      await renderPagedCommunity<MobileGroup>(
+        handlers.onLoadGroups ? (offset) => handlers.onLoadGroups!(view, offset) : undefined,
+        (item) => groupCard(item)
+      );
+    }
+
+    async function showEvents(view: 'discover' | 'going' | 'interested' | 'invited' | 'manage' = 'discover'): Promise<void> {
+      backAction = () => { void showFeed('newsfeed'); };
+      setActiveTab('');
+      content.replaceChildren();
+
+      const tabs = localTabs([
+        ['Discover', () => void showEvents('discover'), view === 'discover'],
+        ['Going', () => void showEvents('going'), view === 'going'],
+        ['Interested', () => void showEvents('interested'), view === 'interested'],
+        ['Invited', () => void showEvents('invited'), view === 'invited'],
+        ['My Events', () => void showEvents('manage'), view === 'manage']
+      ]);
+      content.append(screenTitle('Events'), tabs);
+      await renderPagedCommunity<MobileEvent>(
+        handlers.onLoadEvents ? (offset) => handlers.onLoadEvents!(view, offset) : undefined,
+        (item) => eventCard(item)
+      );
+    }
+
+    async function renderPagedCommunity<T>(
+      loader: ((offset: number) => Promise<PageResult<T>>) | undefined,
+      render: (item: T) => HTMLElement
+    ): Promise<void> {
+      const list = element('div', 'community-grid');
+      const loading = paragraph('Loading…');
+      list.append(loading);
+      content.append(list);
+
+      if (!loader) {
+        loading.textContent = 'This section is not available through the mobile API yet.';
+        return;
+      }
+
+      let offset = 0;
+      let hasMore = false;
+      const more = secondaryButton('Load more');
+      more.hidden = true;
+      content.append(more);
+
+      const load = async (append = false): Promise<void> => {
+        try {
+          const page = await loader(offset);
+          if (!append) list.replaceChildren();
+          if (!append && page.items.length === 0) list.append(paragraph('Nothing to show yet.'));
+          for (const item of page.items) list.append(render(item));
+          hasMore = page.hasMore;
+          more.hidden = !hasMore;
+        } catch (error) {
+          if (!append) list.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load this section.'));
+          else window.alert(error instanceof Error ? error.message : 'Unable to load more.');
+        }
+      };
+
+      more.addEventListener('click', () => {
+        if (!hasMore) return;
+        offset += 1;
+        void load(true);
+      });
+
+      await load();
+    }
+
+    function pageCard(item: MobilePage): HTMLElement {
+      const card = communityCard(item.page_picture, item.page_title, `${item.page_likes || 0} likes`);
+      const open = secondaryButton('Open');
+      open.classList.add('community-card-action');
+      open.addEventListener('click', () => showRetainedModule(item.url || `/pages/${item.page_name}`, item.page_title));
+
+      if (handlers.onConnect) {
+        const like = secondaryButton(item.i_like ? 'Unlike' : 'Like');
+        like.classList.add('community-card-action');
+        like.addEventListener('click', () => {
+          like.disabled = true;
+          void handlers.onConnect!(item.i_like ? 'page-unlike' : 'page-like', item.page_id)
+            .then(() => {
+              item.i_like = !item.i_like;
+              item.page_likes = Math.max(0, Number(item.page_likes || 0) + (item.i_like ? 1 : -1));
+              like.textContent = item.i_like ? 'Unlike' : 'Like';
+            })
+            .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update page.'))
+            .finally(() => { like.disabled = false; });
+        });
+        card.append(like);
+      }
+      card.append(open);
+      return card;
+    }
+
+    function groupCard(item: MobileGroup): HTMLElement {
+      const card = communityCard(item.group_picture, item.group_title, `${item.group_members || 0} members`);
+      const open = secondaryButton('Open');
+      open.classList.add('community-card-action');
+      open.addEventListener('click', () => showRetainedModule(item.url || `/groups/${item.group_name}`, item.group_title));
+
+      if (handlers.onConnect) {
+        const joined = item.i_joined === 'approved' || item.i_joined === 'pending';
+        const join = secondaryButton(item.i_joined === 'pending' ? 'Pending' : joined ? 'Joined' : 'Join');
+        join.classList.add('community-card-action');
+        join.addEventListener('click', () => {
+          join.disabled = true;
+          void handlers.onConnect!(joined ? 'group-leave' : 'group-join', item.group_id)
+            .then(() => {
+              item.i_joined = joined ? false : (item.group_privacy === 'public' ? 'approved' : 'pending');
+              join.textContent = item.i_joined === 'pending' ? 'Pending' : item.i_joined ? 'Joined' : 'Join';
+            })
+            .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update group membership.'))
+            .finally(() => { join.disabled = false; });
+        });
+        card.append(join);
+      }
+      card.append(open);
+      return card;
+    }
+
+    function eventCard(item: MobileEvent): HTMLElement {
+      const card = communityCard(item.event_picture, item.event_title, `${item.event_interested || 0} interested`);
+      const open = secondaryButton('Open');
+      open.classList.add('community-card-action');
+      open.addEventListener('click', () => showRetainedModule(item.url || `/events/${item.event_id}`, item.event_title));
+
+      if (handlers.onConnect) {
+        const interested = Boolean(item.i_joined?.is_interested);
+        const interest = secondaryButton(interested ? 'Interested' : 'Interested?');
+        interest.classList.add('community-card-action');
+        interest.addEventListener('click', () => {
+          interest.disabled = true;
+          void handlers.onConnect!(interested ? 'event-uninterest' : 'event-interest', item.event_id)
+            .then(() => {
+              if (!item.i_joined) item.i_joined = {};
+              item.i_joined.is_interested = !interested;
+              item.event_interested = Math.max(0, Number(item.event_interested || 0) + (!interested ? 1 : -1));
+              interest.textContent = !interested ? 'Interested' : 'Interested?';
+            })
+            .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update event interest.'))
+            .finally(() => { interest.disabled = false; });
+        });
+        card.append(interest);
+      }
+      card.append(open);
+      return card;
     }
 
     function showAccountMenu(): void {
@@ -982,6 +1163,36 @@ function feedCard(post: FeedPost, openWebModule: (path: string) => void): HTMLEl
   });
   actions.append(open);
   card.append(actions);
+  return card;
+}
+
+function localTabs(items: Array<[string, () => void, boolean]>): HTMLElement {
+  const tabs = element('div', 'local-tabs');
+  for (const [label, action, active] of items) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'local-tab';
+    button.classList.toggle('is-active', active);
+    button.textContent = label;
+    button.addEventListener('click', action);
+    tabs.append(button);
+  }
+  return tabs;
+}
+
+function communityCard(imageUrl: string | undefined, title: string, meta: string): HTMLElement {
+  const card = element('article', 'community-card');
+  if (imageUrl) {
+    const image = document.createElement('img');
+    image.className = 'community-card-image';
+    image.src = imageUrl;
+    image.alt = title;
+    image.loading = 'lazy';
+    card.append(image);
+  }
+  const body = element('div', 'community-card-body');
+  body.append(elementWithText('strong', title), elementWithText('span', meta));
+  card.append(body);
   return card;
 }
 
