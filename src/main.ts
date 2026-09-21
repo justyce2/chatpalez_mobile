@@ -260,6 +260,13 @@ const shell = createAppShell(root, {
     const page = await community.getEvents(view, offset);
     return { items: page.data, hasMore: page.hasMore };
   },
+  onLoadPeople: async (view, offset) => {
+    const page = await community.getPeople(view, offset);
+    return { items: page.data, hasMore: page.hasMore };
+  },
+  onSearch: async (query) => {
+    return community.search(query);
+  },
   onConnect: async (action, id) => {
     await users.connect(action, id);
   },
