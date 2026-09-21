@@ -1856,3 +1856,28 @@ body.native-drawer-open {
   accent-color: var(--chatpalez-link);
   box-shadow: none;
 }
+
+
+/* Native community creation */
+.native-create-card {
+  display: grid;
+  gap: 12px;
+}
+
+.native-create-card .native-settings-form {
+  margin: 0;
+}
+
+.native-create-card select[multiple] {
+  min-height: 108px;
+  padding: 6px;
+}
+
+.native-create-card select[multiple] option {
+  padding: 7px 8px;
+  border-radius: 6px;
+}
+
+.native-create-card input[type="datetime-local"] {
+  min-height: 46px;
+}
