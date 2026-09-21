@@ -474,10 +474,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       open.addEventListener('click', () => showRetainedModule(item.url || `/groups/${item.group_name}`, item.group_title));
 
       if (handlers.onConnect) {
-        const joined = item.i_joined === 'approved' || item.i_joined === 'pending';
-        const join = secondaryButton(item.i_joined === 'pending' ? 'Pending' : joined ? 'Joined' : 'Join');
+        const join = secondaryButton(item.i_joined === 'pending' ? 'Pending' : item.i_joined === 'approved' ? 'Joined' : 'Join');
         join.classList.add('community-card-action');
         join.addEventListener('click', () => {
+          const joined = item.i_joined === 'approved' || item.i_joined === 'pending';
           join.disabled = true;
           void handlers.onConnect!(joined ? 'group-leave' : 'group-join', item.group_id)
             .then(() => {
@@ -500,10 +500,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       open.addEventListener('click', () => showRetainedModule(item.url || `/events/${item.event_id}`, item.event_title));
 
       if (handlers.onConnect) {
-        const interested = Boolean(item.i_joined?.is_interested);
-        const interest = secondaryButton(interested ? 'Interested' : 'Interested?');
+        const interest = secondaryButton(item.i_joined?.is_interested ? 'Interested' : 'Interested?');
         interest.classList.add('community-card-action');
         interest.addEventListener('click', () => {
+          const interested = Boolean(item.i_joined?.is_interested);
           interest.disabled = true;
           void handlers.onConnect!(interested ? 'event-uninterest' : 'event-interest', item.event_id)
             .then(() => {
