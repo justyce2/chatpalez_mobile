@@ -118,12 +118,12 @@ Known regressions at start:
 | H1-01 | Fix login viewport pinning | Testing | Login fills device viewport; no blank top/bottom overscroll |
 | H1-02 | Fix signup/activation/onboarding viewport behavior | Testing | Long forms scroll inside viewport; no document bounce gap |
 | H1-03 | Fix password recovery/2FA viewport behavior | Testing | Same viewport contract as login |
-| H1-04 | Stabilize native top bar | Planned | App-owned header, correct icons/spacing/safe area |
-| H1-05 | Stabilize native hamburger drawer | Planned | Smooth slide-in/out; app-owned; no web offcanvas duplicate |
-| H1-06 | Stabilize five-item bottom navigation | Planned | Home, Reels/Watch, Add, Search, Menu; correct active state |
+| H1-04 | Stabilize native top bar | Testing | App-owned header, correct icons/spacing/safe area |
+| H1-05 | Stabilize native hamburger drawer | Testing | Smooth slide-in/out; app-owned; no web offcanvas duplicate |
+| H1-06 | Stabilize five-item bottom navigation | Testing | Home, Reels/Watch, Add, Search, Menu; correct active state |
 | H1-07 | Replace Menu→Profile shortcut with account/menu interface | Testing | Native menu includes Profile, Settings, Saved, notifications controls, legal, logout |
-| H1-08 | Define native-shell navigation state | Planned | Back/navigation keeps shell stable and predictable |
-| H1-09 | Ensure no full-page fallback destroys shell silently | Planned | Fallback paths are explicit and controlled |
+| H1-08 | Define native-shell navigation state | Testing | Back/navigation keeps shell stable and predictable |
+| H1-09 | Ensure no full-page fallback destroys shell silently | Testing | Fallback paths are explicit and controlled |
 
 ### PHASE 2 — Core API/native content surfaces
 
@@ -263,8 +263,8 @@ These are not reasons to stop implementation, but must be called out for runtime
 
 ## 7. Current Work Pointer
 
-**Current phase:** PHASE 1 — Native shell and viewport foundation.  
-**Next task:** H1-01 through H1-03, authentication viewport pinning and internal-scroll correction.  
-**Then:** H1-04 through H1-09, shell navigation stabilization.
+**Current phase:** PHASE 2 — Core API/native content surfaces (Phase 1 source implementation is in Testing pending Android/iOS acceptance).  
+**Next task:** H2-01 through H2-03, validate/deploy feed API and complete native feed variants.  
+**Then:** H2-06 through H2-12, progressively replace retained Pages/Groups/Events/Reels/Search/People surfaces with API/native screens.
 
 This document supersedes older implementation notes that stated feed/groups/pages/search must remain full retained-web surfaces for v1. Those historical decisions remain useful context, but this document governs implementation from 2026-09-21 onward.
