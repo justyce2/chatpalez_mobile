@@ -365,6 +365,30 @@ const shell = createAppShell(root, {
     logInfo('Blocked-user list loaded', { count: page.data.length, offset, hasMore: page.hasMore });
     return { items: page.data, hasMore: page.hasMore };
   },
+  onLoadAccount: async () => {
+    return users.getAccount();
+  },
+  onUpdateProfile: async (payload) => {
+    await users.updateProfile(payload);
+  },
+  onUpdateIdentity: async (payload) => {
+    await users.updateIdentity(payload);
+  },
+  onUpdateWork: async (payload) => {
+    await users.updateWork(payload);
+  },
+  onUpdateLocation: async (payload) => {
+    await users.updateLocation(payload);
+  },
+  onUpdateEducation: async (payload) => {
+    await users.updateEducation(payload);
+  },
+  onUpdateSocial: async (payload) => {
+    await users.updateSocial(payload);
+  },
+  onUpdatePassword: async (payload) => {
+    await users.updatePassword(payload);
+  },
   onDeleteAccount: async (password) => {
     await users.deleteAccount(password);
     await logoutNativeNotifications().catch((error) => {
