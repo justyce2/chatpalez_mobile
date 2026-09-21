@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { projectEnvValue } from './project-env.mjs';
 
 const root = process.cwd();
 
@@ -20,8 +21,8 @@ const iosProject = read('ios/App/App.xcodeproj/project.pbxproj');
 const capacitorConfig = read('capacitor.config.ts');
 const appConfig = read('src/config.ts');
 
-const androidVersionCode = Number(process.env.CHATPALEZ_VERSION_CODE || 1);
-const androidVersionName = process.env.CHATPALEZ_VERSION_NAME || '1.0';
+const androidVersionCode = Number(projectEnvValue('CHATPALEZ_VERSION_CODE', '1', root));
+const androidVersionName = projectEnvValue('CHATPALEZ_VERSION_NAME', '1.0', root);
 const androidApplicationId = match(androidGradle, /applicationId\s+"([^"]+)"/, 'Android applicationId');
 const iosBundleId = match(iosProject, /PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/, 'iOS bundle identifier');
 const productionOrigin = match(appConfig, /\|\|\s*'([^']+)'/, 'production origin fallback');
@@ -81,7 +82,7 @@ if (!Number.isInteger(metadata.android.versionCode) || metadata.android.versionC
 if (!Number.isInteger(metadata.ios.buildNumber) || metadata.ios.buildNumber < 1) {
   throw new Error('iOS build number must be a positive integer');
 }
-if (metadata.android.versionCode === 1 && !process.env.CHATPALEZ_VERSION_CODE) {
+if (metadata.android.versionCode === 1) {
   console.warn('Android versionCode 1 is a development placeholder. Do not use it for a Play Store update unless Play confirms it is greater than the current maximum.');
 }
 
