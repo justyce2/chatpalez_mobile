@@ -1,4 +1,6 @@
+import { Capacitor } from '@capacitor/core';
 import type { ApiPage, ChatPalezApiClient } from './client';
+import type { AuthSession } from '../auth/session';
 
 export type BlockedUser = {
   user_id: number | string;
@@ -84,6 +86,18 @@ export type MobileAccount = {
   };
 };
 
+export type ConnectedAccount = {
+  user_id: number | string;
+  user_name?: string;
+  user_firstname?: string;
+  user_lastname?: string;
+  user_fullname?: string;
+  user_picture?: string;
+  user_verified?: boolean;
+  user_subscribed?: boolean;
+  is_current?: boolean;
+};
+
 export type ProfileUpdate = Partial<Pick<MobileAccount,
   'firstname' | 'lastname' | 'gender' | 'country' | 'relationship' |
   'birth_month' | 'birth_day' | 'birth_year' | 'biography' | 'website'>>;
@@ -113,6 +127,20 @@ export class UserService {
 
   getAccount(): Promise<MobileAccount> {
     return this.api.get<MobileAccount>('mobile/account');
+  }
+
+  getConnectedAccounts(): Promise<ConnectedAccount[]> {
+    return this.api.get<ConnectedAccount[]>('mobile/account/connected');
+  }
+
+  switchConnectedAccount(userId: number | string): Promise<AuthSession> {
+    const platform = Capacitor.getPlatform();
+    return this.api.post<AuthSession>('mobile/account/switch', {
+      user_id: userId,
+      device_type: platform === 'ios' ? 'I' : 'A',
+      device_os_version: navigator.userAgent,
+      device_name: `${platform || 'web'} ChatPalez`
+    });
   }
 
   async updateProfile(payload: ProfileUpdate): Promise<void> {
