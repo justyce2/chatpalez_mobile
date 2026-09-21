@@ -1,5 +1,5 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
-import type { CommunityDetail, MobileEvent, MobileGroup, MobilePage, MobilePerson, MobileSearchResult } from './api/community';
+import type { CommunityCreatePayload, CommunityCreationMeta, CommunityDetail, CreationCustomField, MobileEvent, MobileGroup, MobilePage, MobilePerson, MobileSearchResult } from './api/community';
 import type { NotificationItem } from './api/notifications';
 import type { FeedPost, FeedView, PostComment, ReelItem, VideoItem } from './api/feed';
 import type { BlockedUser, MobileAccount, ProfileUpdate } from './api/user';
@@ -35,6 +35,10 @@ export type AppShellHandlers = {
   onLoadPeople?: (view: 'discover' | 'requests' | 'sent' | 'friends', offset: number) => Promise<PageResult<MobilePerson>>;
   onSearch?: (query: string) => Promise<MobileSearchResult[]>;
   onLoadCommunityDetail?: (type: 'page' | 'group' | 'event', id: number | string) => Promise<CommunityDetail>;
+  onLoadCreationMeta?: (type: 'page' | 'group' | 'event') => Promise<CommunityCreationMeta>;
+  onCreatePage?: (payload: CommunityCreatePayload) => Promise<MobilePage>;
+  onCreateGroup?: (payload: CommunityCreatePayload) => Promise<MobileGroup>;
+  onCreateEvent?: (payload: CommunityCreatePayload) => Promise<MobileEvent>;
   onConnect?: (action: string, id: number | string) => Promise<void>;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
@@ -449,6 +453,12 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         button.classList.add('quick-add-item');
         if (label === 'Post') {
           button.addEventListener('click', showPostComposer);
+        } else if (label === 'Page') {
+          button.addEventListener('click', () => void showCommunityCreator('page'));
+        } else if (label === 'Group') {
+          button.addEventListener('click', () => void showCommunityCreator('group'));
+        } else if (label === 'Event') {
+          button.addEventListener('click', () => void showCommunityCreator('event'));
         } else {
           button.addEventListener('click', () => showRetainedModule(route, label));
         }
@@ -658,6 +668,216 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           window.alert(error instanceof Error ? error.message : 'Unable to update this connection.');
           button.disabled = false;
         });
+    }
+
+    async function showCommunityCreator(type: 'page' | 'group' | 'event'): Promise<void> {
+      backAction = showQuickAdd;
+      setActiveTab('add');
+      content.replaceChildren();
+
+      const title = type === 'page' ? 'Create page' : type === 'group' ? 'Create group' : 'Create event';
+      const header = element('div', 'conversation-header');
+      const back = secondaryButton('Back');
+      back.classList.add('compact-button');
+      back.addEventListener('click', showQuickAdd);
+      header.append(back, screenTitle(title));
+      content.append(header);
+
+      if (!handlers.onLoadCreationMeta) {
+        showRetainedModule(type === 'page' ? '/pages' : type === 'group' ? '/groups' : '/events', title);
+        return;
+      }
+
+      const host = element('section', 'native-create-card');
+      host.append(paragraph('Loading creation options…'));
+      content.append(host);
+
+      try {
+        const meta = await handlers.onLoadCreationMeta(type);
+        if (!meta.allowed) {
+          host.replaceChildren(paragraph(`Your current account or plan cannot create a ${type}.`));
+          return;
+        }
+        if (!meta.supports_native) {
+          showRetainedModule(type === 'page' ? '/pages' : type === 'group' ? '/groups' : '/events', title);
+          return;
+        }
+
+        host.replaceChildren();
+        const form = element('form', 'native-settings-form') as HTMLFormElement;
+        const name = settingsInput(type === 'page' ? 'Page name' : type === 'group' ? 'Group name' : 'Event name', 'text', '');
+        form.append(name.wrapper);
+
+        let username: ReturnType<typeof settingsInput> | null = null;
+        if (type !== 'event') {
+          username = settingsInput(type === 'page' ? 'Page username' : 'Group username', 'text', '');
+          form.append(username.wrapper);
+        }
+
+        let start: ReturnType<typeof settingsInput> | null = null;
+        let end: ReturnType<typeof settingsInput> | null = null;
+        let eventType: ReturnType<typeof settingsSelect> | null = null;
+        let location: ReturnType<typeof settingsInput> | null = null;
+        if (type === 'event') {
+          start = settingsInput('Start date', 'datetime-local', '');
+          end = settingsInput('End date', 'datetime-local', '');
+          eventType = settingsSelect('Event type', [['0', 'In person'], ['1', 'Online']], '0');
+          location = settingsInput('Location', 'text', '');
+          form.append(start.wrapper, end.wrapper, eventType.wrapper, location.wrapper);
+          eventType.control.addEventListener('change', () => {
+            if (location) location.control.disabled = eventType?.control.value === '1';
+          });
+        }
+
+        let privacy: ReturnType<typeof settingsSelect> | null = null;
+        if (type === 'group' || type === 'event') {
+          privacy = settingsSelect('Privacy', [
+            ['public', 'Public'],
+            ['closed', 'Closed'],
+            ['secret', 'Secret']
+          ], 'public');
+          form.append(privacy.wrapper);
+        }
+
+        const category = settingsSelect(
+          'Category',
+          [['', 'Select category'], ...meta.categories.map((item) => [String(item.id), item.label] as [string, string])],
+          ''
+        );
+        const country = settingsSelect(
+          'Country',
+          [['', 'Select country'], ...meta.countries.map((item) => [String(item.id), item.label] as [string, string])],
+          meta.fallback_country != null ? String(meta.fallback_country) : ''
+        );
+        const language = settingsSelect(
+          'Language',
+          [['', 'Select language'], ...meta.languages.map((item) => [String(item.id), item.label] as [string, string])],
+          meta.fallback_language != null ? String(meta.fallback_language) : ''
+        );
+        const description = settingsTextarea('About', '', 4);
+        form.append(category.wrapper, country.wrapper, language.wrapper, description.wrapper);
+
+        const customControls = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
+        for (const custom of meta.custom_fields) {
+          const rendered = creationCustomField(custom);
+          customControls.set(String(custom.id), rendered.control);
+          form.append(rendered.wrapper);
+        }
+
+        let createPost: ReturnType<typeof settingsCheckbox> | null = null;
+        if (type === 'group' || type === 'event') {
+          createPost = settingsCheckbox('Create an announcement post after creation', false);
+          form.append(createPost.wrapper);
+        }
+
+        const status = element('p', 'settings-form-status');
+        const submit = actionButton(type === 'page' ? 'Create page' : type === 'group' ? 'Create group' : 'Create event');
+        submit.type = 'submit';
+        form.append(status, submit);
+
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const custom_fields: Record<string, string | string[]> = {};
+          for (const custom of meta.custom_fields) {
+            const control = customControls.get(String(custom.id));
+            if (!control) continue;
+            if (custom.type === 'multipleselectbox' && control instanceof HTMLSelectElement) {
+              custom_fields[String(custom.id)] = Array.from(control.selectedOptions).map((option) => option.value);
+            } else {
+              custom_fields[String(custom.id)] = control.value;
+            }
+          }
+
+          const payload: CommunityCreatePayload = {
+            title: name.control.value.trim(),
+            category: category.control.value,
+            country: country.control.value,
+            language: language.control.value,
+            description: description.control.value.trim(),
+            custom_fields
+          };
+
+          if (username) payload.username = username.control.value.trim();
+          if (privacy) payload.privacy = privacy.control.value as 'public' | 'closed' | 'secret';
+          if (createPost) payload.create_post = createPost.control.checked;
+
+          if (type === 'event') {
+            payload.start_date = start?.control.value || '';
+            payload.end_date = end?.control.value || '';
+            payload.is_online = eventType?.control.value === '1';
+            payload.location = payload.is_online ? '' : (location?.control.value.trim() || '');
+            payload.latitude = '';
+            payload.longitude = '';
+          }
+
+          submit.disabled = true;
+          status.textContent = 'Creating…';
+
+          const operation = type === 'page'
+            ? handlers.onCreatePage?.(payload)
+            : type === 'group'
+              ? handlers.onCreateGroup?.(payload)
+              : handlers.onCreateEvent?.(payload);
+
+          if (!operation) {
+            submit.disabled = false;
+            status.textContent = 'Native creation is not available in this build.';
+            return;
+          }
+
+          void operation.then((created) => {
+            if (type === 'page') {
+              const page = created as MobilePage;
+              void showCommunityDetail('page', page.page_id);
+            } else if (type === 'group') {
+              const group = created as MobileGroup;
+              void showCommunityDetail('group', group.group_id);
+            } else {
+              const eventItem = created as MobileEvent;
+              void showCommunityDetail('event', eventItem.event_id);
+            }
+          }).catch((error: unknown) => {
+            status.textContent = error instanceof Error ? error.message : `Unable to create ${type}.`;
+            submit.disabled = false;
+          });
+        });
+
+        host.append(form);
+      } catch (error) {
+        host.replaceChildren(paragraph(error instanceof Error ? error.message : `Unable to prepare ${type} creation.`));
+      }
+    }
+
+    function creationCustomField(custom: CreationCustomField): {
+      wrapper: HTMLLabelElement;
+      control: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    } {
+      if (custom.type === 'textarea') {
+        const item = settingsTextarea(custom.label, '', 3);
+        item.control.required = Boolean(custom.mandatory);
+        if (custom.length) item.control.maxLength = custom.length;
+        return item;
+      }
+
+      if (custom.type === 'selectbox' || custom.type === 'multipleselectbox') {
+        const item = settingsSelect(
+          custom.label,
+          [['none', 'Select option'], ...(custom.options || []).map((label, index) => [String(index), label] as [string, string])],
+          'none'
+        );
+        item.control.required = Boolean(custom.mandatory);
+        if (custom.type === 'multipleselectbox') {
+          item.control.multiple = true;
+          item.control.size = Math.min(Math.max((custom.options || []).length, 2), 5);
+          item.control.querySelector('option[value="none"]')?.remove();
+        }
+        return item;
+      }
+
+      const item = settingsInput(custom.label, 'text', '');
+      item.control.required = Boolean(custom.mandatory);
+      if (custom.length) item.control.maxLength = custom.length;
+      return item;
     }
 
     function showPostComposer(): void {
