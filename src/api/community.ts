@@ -1,4 +1,5 @@
 import type { ApiPage, ChatPalezApiClient } from './client';
+import type { FeedPost } from './feed';
 
 export type CommunityView = 'discover' | 'liked' | 'joined' | 'going' | 'interested' | 'invited' | 'manage';
 
@@ -50,6 +51,25 @@ export type MobileSearchResult = {
   url?: string;
 };
 
+export type CommunityDetail = {
+  type: 'page' | 'group' | 'event';
+  id: number | string;
+  slug?: string;
+  title: string;
+  description?: string;
+  picture?: string;
+  cover?: string | null;
+  members_label?: string;
+  privacy?: string;
+  relationship?: unknown;
+  start_date?: string | null;
+  end_date?: string | null;
+  is_online?: boolean;
+  url?: string;
+  can_view_posts?: boolean;
+  posts?: FeedPost[];
+};
+
 export type MobileEvent = {
   event_id: number | string;
   event_title: string;
@@ -87,5 +107,9 @@ export class CommunityService {
 
   search(query: string): Promise<MobileSearchResult[]> {
     return this.api.get<MobileSearchResult[]>('mobile/search', { query });
+  }
+
+  getDetail(type: 'page' | 'group' | 'event', id: number | string): Promise<CommunityDetail> {
+    return this.api.get<CommunityDetail>('mobile/community/detail', { type, id });
   }
 }
