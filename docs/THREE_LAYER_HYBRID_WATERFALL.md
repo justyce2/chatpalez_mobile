@@ -264,7 +264,29 @@ These are not reasons to stop implementation, but must be called out for runtime
 ## 7. Current Work Pointer
 
 **Current phase:** PHASE 4/5 — retained-content integration hardening and native account/settings expansion (source implementation in Testing pending device acceptance).  
-**Next task:** JWT-safe Switch Accounts contract and native appearance/theme behavior; then close remaining H4/H5 regression items with Android/iOS device acceptance.  
+**Next task:** complete the Switch Accounts backend/native contract so account identities can be listed/switched without exposing credentials, then close remaining H4/H5 regression items with Android/iOS device acceptance.  
 **Parallel testing gate:** deploy latest `sngine-fresh` and verify native feed/community/search/people/reels/watch/post/community detail, native text-post creation, native account/profile/privacy settings, deep/push routing, retained history/back behavior, and `chatpalez_app` fallback rendering.
 
 This document supersedes older implementation notes that stated feed/groups/pages/search must remain full retained-web surfaces for v1. Those historical decisions remain useful context, but this document governs implementation from 2026-09-21 onward.
+
+
+### Source checkpoint — 2026-09-21 (retained navigation + appearance)
+
+Implemented on mobile `develop`:
+
+- retained iframe bridge messages are now accepted only from the active retained frame window and the configured trusted origin;
+- retained paths are origin-normalized before history entry and retained navigation history is capped;
+- leaving retained content now clears the active retained frame window reference as well as frame/history state;
+- native account Menu no longer routes Appearance to generic web settings;
+- app-owned Appearance now supports **Use device setting**, **Day mode**, and **Night mode**;
+- native shell night-mode styles were added without changing the retained website theme contract;
+- Switch Accounts now has a dedicated native entry surface and continues through the JWT-to-first-party-web-session bridge without placing the mobile JWT in the URL.
+
+Commits:
+
+- `b32ef5f` — retained navigation hardening + native account appearance/switch entry;
+- `105493e` — native day/night appearance styles.
+
+Remaining Switch Accounts work is the actual account-list/switch API contract. Until that backend contract exists, the native Switch Accounts surface deliberately hands off to the authenticated first-party switcher rather than collecting/storing secondary account credentials in the app.
+
+GitHub Actions remain disabled and were not triggered.
