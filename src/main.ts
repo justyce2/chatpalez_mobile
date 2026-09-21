@@ -234,6 +234,7 @@ const shell = createAppShell(root, {
       shell.setBusy(false);
     }
   },
+  onSessionExpired: () => { void handleSessionExpiry(); },
   onLogout: async () => {
     shell.setBusy(true, 'Signing out…');
     try {
