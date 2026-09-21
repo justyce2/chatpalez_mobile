@@ -45,3 +45,26 @@ After publishing the association files:
 3. install the signed iOS build and open a normal ChatPalez HTTPS URL;
 4. confirm iOS opens the app through Universal Links;
 5. verify untrusted external hosts still open outside ChatPalez.
+
+
+## Generate the production files
+
+After the real signing identities are known, set them in `.env`:
+
+```text
+ANDROID_APP_LINK_SHA256=AA:BB:...:FF
+APPLE_TEAM_ID=ABCDE12345
+```
+
+Then run:
+
+```bash
+npm run build:domain-links
+```
+
+The command validates both identities and generates:
+
+- `artifacts/well-known/assetlinks.json`
+- `artifacts/well-known/apple-app-site-association`
+
+Publish those exact generated files under `https://chatpalez.com/.well-known/`. This deliberately fails closed when the real signing inputs are missing or malformed.
