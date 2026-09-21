@@ -293,6 +293,9 @@ const shell = createAppShell(root, {
   onSearch: async (query) => {
     return community.search(query);
   },
+  onLoadCommunityDetail: async (type, id) => {
+    return community.getDetail(type, id);
+  },
   onConnect: async (action, id) => {
     await users.connect(action, id);
   },
