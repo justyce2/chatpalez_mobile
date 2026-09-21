@@ -3,6 +3,47 @@ import type { FeedPost } from './feed';
 
 export type CommunityView = 'discover' | 'liked' | 'joined' | 'going' | 'interested' | 'invited' | 'manage';
 
+export type CreationOption = { id: number | string; label: string };
+
+export type CreationCustomField = {
+  id: number | string;
+  type: 'textbox' | 'textarea' | 'selectbox' | 'multipleselectbox';
+  label: string;
+  mandatory?: boolean;
+  length?: number;
+  options?: string[];
+};
+
+export type CommunityCreationMeta = {
+  type: 'page' | 'group' | 'event';
+  allowed: boolean;
+  categories: CreationOption[];
+  countries: CreationOption[];
+  languages: CreationOption[];
+  fallback_country?: number | string | null;
+  fallback_language?: number | string | null;
+  custom_fields: CreationCustomField[];
+  supports_native: boolean;
+};
+
+export type CommunityCreatePayload = {
+  title: string;
+  username?: string;
+  privacy?: 'public' | 'closed' | 'secret';
+  category: number | string;
+  country: number | string;
+  language: number | string;
+  description?: string;
+  create_post?: boolean;
+  start_date?: string;
+  end_date?: string;
+  is_online?: boolean;
+  location?: string;
+  latitude?: string;
+  longitude?: string;
+  custom_fields?: Record<string, string | string[]>;
+};
+
 export type MobilePage = {
   page_id: number | string;
   page_name: string;
@@ -111,5 +152,21 @@ export class CommunityService {
 
   getDetail(type: 'page' | 'group' | 'event', id: number | string): Promise<CommunityDetail> {
     return this.api.get<CommunityDetail>('mobile/community/detail', { type, id });
+  }
+
+  getCreationMeta(type: 'page' | 'group' | 'event'): Promise<CommunityCreationMeta> {
+    return this.api.get<CommunityCreationMeta>('mobile/create/meta', { type });
+  }
+
+  createPage(payload: CommunityCreatePayload): Promise<MobilePage> {
+    return this.api.post<MobilePage>('mobile/create/page', payload);
+  }
+
+  createGroup(payload: CommunityCreatePayload): Promise<MobileGroup> {
+    return this.api.post<MobileGroup>('mobile/create/group', payload);
+  }
+
+  createEvent(payload: CommunityCreatePayload): Promise<MobileEvent> {
+    return this.api.post<MobileEvent>('mobile/create/event', payload);
   }
 }
