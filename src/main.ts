@@ -102,7 +102,7 @@ async function handleSessionExpiry(): Promise<void> {
   try {
     await logoutNativeNotifications().catch(() => undefined);
     await clearSession();
-    renderLogin('Your session has expired. Sign in again to continue.');
+    openPublicWebModule('/');
   } finally {
     handlingSessionExpiry = false;
   }
@@ -144,11 +144,20 @@ async function completeAuthenticatedSession(session: AuthSession): Promise<void>
   await showAuthenticatedSession(session);
 }
 
+function openPublicWebModule(path = '/'): void {
+  const destination = new URL(path || '/', config.origin);
+  if (destination.origin !== config.origin.origin) {
+    throw new Error('ChatPalez blocked an untrusted in-app destination.');
+  }
+  logInfo('Opening first-party ChatPalez mobile web route in app', { path: destination.pathname });
+  window.location.assign(destination.toString());
+}
+
 async function openWebModule(path: string): Promise<void> {
   const token = getAuthToken();
   if (!token) {
     void clearSession();
-    renderLogin('Your session has expired. Sign in again to continue.');
+    openPublicWebModule(path);
     return;
   }
 
@@ -347,7 +356,10 @@ async function bootstrap(): Promise<void> {
       logInfo('Restored in-process mobile API session', { userId: session.user.user_id });
       await completeAuthenticatedSession(session);
     } else {
-      renderLogin();
+      // Use ChatPalez's real responsive mobile login/registration experience.
+      // The first-party origin is whitelisted in Capacitor, so this remains inside
+      // the app and preserves normal Sngine cookies across authenticated pages.
+      openPublicWebModule('/');
     }
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'The app could not start.';
