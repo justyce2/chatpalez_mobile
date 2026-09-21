@@ -1422,3 +1422,123 @@ body.native-drawer-open {
   color: var(--chatpalez-muted);
   font-size: 11px;
 }
+
+
+/* Native post detail and comments */
+.native-post-detail {
+  display: grid;
+  gap: 12px;
+}
+
+.native-post-player {
+  width: 100%;
+  max-height: 72dvh;
+  display: block;
+  background: #000;
+}
+
+.native-post-detail-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.native-post-detail-actions .native-post-action {
+  margin: 0;
+  background: #fff;
+}
+
+.native-comments {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+}
+
+.native-comments h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.native-comments-list {
+  display: grid;
+  gap: 10px;
+}
+
+.native-comment {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+}
+
+.native-comment-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eef1f4;
+}
+
+.native-comment-body {
+  min-width: 0;
+  padding: 9px 11px;
+  border-radius: 14px;
+  background: #f5f6f8;
+}
+
+.native-comment-body strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+
+.native-comment-body p {
+  margin: 0;
+  color: var(--chatpalez-text);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.native-comment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 5px;
+  color: var(--chatpalez-muted);
+  font-size: 10px;
+}
+
+.native-comment-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.native-comment-form textarea {
+  width: 100%;
+  min-height: 44px;
+  max-height: 120px;
+  resize: vertical;
+  border: 1px solid var(--chatpalez-divider);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #fff;
+  color: var(--chatpalez-text);
+  outline: none;
+}
+
+.native-comment-form textarea:focus {
+  border-color: var(--chatpalez-link);
+  box-shadow: 0 0 0 3px rgb(94 114 228 / 12%);
+}
+
+.native-comment-form .primary-button {
+  min-height: 44px;
+  padding: 10px 14px;
+}
