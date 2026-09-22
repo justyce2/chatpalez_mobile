@@ -179,13 +179,18 @@ export class ChatScreen {
           row.type = 'button';
           row.classList.toggle('is-selected', selected.has(id));
 
+          const avatar = element('span', 'contact-avatar');
           if (contact.user_picture) {
-            const avatar = document.createElement('img');
-            avatar.className = 'contact-avatar';
-            avatar.src = String(contact.user_picture);
-            avatar.alt = '';
-            row.append(avatar);
+            const avatarImage = document.createElement('img');
+            avatarImage.src = String(contact.user_picture);
+            avatarImage.alt = '';
+            avatarImage.loading = 'lazy';
+            avatar.append(avatarImage);
+          } else {
+            const fallbackName = String(contact.user_fullname || contact.user_firstname || contact.user_name || 'User');
+            avatar.textContent = initials(fallbackName);
           }
+          row.append(avatar);
 
           const copy = element('span', 'contact-item__copy');
           const name = String(contact.user_fullname || contact.user_firstname || contact.user_name || `User ${contact.user_id}`);
