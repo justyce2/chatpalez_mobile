@@ -106,12 +106,13 @@ async function showAuthenticatedSession(session: AuthSession): Promise<void> {
   await openWebModule('/');
 }
 
-function requestedNativeScreen(): 'feed' | 'messages' | 'notifications' | null {
+function requestedNativeScreen(): 'feed' | 'messages' | 'notifications' | 'profile' | null {
   const params = new URL(window.location.href).searchParams;
   const target = params.get('native');
   if (target === 'feed') return 'feed';
   if (target === 'messages') return 'messages';
   if (target === 'notifications') return 'notifications';
+  if (target === 'profile') return 'profile';
   return null;
 }
 
@@ -239,6 +240,11 @@ const shell = createAppShell(root, {
   onOpenWebModule: openWebModule,
   onOpenPublicPage: openPublicModule,
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
+  onLoadProfile: async () => {
+    const profile = await users.getProfile();
+    logInfo('Native profile loaded', { userId: profile.user_id });
+    return profile;
+  },
   onManageNotifications: async () => {
     const session = getSession();
     if (!session) throw new Error('Your session has expired. Sign in again to continue.');
@@ -363,6 +369,9 @@ async function bootstrap(): Promise<void> {
       } else if (nativeScreen === 'notifications') {
         logInfo('Opening API-driven native notifications screen');
         shell.showAuthenticated(session, 'notifications');
+      } else if (nativeScreen === 'profile') {
+        logInfo('Opening API-driven native profile screen');
+        shell.showAuthenticated(session, 'profile');
       } else {
         await completeAuthenticatedSession(session);
       }
