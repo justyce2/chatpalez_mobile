@@ -14,6 +14,15 @@ vi.mock('@capacitor/share', () => ({
   Share: { share }
 }));
 
+vi.mock('@capacitor/camera', () => ({
+  Camera: {
+    pickImages: vi.fn().mockResolvedValue({ photos: [] }),
+    getPhoto: vi.fn()
+  },
+  CameraResultType: { Uri: 'uri' },
+  CameraSource: { Camera: 'CAMERA', Photos: 'PHOTOS' }
+}));
+
 import { installMobileBridge } from './bridge';
 import { bindWebBridgeEvents } from './web-bridge-events';
 
@@ -42,6 +51,7 @@ describe('hybrid web bridge', () => {
 
     expect(bridge.isNativeApp()).toBe(true);
     expect(bridge.platform()).toBe('android');
+    expect(typeof bridge.pickMedia).toBe('function');
     expect(bridge.notifyRouteChanged('https://chatpalez.com/messages')).toBe(true);
     expect(bridge.notifyRouteChanged('https://example.com/messages')).toBe(false);
     expect(routes).toEqual(['https://chatpalez.com/messages']);
