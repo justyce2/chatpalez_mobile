@@ -157,61 +157,6 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       showProfile();
     }
 
-    async function showNativeFeed(): Promise<void> {
-      content.replaceChildren();
-      const headingRow = element('div', 'screen-heading-row');
-      headingRow.append(screenTitle('Home'));
-      const webFallback = secondaryButton('Web feed');
-      webFallback.classList.add('compact-button');
-      webFallback.addEventListener('click', () => handlers.onOpenWebModule('/'));
-      headingRow.append(webFallback);
-      content.append(headingRow);
-
-      const list = element('div', 'native-feed-list');
-      const status = paragraph('Loading feed…');
-      content.append(status, list);
-      let offset = 0;
-      let hasMore = false;
-      const more = secondaryButton('Load more');
-      more.hidden = true;
-      content.append(more);
-
-      const load = async (append = false): Promise<void> => {
-        try {
-          const page = await handlers.onLoadFeed!(offset);
-          status.remove();
-          if (!append) list.replaceChildren();
-          for (const post of page.items) {
-            list.append(nativeFeedPost(post, {
-              onOpenWeb: handlers.onOpenWebModule,
-              onReact: handlers.onReactToPost,
-              onComment: handlers.onCommentOnPost,
-              onSave: handlers.onSavePost,
-              onReport: handlers.onReportPost,
-              onRefresh: async () => { offset = 0; await load(false); }
-            }));
-          }
-          if (!append && page.items.length === 0) {
-            list.append(paragraph('No posts are available yet.'));
-          }
-          hasMore = page.hasMore;
-          more.hidden = !hasMore;
-        } catch (error) {
-          status.textContent = error instanceof Error ? error.message : 'Unable to load feed.';
-          const fallback = secondaryButton('Open web feed');
-          fallback.addEventListener('click', () => handlers.onOpenWebModule('/'));
-          content.append(fallback);
-        }
-      };
-
-      more.addEventListener('click', () => {
-        if (!hasMore) return;
-        offset += 1;
-        void load(true);
-      });
-
-      await load(false);
-    }
 
     function showProfile(): void {
       content.replaceChildren(screenTitle('Profile'));
