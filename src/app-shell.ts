@@ -194,6 +194,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     function showRetainedModule(path: string, titleText: string, activeTab: string): void {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === activeTab);
+      content.classList.add('mobile-content--retained');
       content.replaceChildren();
 
       const wrapper = element('section', 'retained-module');
@@ -221,6 +222,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     async function selectTab(tab: string): Promise<void> {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
+      content.classList.remove('mobile-content--retained');
       content.replaceChildren();
       if (tab === 'home') {
         showRetainedModule('/', 'Home', 'home');

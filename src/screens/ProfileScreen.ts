@@ -146,8 +146,11 @@ export class ProfileScreen {
     this.content.append(status);
 
     let account: MobileAccount | null = null;
-    try { account = await this.loadAccount(); } catch (error) {
-      status.textContent = error instanceof Error ? error.message : 'Unable to load account controls.';
+    try {
+      account = await this.loadAccount();
+    } catch {
+      status.textContent = 'Account controls are temporarily unavailable. Your notification, privacy-safety and account deletion controls remain available below.';
+      status.className = 'settings-inline-notice';
     }
     if (account) {
       status.remove();

@@ -1,4 +1,4 @@
-import type { ApiPage, ChatPalezApiClient } from './client';
+import { ApiError, type ApiPage, type ChatPalezApiClient } from './client';
 
 export type UserProfile = {
   user_id: number | string;
@@ -82,8 +82,19 @@ export class UserService {
     return this.api.get<UserProfile>('user/profile');
   }
 
-  getAccount(): Promise<MobileAccount> {
-    return this.api.get<MobileAccount>('mobile/account');
+  async getAccount(): Promise<MobileAccount> {
+    try {
+      return await this.api.get<MobileAccount>('mobile/account');
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) throw error;
+
+      // Some deployed backends may not yet expose the richer mobile/account
+      // adapter. Fall back to the platform's built-in app/settings payload so
+      // Account & Settings can still open without rendering a 404 as content.
+      const settings = await this.api.get<Record<string, unknown>>('app/settings');
+      const raw = ((settings.user ?? settings) as Record<string, unknown>);
+      return normalizeAccount(raw);
+    }
   }
 
   async updateProfile(payload: ProfileUpdate): Promise<void> {
@@ -141,4 +152,53 @@ export class UserService {
   async updateOneSignalId(oneSignalId: string): Promise<void> {
     await this.api.post<unknown>('user/onesignal', { onesignal_id: oneSignalId });
   }
+}
+
+
+function normalizeAccount(raw: Record<string, unknown>): MobileAccount {
+  const text = (key: string, fallback = ''): string => {
+    const value = raw[key];
+    return value === null || value === undefined ? fallback : String(value);
+  };
+  const nullableNumber = (key: string): number | null => {
+    const value = Number(raw[key]);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  };
+  return {
+    user_id: (raw.user_id as number | string | undefined) ?? '',
+    username: text('user_name', text('username')),
+    email: text('user_email', text('email')),
+    phone: text('user_phone', text('phone')),
+    firstname: text('user_firstname', text('firstname')),
+    lastname: text('user_lastname', text('lastname')),
+    fullname: text('user_fullname', text('fullname')),
+    picture: text('user_picture', text('picture')),
+    biography: text('user_biography', text('biography')),
+    website: text('user_website', text('website')),
+    gender: (raw.user_gender ?? raw.gender ?? null) as number | string | null,
+    country: (raw.user_country ?? raw.country ?? null) as number | string | null,
+    relationship: (raw.user_relationship ?? raw.relationship ?? null) as string | null,
+    birth_month: nullableNumber('birth_month'),
+    birth_day: nullableNumber('birth_day'),
+    birth_year: nullableNumber('birth_year'),
+    work_title: text('user_work_title', text('work_title')),
+    work_place: text('user_work_place', text('work_place')),
+    work_url: text('user_work_url', text('work_url')),
+    city: text('user_current_city', text('city')),
+    hometown: text('user_hometown', text('hometown')),
+    edu_major: text('user_edu_major', text('edu_major')),
+    edu_school: text('user_edu_school', text('edu_school')),
+    edu_class: text('user_edu_class', text('edu_class')),
+    facebook: text('user_social_facebook', text('facebook')),
+    twitter: text('user_social_twitter', text('twitter')),
+    youtube: text('user_social_youtube', text('youtube')),
+    instagram: text('user_social_instagram', text('instagram')),
+    twitch: text('user_social_twitch', text('twitch')),
+    linkedin: text('user_social_linkedin', text('linkedin')),
+    vkontakte: text('user_social_vkontakte', text('vkontakte')),
+    username_changes_disabled: Boolean(raw.username_changes_disabled ?? raw.disable_username_changes),
+    email_verified: Boolean(raw.email_verified ?? raw.user_email_verified),
+    phone_verified: Boolean(raw.phone_verified ?? raw.user_phone_verified),
+    privacy: (raw.privacy && typeof raw.privacy === 'object' ? raw.privacy : undefined) as Record<string, string | boolean> | undefined
+  };
 }
