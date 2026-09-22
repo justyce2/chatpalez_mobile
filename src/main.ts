@@ -117,6 +117,16 @@ function requestedNativeScreen(): 'feed' | 'messages' | 'notifications' | 'profi
   return null;
 }
 
+function requestedWebPath(): string | null {
+  const params = new URL(window.location.href).searchParams;
+  const requested = params.get('web');
+  if (requested === null) return null;
+
+  // The Android native chrome may only request first-party internal paths.
+  // normalizeInternalPath is applied again inside openAuthenticatedWebModule.
+  return requested.startsWith('/') ? requested : '/';
+}
+
 async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
   if (needsRegistrationCompletion(session)) {
     await setSession(session);
@@ -361,9 +371,13 @@ async function bootstrap(): Promise<void> {
     if (session) {
       logInfo('Restored in-process mobile API session', { userId: session.user.user_id });
       const nativeScreen = requestedNativeScreen();
-      if (nativeScreen === 'feed') {
-        logInfo('Opening API-driven native feed screen');
-        shell.showAuthenticated(session, 'home');
+      const webPath = requestedWebPath();
+      if (webPath) {
+        logInfo('Opening retained web module through restored mobile session', { path: webPath });
+        await openWebModule(webPath);
+      } else if (nativeScreen === 'feed') {
+        // Feed remains retained-web in the current three-layer hybrid.
+        await openWebModule('/');
       } else if (nativeScreen === 'messages') {
         logInfo('Opening API-driven native messaging screen');
         shell.showAuthenticated(session, 'messages');
