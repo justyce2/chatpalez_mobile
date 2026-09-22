@@ -391,7 +391,16 @@ async function bootstrap(): Promise<void> {
         await completeAuthenticatedSession(session);
       }
     } else {
-      renderLogin();
+      const nativeScreen = requestedNativeScreen();
+      if (nativeScreen && nativeScreen !== 'feed') {
+        shell.showStartup(
+          'Unable to restore your mobile session',
+          'ChatPalez could not recover the secure API session required for this local screen. Return to the app login and sign in again.',
+          true
+        );
+      } else {
+        renderLogin();
+      }
     }
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'The app could not start.';
