@@ -480,8 +480,15 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void loadWebPath(String path) {
-        if (webView == null) return;
-        webView.loadUrl(SITE_ORIGIN + path);
+        if (webView == null || getBridge() == null) return;
+
+        // Never jump straight from the native chrome into the remote Sngine page.
+        // The local Capacitor shell owns the mobile JWT and must establish/refresh
+        // the normal Sngine cookies through mobile-session.php before retained web
+        // modules are opened.
+        String safePath = (path == null || path.trim().isEmpty()) ? "/" : path;
+        String localBase = getBridge().getLocalUrl();
+        webView.loadUrl(localBase + "/?web=" + Uri.encode(safePath));
     }
 
     private void openNativeScreen(String target) {
