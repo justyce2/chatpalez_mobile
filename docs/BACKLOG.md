@@ -425,3 +425,15 @@ Implemented the client-priority navigation change in the installed app theme:
 - **Discover** was removed from the bottom bar because global Search/Discover is already available from the header.
 - Added a dedicated **Groups** shortcut to the app header, between Search and Notifications, conditional on Groups being enabled.
 - Reels opens the existing `/reels` experience; Groups opens `/groups`.
+
+
+### Native profile + compliance navigation — 2026-09-22
+Implemented the next hybrid-shell milestone:
+- Native shell primary footer is now **Home · Reels · Create · Chat · Profile**.
+- Profile is now the app-owned account hub rather than merely a bridge to the web profile.
+- Native **Account & settings** retains API-backed blocked-user management, push notification controls, and password-confirmed account deletion through `POST user/delete`.
+- Added **Advanced profile** / **Advanced profile settings** as the explicit escape hatch to the full retained-web profile settings.
+- Added **Contact us**, **Privacy policy**, and **Account deletion information** to the native profile/support area.
+- Public account-deletion information remains available at `/account-deletion.php`; in-app destructive deletion remains API-backed.
+- Reels and Create deliberately bridge to retained-web experiences until dedicated API-driven screens are completed.
+- Device acceptance: verify five-tab safe-area layout, Reels route, Create publisher route, Contact/Privacy public routes, advanced profile web bridge, successful/failed password deletion flows, and post-deletion session cleanup.
