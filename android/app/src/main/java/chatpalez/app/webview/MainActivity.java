@@ -498,7 +498,8 @@ public class MainActivity extends BridgeActivity {
         }
         chromeShowBack = false;
         pushCachedChromeState();
-        webView.loadUrl("http://localhost/?native=" + Uri.encode(target));
+        String localBase = getBridge().getLocalUrl();
+        webView.loadUrl(localBase + "/?native=" + Uri.encode(target));
     }
 
     private final Runnable chromeStateWatcher = new Runnable() {
@@ -657,7 +658,7 @@ public class MainActivity extends BridgeActivity {
         String target = data.getQueryParameter("native");
         if (!isAllowedNativeTarget(target)) return;
 
-        final String localUrl = "http://localhost/?native=" + Uri.encode(target);
+        final String localUrl = getBridge().getLocalUrl() + "/?native=" + Uri.encode(target);
         getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(localUrl));
     }
 
