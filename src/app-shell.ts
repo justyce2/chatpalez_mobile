@@ -27,6 +27,7 @@ export type AppShellHandlers = {
   onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<PageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
+  onStartGroupConversation?: (recipientIds: Array<number | string>, message: string) => Promise<Conversation>;
   onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<void>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
@@ -434,6 +435,15 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       header.append(back, screenTitle('New message'));
       content.append(header);
 
+      const modeNote = paragraph('Select one person for a direct chat, or select multiple people to start a group conversation.');
+      modeNote.className = 'conversation-help';
+      content.append(modeNote);
+
+      const selected = new Map<string, ChatContact>();
+      const selectedWrap = element('div', 'selected-contact-chips');
+      selectedWrap.hidden = true;
+      content.append(selectedWrap);
+
       const searchForm = document.createElement('form');
       searchForm.className = 'contact-search';
       const query = input('search', 'Search contacts', 'contactSearch');
@@ -442,8 +452,21 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       search.type = 'submit';
       searchForm.append(query, search);
       content.append(searchForm);
+
       const results = element('div', 'contact-list');
       content.append(results);
+
+      const composer = document.createElement('form');
+      composer.className = 'initial-message-form group-message-form';
+      composer.hidden = true;
+      const text = document.createElement('textarea');
+      text.rows = 3;
+      text.placeholder = 'Write the first message…';
+      text.required = true;
+      const send = actionButton('Start conversation');
+      send.type = 'submit';
+      composer.append(text, send);
+      content.append(composer);
 
       let offset = 0;
       let hasMore = false;
@@ -451,74 +474,111 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       more.hidden = true;
       results.after(more);
 
+      const refreshSelected = (): void => {
+        selectedWrap.replaceChildren();
+        selectedWrap.hidden = selected.size === 0;
+        composer.hidden = selected.size === 0;
+        for (const [id, contact] of selected) {
+          const chip = element('button', 'selected-contact-chip');
+          chip.type = 'button';
+          const name = String(contact.user_fullname || contact.user_firstname || contact.user_name || `User ${contact.user_id}`);
+          chip.textContent = `${name} ×`;
+          chip.addEventListener('click', () => {
+            selected.delete(id);
+            refreshSelected();
+            void loadContacts();
+          });
+          selectedWrap.append(chip);
+        }
+        send.textContent = selected.size > 1 ? `Start group (${selected.size})` : 'Start conversation';
+      };
+
       const loadContacts = async (append = false): Promise<void> => {
         if (!handlers.onLoadContacts) return;
         if (!append) results.replaceChildren(paragraph('Loading contacts…'));
         try {
           const page = await handlers.onLoadContacts(query.value.trim(), offset);
-          const contacts = page.items;
           if (!append) results.replaceChildren();
-          if (!append && contacts.length === 0) {
+          if (!append && page.items.length === 0) {
             results.append(paragraph('No matching contacts.'));
-            more.hidden = !page.hasMore;
-            return;
           }
           hasMore = page.hasMore;
           more.hidden = !hasMore;
-          for (const contact of contacts) {
-            const button = element('button', 'contact-item');
-            button.type = 'button';
+
+          for (const contact of page.items) {
+            const id = String(contact.user_id);
+            const row = element('button', 'contact-item selectable-contact');
+            row.type = 'button';
+            row.classList.toggle('is-selected', selected.has(id));
+
+            if (contact.user_picture) {
+              const avatar = document.createElement('img');
+              avatar.className = 'contact-avatar';
+              avatar.src = String(contact.user_picture);
+              avatar.alt = '';
+              avatar.loading = 'lazy';
+              row.append(avatar);
+            }
+
+            const copy = element('span', 'contact-item__copy');
             const name = String(contact.user_fullname || contact.user_firstname || contact.user_name || `User ${contact.user_id}`);
-            button.append(elementWithText('strong', name));
-            if (contact.user_name) button.append(elementWithText('span', `@${String(contact.user_name)}`));
-            if (contact.user_is_online) button.append(elementWithText('small', 'Online'));
-            button.addEventListener('click', () => showInitialComposer(contact));
-            results.append(button);
+            copy.append(elementWithText('strong', name));
+            if (contact.user_name) copy.append(elementWithText('span', `@${String(contact.user_name)}`));
+            copy.append(elementWithText('small', contact.user_is_online ? 'Online' : (contact.user_last_seen ? `Last seen ${String(contact.user_last_seen)}` : '')));
+            row.append(copy);
+
+            const marker = elementWithText('span', selected.has(id) ? '✓' : '+');
+            marker.className = 'contact-select-marker';
+            row.append(marker);
+
+            row.addEventListener('click', () => {
+              if (selected.has(id)) selected.delete(id);
+              else selected.set(id, contact);
+              refreshSelected();
+              row.classList.toggle('is-selected', selected.has(id));
+              marker.textContent = selected.has(id) ? '✓' : '+';
+            });
+            results.append(row);
           }
         } catch (error) {
           results.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load contacts.'));
         }
       };
 
-      const showInitialComposer = (contact: ChatContact): void => {
-        const name = String(contact.user_fullname || contact.user_firstname || contact.user_name || 'Contact');
-        results.replaceChildren();
-        const selected = element('div', 'selected-contact');
-        selected.append(elementWithText('strong', name));
-        if (contact.user_name) selected.append(elementWithText('span', `@${String(contact.user_name)}`));
-        results.append(selected);
-        const form = document.createElement('form');
-        form.className = 'initial-message-form';
-        const text = document.createElement('textarea');
-        text.rows = 3;
-        text.placeholder = `Message ${name}…`;
-        text.required = true;
-        const send = actionButton('Send message');
-        send.type = 'submit';
-        form.append(text, send);
-        form.addEventListener('submit', (event) => {
-          event.preventDefault();
-          const message = text.value.trim();
-          if (!message || !handlers.onStartConversation) return;
-          send.disabled = true;
-          send.textContent = 'Sending…';
-          void handlers.onStartConversation(contact.user_id, message)
-            .then((conversation) => showConversation(conversation))
-            .catch((error: unknown) => {
-              window.alert(error instanceof Error ? error.message : 'Unable to start conversation.');
-              send.disabled = false;
-              send.textContent = 'Send message';
-            });
-        });
-        results.append(form);
-      };
+      composer.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const message = text.value.trim();
+        const ids = [...selected.values()].map((contact) => contact.user_id);
+        if (!message || ids.length === 0) return;
+        const operation = ids.length === 1
+          ? handlers.onStartConversation?.(ids[0], message)
+          : handlers.onStartGroupConversation?.(ids, message);
+        if (!operation) {
+          window.alert(ids.length > 1 ? 'Group messaging is not available in this build.' : 'Messaging is not available in this build.');
+          return;
+        }
+        send.disabled = true;
+        send.textContent = 'Starting…';
+        void operation
+          .then((conversation) => showConversation(conversation))
+          .catch((error: unknown) => {
+            window.alert(error instanceof Error ? error.message : 'Unable to start conversation.');
+            send.disabled = false;
+            send.textContent = ids.length > 1 ? `Start group (${ids.length})` : 'Start conversation';
+          });
+      });
 
       searchForm.addEventListener('submit', (event) => {
         event.preventDefault();
         offset = 0;
         void loadContacts();
       });
-      more.addEventListener('click', () => { if (hasMore) { offset += 1; void loadContacts(true); } });
+      more.addEventListener('click', () => {
+        if (hasMore) {
+          offset += 1;
+          void loadContacts(true);
+        }
+      });
       await loadContacts();
     }
 
@@ -532,11 +592,16 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       back.addEventListener('click', () => void showConversationList());
       header.append(back, screenTitle(titleText));
       if (handlers.onLeaveConversation || handlers.onDeleteConversation) {
-        const manage = secondaryButton('Manage');
+        const manage = secondaryButton('More');
         manage.classList.add('compact-button');
         manage.addEventListener('click', () => {
-          const deleteConversation = window.confirm('Delete this conversation from your inbox?');
-          const operation = deleteConversation ? handlers.onDeleteConversation : handlers.onLeaveConversation;
+          const choice = window.prompt('Type LEAVE to leave this conversation, or DELETE to remove it from your inbox.');
+          const action = choice?.trim().toLowerCase();
+          const operation = action === 'delete'
+            ? handlers.onDeleteConversation
+            : action === 'leave'
+              ? handlers.onLeaveConversation
+              : null;
           if (!operation) return;
           manage.disabled = true;
           void operation(conversationId)
@@ -548,7 +613,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       }
       content.append(header);
       const presence = element('p', 'conversation-presence');
-      presence.textContent = conversation.user_is_online ? 'Online' : '';
+      presence.textContent = conversation.multiple_recipients
+        ? `${conversation.recipients?.length ?? 0} participants`
+        : conversation.user_is_online
+          ? 'Online'
+          : '';
       content.append(presence);
       const loadOlder = secondaryButton('Load older messages');
       loadOlder.hidden = true;
@@ -573,7 +642,12 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       photo.type = 'file';
       photo.accept = 'image/*';
       photo.setAttribute('aria-label', 'Attach photo');
-      composer.append(text, photo, send);
+      const attach = secondaryButton('Photo');
+      attach.classList.add('compact-button', 'attach-button');
+      attach.addEventListener('click', () => photo.click());
+      photo.className = 'message-photo-input';
+      photo.hidden = true;
+      composer.append(attach, text, photo, send);
       content.append(composer);
       let typingTimer: number | undefined;
 
@@ -686,8 +760,29 @@ function conversationList(conversations: Conversation[], onOpen: (conversation: 
   for (const conversation of conversations) {
     const item = element('button', 'conversation-item');
     item.type = 'button';
+
+    const avatarWrap = element('span', 'conversation-avatar');
+    if (conversation.picture) {
+      const avatar = document.createElement('img');
+      avatar.src = String(conversation.picture);
+      avatar.alt = '';
+      avatar.loading = 'lazy';
+      avatarWrap.append(avatar);
+    } else {
+      avatarWrap.textContent = conversation.multiple_recipients ? 'G' : 'C';
+    }
+
+    const copy = element('span', 'conversation-item__copy');
     const name = String(conversation.name || conversation.name_list || 'Conversation');
-    item.append(elementWithText('strong', name), elementWithText('span', conversation.user_is_online ? 'Online' : 'Open conversation'));
+    copy.append(elementWithText('strong', name));
+    const lastMessage = String(conversation.last_message?.message || conversation.last_message?.text || '');
+    const secondary = lastMessage || (conversation.multiple_recipients
+      ? `${conversation.recipients?.length ?? 0} participants`
+      : conversation.user_is_online ? 'Online' : 'Open conversation');
+    copy.append(elementWithText('span', secondary));
+
+    if (!conversation.seen) item.classList.add('is-unread');
+    item.append(avatarWrap, copy);
     item.addEventListener('click', () => onOpen(conversation));
     list.append(item);
   }
