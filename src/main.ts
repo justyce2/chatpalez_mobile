@@ -106,9 +106,12 @@ async function showAuthenticatedSession(session: AuthSession): Promise<void> {
   await openWebModule('/');
 }
 
-function requestedNativeScreen(): 'messages' | null {
+function requestedNativeScreen(): 'messages' | 'notifications' | null {
   const params = new URL(window.location.href).searchParams;
-  return params.get('native') === 'messages' ? 'messages' : null;
+  const target = params.get('native');
+  if (target === 'messages') return 'messages';
+  if (target === 'notifications') return 'notifications';
+  return null;
 }
 
 async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
@@ -335,6 +338,9 @@ async function bootstrap(): Promise<void> {
       if (nativeScreen === 'messages') {
         logInfo('Opening API-driven native messaging screen');
         shell.showAuthenticated(session, 'messages');
+      } else if (nativeScreen === 'notifications') {
+        logInfo('Opening API-driven native notifications screen');
+        shell.showAuthenticated(session, 'notifications');
       } else {
         await completeAuthenticatedSession(session);
       }
