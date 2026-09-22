@@ -94,8 +94,8 @@ async function showAuthenticatedSession(session: AuthSession): Promise<void> {
   await setSession(session);
   logInfo('Mobile authentication completed', { userId: session.user.user_id });
 
-  void initializeNativeNotifications(config, users, session.user.user_id, openWebModule).catch((error) => {
-    logWarn('Native notification identity could not be initialized', {
+  void requestNativeNotificationPermission(config, users, session.user.user_id, openWebModule).catch((error) => {
+    logWarn('Native notification permission/identity could not be initialized', {
       detail: error instanceof Error ? error.message : String(error ?? '')
     });
   });
