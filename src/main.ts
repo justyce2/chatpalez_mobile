@@ -33,7 +33,7 @@ const root: HTMLElement = appRoot;
 
 const config = getAppConfig();
 const mobileBridge = installMobileBridge(config);
-bindWebBridgeEvents(mobileBridge);
+bindWebBridgeEvents(mobileBridge, config);
 let handlingSessionExpiry = false;
 let nativeLifecycleRegistration: Promise<void> | null = null;
 const api = new ChatPalezApiClient({

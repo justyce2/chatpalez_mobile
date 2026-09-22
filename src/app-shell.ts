@@ -112,15 +112,49 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     const displayName = String(user.user_fullname || user.user_firstname || user.user_name || 'ChatPalez');
     const layout = element('section', 'mobile-layout');
     const topbar = element('header', 'mobile-topbar');
-    const brand = element('div', 'topbar-brand');
-    brand.append(brandMark('small'), elementWithText('strong', 'ChatPalez'));
+    const brand = element('button', 'topbar-brand');
+    brand.type = 'button';
+    brand.append(brandMark('small'));
+    brand.setAttribute('aria-label', 'Home');
+    brand.addEventListener('click', () => void selectTab('home'));
+
+    const topActions = element('div', 'native-topbar-actions');
+    const makeTopAction = (src: string, label: string, action: () => void): HTMLButtonElement => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'native-top-action';
+      button.setAttribute('aria-label', label);
+      const icon = document.createElement('img');
+      icon.src = src;
+      icon.alt = '';
+      icon.setAttribute('aria-hidden', 'true');
+      button.append(icon);
+      button.addEventListener('click', action);
+      return button;
+    };
+
+    topActions.append(
+      makeTopAction('/native-chrome/icons/header-search.svg', 'Discover', () => showRetainedModule('/search', 'Discover', '')),
+      makeTopAction('/native-chrome/icons/groups.svg', 'Groups', () => showRetainedModule('/groups', 'Groups', '')),
+      makeTopAction('/native-chrome/icons/pages.svg', 'Pages', () => showRetainedModule('/pages', 'Pages', '')),
+      makeTopAction('/native-chrome/icons/header-notifications.svg', 'Notifications', () => void selectTab('notifications'))
+    );
+
     const avatar = document.createElement('button');
     avatar.type = 'button';
     avatar.className = 'avatar-button';
-    avatar.setAttribute('aria-label', 'Account');
-    avatar.textContent = initials(displayName);
+    avatar.setAttribute('aria-label', 'Profile');
+    if (user.user_picture) {
+      const avatarImage = document.createElement('img');
+      avatarImage.src = String(user.user_picture);
+      avatarImage.alt = displayName;
+      avatar.append(avatarImage);
+    } else {
+      avatar.textContent = initials(displayName);
+    }
     avatar.addEventListener('click', () => void selectTab('profile'));
-    topbar.append(brand, avatar);
+    topActions.append(avatar);
+    topbar.append(brand, topActions);
 
     const content = element('main', 'mobile-content');
     const nav = element('nav', 'bottom-tabs');
@@ -220,6 +254,45 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       handlers.onOpenWebModule(path, frame.name);
     }
 
+    function showCreateSheet(): void {
+      for (const [id, button] of buttons) button.classList.toggle('is-active', id === 'create');
+
+      const existing = layout.querySelector('.shared-action-sheet');
+      existing?.remove();
+
+      const sheet = element('div', 'shared-action-sheet');
+      const backdrop = element('button', 'shared-action-sheet__backdrop');
+      backdrop.setAttribute('aria-label', 'Close');
+      const panel = element('section', 'shared-action-sheet__panel');
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-modal', 'true');
+      panel.append(element('div', 'shared-action-sheet__handle'), elementWithText('h3', 'Create'));
+
+      const actions = element('div', 'shared-action-sheet__actions');
+      const addAction = (label: string, path: string, titleText: string): void => {
+        const button = secondaryButton(label);
+        button.classList.add('shared-action-sheet__action');
+        button.addEventListener('click', () => {
+          sheet.remove();
+          showRetainedModule(path, titleText, 'create');
+        });
+        actions.append(button);
+      };
+
+      addAction('Create post', '/?publisher=open', 'Create post');
+      addAction('Upload photos', '/?publisher=open&media=photos', 'Add photos');
+      addAction('Create story', '/?publisher=open&type=story', 'Create story');
+      addAction('Create reel', '/?publisher=open&type=reel', 'Create reel');
+
+      const cancel = secondaryButton('Cancel');
+      cancel.classList.add('shared-action-sheet__cancel');
+      cancel.addEventListener('click', () => sheet.remove());
+      backdrop.addEventListener('click', () => sheet.remove());
+      panel.append(actions, cancel);
+      sheet.append(backdrop, panel);
+      layout.append(sheet);
+    }
+
     async function selectTab(tab: string): Promise<void> {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
       content.classList.remove('mobile-content--retained');
@@ -233,7 +306,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         return;
       }
       if (tab === 'create') {
-        showRetainedModule('/?publisher=open', 'Create', 'create');
+        showCreateSheet();
         return;
       }
       if (tab === 'messages') {
