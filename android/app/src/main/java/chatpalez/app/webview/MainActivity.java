@@ -1,14 +1,20 @@
 package chatpalez.app.webview;
 
+import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipData;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
+import android.provider.OpenableColumns;
+import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,10 +26,15 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.core.content.FileProvider;
+
 import com.getcapacitor.BridgeActivity;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.HashMap;
@@ -37,6 +48,8 @@ public class MainActivity extends BridgeActivity {
     private static final int COLOR_MUTED = Color.rgb(107, 114, 128);
     private static final int COLOR_BORDER = Color.rgb(229, 231, 235);
     private static final int COLOR_AVATAR_BG = Color.rgb(232, 243, 251);
+    private static final int REQUEST_PICK_MEDIA = 8120;
+    private static final int REQUEST_TAKE_PHOTO = 8121;
 
     private WebView webView;
     private LinearLayout topChrome;
@@ -63,6 +76,8 @@ public class MainActivity extends BridgeActivity {
     private String chromeLogo = "";
     private String chromeAvatar = "";
     private int chromeNotifications = 0;
+    private String pendingMediaRequestId = "";
+    private Uri pendingCameraUri = null;
     private boolean chromeGroupsEnabled = true;
     private boolean chromePagesEnabled = true;
     private boolean chromeShowBack = false;
@@ -656,6 +671,114 @@ public class MainActivity extends BridgeActivity {
         }).start();
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_PICK_MEDIA && requestCode != REQUEST_TAKE_PHOTO) return;
+
+        JSONArray items = new JSONArray();
+        try {
+            if (resultCode == Activity.RESULT_OK) {
+                if (requestCode == REQUEST_TAKE_PHOTO && pendingCameraUri != null) {
+                    appendMediaItem(items, pendingCameraUri, "chatpalez-camera-" + System.currentTimeMillis() + ".jpg");
+                } else if (data != null) {
+                    ClipData clip = data.getClipData();
+                    if (clip != null) {
+                        for (int i = 0; i < clip.getItemCount(); i++) {
+                            appendMediaItem(items, clip.getItemAt(i).getUri(), null);
+                        }
+                    } else if (data.getData() != null) {
+                        appendMediaItem(items, data.getData(), null);
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            items = new JSONArray();
+        }
+
+        deliverPickedMedia(items);
+        pendingCameraUri = null;
+    }
+
+    private void launchNativeMediaPicker(String source, boolean multiple, String requestId) {
+        if (webView == null) return;
+        pendingMediaRequestId = requestId == null ? "" : requestId;
+
+        try {
+            if ("camera".equals(source)) {
+                File image = File.createTempFile("chatpalez-camera-", ".jpg", getCacheDir());
+                pendingCameraUri = FileProvider.getUriForFile(
+                    this,
+                    getPackageName() + ".fileprovider",
+                    image
+                );
+
+                Intent camera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                camera.putExtra(MediaStore.EXTRA_OUTPUT, pendingCameraUri);
+                camera.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivityForResult(camera, REQUEST_TAKE_PHOTO);
+                return;
+            }
+
+            Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            picker.addCategory(Intent.CATEGORY_OPENABLE);
+            picker.setType("image/*");
+            picker.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple);
+            startActivityForResult(picker, REQUEST_PICK_MEDIA);
+        } catch (Exception error) {
+            deliverPickedMedia(new JSONArray());
+        }
+    }
+
+    private void appendMediaItem(JSONArray items, Uri uri, String fallbackName) throws Exception {
+        if (uri == null) return;
+
+        String mimeType = getContentResolver().getType(uri);
+        if (mimeType == null || mimeType.trim().isEmpty()) mimeType = "image/jpeg";
+
+        String name = fallbackName;
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(uri, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                int column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (column >= 0) name = cursor.getString(column);
+            }
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+
+        if (name == null || name.trim().isEmpty()) {
+            name = "chatpalez-photo-" + System.currentTimeMillis() + ".jpg";
+        }
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (InputStream input = getContentResolver().openInputStream(uri)) {
+            if (input == null) return;
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
+        }
+
+        JSONObject item = new JSONObject();
+        item.put("dataUrl", "data:" + mimeType + ";base64," + Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP));
+        item.put("mimeType", mimeType);
+        item.put("name", name);
+        items.put(item);
+    }
+
+    private void deliverPickedMedia(JSONArray items) {
+        if (webView == null) return;
+        String requestId = pendingMediaRequestId == null ? "" : pendingMediaRequestId;
+        pendingMediaRequestId = "";
+
+        String script =
+            "(function(){if(window.__chatpalezResolveMedia){" +
+            "window.__chatpalezResolveMedia(" + JSONObject.quote(requestId) + "," + items.toString() + ");" +
+            "}})();";
+        webView.evaluateJavascript(script, null);
+    }
+
     private void handleChatPalezDeepLink(Intent intent) {
         if (intent == null || intent.getData() == null || getBridge() == null) return;
 
@@ -689,6 +812,11 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void sharePost(String title, String url, String repostUrl, boolean repostDisabled) {
             runOnUiThread(() -> showSharePostSheet(title, url, repostUrl, repostDisabled));
+        }
+
+        @JavascriptInterface
+        public void pickMedia(String source, boolean multiple, String requestId) {
+            runOnUiThread(() -> launchNativeMediaPicker(source, multiple, requestId));
         }
 
         @JavascriptInterface
