@@ -106,6 +106,11 @@ async function showAuthenticatedSession(session: AuthSession): Promise<void> {
   await openWebModule('/');
 }
 
+function requestedNativeScreen(): 'messages' | null {
+  const params = new URL(window.location.href).searchParams;
+  return params.get('native') === 'messages' ? 'messages' : null;
+}
+
 async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
   if (needsRegistrationCompletion(session)) {
     await setSession(session);
@@ -326,7 +331,13 @@ async function bootstrap(): Promise<void> {
     const session = await restoreSession();
     if (session) {
       logInfo('Restored in-process mobile API session', { userId: session.user.user_id });
-      await completeAuthenticatedSession(session);
+      const nativeScreen = requestedNativeScreen();
+      if (nativeScreen === 'messages') {
+        logInfo('Opening API-driven native messaging screen');
+        shell.showAuthenticated(session, 'messages');
+      } else {
+        await completeAuthenticatedSession(session);
+      }
     } else {
       renderLogin();
     }
