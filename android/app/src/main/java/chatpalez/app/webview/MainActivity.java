@@ -22,6 +22,8 @@ import android.widget.TextView;
 
 import com.getcapacitor.BridgeActivity;
 
+import org.json.JSONObject;
+
 import java.io.InputStream;
 import java.net.URL;
 import java.util.HashMap;
@@ -413,12 +415,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     private String quoteJs(String value) {
-        if (value == null) return """";
-        return """ + value
-            .replace("\\", "\\\\")
-            .replace(""", "\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "") + """;
+        return JSONObject.quote(value == null ? "" : value);
     }
 
     private void showCreateSheet() {
