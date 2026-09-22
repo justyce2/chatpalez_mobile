@@ -160,10 +160,23 @@ async function openWebModule(path: string): Promise<void> {
 
 async function ensureNativeLifecycleRegistration(): Promise<void> {
   if (!nativeLifecycleRegistration) {
-    nativeLifecycleRegistration = registerNativeLifecycle(config, (route) => {
-      logInfo('Trusted native route received', { path: route });
-      void openWebModule(route);
-    }).catch((error) => {
+    nativeLifecycleRegistration = registerNativeLifecycle(
+      config,
+      (route) => {
+        logInfo('Trusted native route received', { path: route });
+        void openWebModule(route);
+      },
+      (screen) => {
+        const session = getSession();
+        if (!session) {
+          renderLogin('Your session has expired. Sign in again to continue.');
+          return;
+        }
+
+        logInfo('Native app screen requested from retained web module', { screen });
+        shell.showAuthenticated(session, screen);
+      }
+    ).catch((error) => {
       nativeLifecycleRegistration = null;
       throw error;
     });
