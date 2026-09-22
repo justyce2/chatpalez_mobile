@@ -93,9 +93,16 @@ function isNative(): boolean {
 async function prepareNativeStorage(): Promise<void> {
   if (!storageReady) {
     storageReady = (async () => {
-      await SecureStorage.setSynchronize(false);
+      // Key prefix applies on both Android and iOS.
       await SecureStorage.setKeyPrefix('chatpalez.');
-      await SecureStorage.setDefaultKeychainAccess(KeychainAccess.whenUnlockedThisDeviceOnly);
+
+      // These options configure the Apple Keychain/iCloud only. Calling them
+      // during Android setup can prevent the secure store from initializing,
+      // which in turn makes the native handoff lose its persisted JWT.
+      if (Capacitor.getPlatform() === 'ios') {
+        await SecureStorage.setSynchronize(false);
+        await SecureStorage.setDefaultKeychainAccess(KeychainAccess.whenUnlockedThisDeviceOnly);
+      }
     })();
   }
   return storageReady;
