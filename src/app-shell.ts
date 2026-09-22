@@ -115,8 +115,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     nav.setAttribute('aria-label', 'Primary');
     const tabs = [
       { id: 'home', label: 'Home' },
+      { id: 'reels', label: 'Reels' },
+      { id: 'create', label: 'Create' },
       { id: 'messages', label: 'Chat' },
-      { id: 'notifications', label: 'Alerts' },
       { id: 'profile', label: 'Profile' }
     ] as const;
     const buttons = new Map<string, HTMLButtonElement>();
@@ -140,6 +141,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         handlers.onOpenWebModule('/');
         return;
       }
+      if (tab === 'reels') {
+        handlers.onOpenWebModule('/reels');
+        return;
+      }
+      if (tab === 'create') {
+        handlers.onOpenWebModule('/?publisher=open');
+        return;
+      }
       if (tab === 'messages') {
         await showConversationList();
         return;
@@ -159,11 +168,29 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       if (user.user_email) profileCard.append(elementWithText('span', String(user.user_email)));
       if (user.user_name) profileCard.append(elementWithText('span', `@${String(user.user_name)}`));
       content.append(profileCard);
+      const actions = element('section', 'settings-card profile-actions');
+      actions.append(elementWithText('h3', 'Account'));
       const settings = secondaryButton('Account & settings');
       settings.addEventListener('click', () => void showSettings());
+      const fullProfile = secondaryButton('Advanced profile');
+      fullProfile.addEventListener('click', () => handlers.onOpenWebModule('/settings/profile'));
+      actions.append(settings, fullProfile);
+      content.append(actions);
+
+      const support = element('section', 'settings-card profile-actions');
+      support.append(elementWithText('h3', 'Support & legal'));
+      const contact = secondaryButton('Contact us');
+      contact.addEventListener('click', () => handlers.onOpenPublicPage?.('/contacts'));
+      const privacy = secondaryButton('Privacy policy');
+      privacy.addEventListener('click', () => handlers.onOpenPublicPage?.('/static/privacy'));
+      const deletionHelp = secondaryButton('Account deletion information');
+      deletionHelp.addEventListener('click', () => handlers.onOpenPublicPage?.('/account-deletion.php'));
+      support.append(contact, privacy, deletionHelp);
+      content.append(support);
+
       const logout = secondaryButton('Sign out');
       logout.addEventListener('click', () => void handlers.onLogout());
-      content.append(settings, logout);
+      content.append(logout);
     }
 
     async function showSettings(): Promise<void> {
@@ -247,6 +274,17 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       } else {
         blockedBody.replaceChildren(paragraph('Blocked-user management is not available yet.'));
       }
+
+      const moreAccount = element('section', 'settings-card profile-actions');
+      moreAccount.append(elementWithText('h3', 'More account options'));
+      const advanced = secondaryButton('Advanced profile settings');
+      advanced.addEventListener('click', () => handlers.onOpenWebModule('/settings/profile'));
+      const contact = secondaryButton('Contact us');
+      contact.addEventListener('click', () => handlers.onOpenPublicPage?.('/contacts'));
+      const privacy = secondaryButton('Privacy policy');
+      privacy.addEventListener('click', () => handlers.onOpenPublicPage?.('/static/privacy'));
+      moreAccount.append(advanced, contact, privacy);
+      content.append(moreAccount);
 
       const danger = element('section', 'settings-card danger-card');
       danger.append(elementWithText('h3', 'Delete account'));
