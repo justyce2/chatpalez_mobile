@@ -43,6 +43,7 @@ public class MainActivity extends BridgeActivity {
     private boolean isAllowedNativeTarget(String target) {
         return "feed".equals(target)
             || "messages".equals(target)
-            || "notifications".equals(target);
+            || "notifications".equals(target)
+            || "profile".equals(target);
     }
 }
