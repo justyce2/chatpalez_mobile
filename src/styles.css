@@ -965,3 +965,77 @@ p { color: #64748b; line-height: 1.55; }
 .native-profile-detail-row:last-child { border-bottom: 0; }
 .native-profile-detail-row span { color: #6B7280; font-size: 11px; }
 .native-profile-detail-row strong { color: #1F2937; font-size: 13px; font-weight: 650; }
+
+
+/* Shared Capacitor navigation: same markup and assets on Android and iOS. */
+.bottom-tabs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+  border-top: 1px solid #e2e8f0;
+  background: rgba(255,255,255,.97);
+  backdrop-filter: blur(14px);
+}
+.tab-button {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 5px 3px;
+  font-size: .69rem;
+  font-weight: 700;
+}
+.tab-button__icon { width: 24px; height: 24px; object-fit: contain; opacity: .72; }
+.tab-button.is-active { color: #0066B2; }
+.tab-button.is-active .tab-button__icon { opacity: 1; }
+.tab-button[data-tab="create"] .tab-button__icon {
+  width: 38px;
+  height: 38px;
+  margin-top: -15px;
+}
+.profile-screen-hero,
+.chat-screen-heading,
+.chat-thread-header { scroll-margin-top: 82px; }
+.chat-conversation-item {
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.conversation-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #e8f3fb;
+  color: #0066B2;
+  font-weight: 800;
+}
+.conversation-avatar img,
+.contact-avatar { width: 100%; height: 100%; object-fit: cover; }
+.conversation-item__copy,
+.contact-item__copy { min-width: 0; display: grid; gap: 3px; }
+.conversation-item.is-unread { border-color: #0066B2; box-shadow: 0 0 0 1px rgba(0,102,178,.08); }
+.selected-contact-chips { display: flex; gap: 7px; overflow-x: auto; padding: 8px 0; }
+.selected-contact-chip {
+  flex: 0 0 auto;
+  border: 1px solid #b8d8ef;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #edf7fd;
+  color: #00528f;
+}
+.selectable-contact { grid-template-columns: 40px minmax(0,1fr) auto; align-items: center; gap: 10px; }
+.selectable-contact.is-selected { border-color: #0066B2; background: #f2f9fe; }
+.contact-select-marker { font-size: 1.1rem !important; font-weight: 800; color: #0066B2 !important; }
+.message-photo { max-width: min(100%, 280px); border-radius: 12px; display: block; margin-top: 8px; }
+.message-composer { grid-template-columns: auto minmax(0,1fr) auto; }

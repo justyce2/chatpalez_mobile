@@ -89,7 +89,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
-        installNativeChrome();
+        installNativeBridge();
         handleChatPalezDeepLink(getIntent());
     }
 
@@ -100,6 +100,20 @@ public class MainActivity extends BridgeActivity {
         handleChatPalezDeepLink(intent);
     }
 
+    /**
+     * Keep Android-specific device bridges available, but render navigation chrome
+     * in the shared Capacitor web layer so Android and iOS use the same shell.
+     */
+    private void installNativeBridge() {
+        if (getBridge() == null || getBridge().getWebView() == null) return;
+        webView = getBridge().getWebView();
+        webView.addJavascriptInterface(new ChatPalezNativeBridge(), "ChatPalezNative");
+    }
+
+    /**
+     * Legacy Android-only chrome retained temporarily for rollback/reference.
+     * It is intentionally no longer installed from onCreate().
+     */
     private void installNativeChrome() {
         if (getBridge() == null || getBridge().getWebView() == null) return;
 

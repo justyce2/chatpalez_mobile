@@ -3,6 +3,8 @@ import type { NotificationItem } from './api/notifications';
 import type { BlockedUser, UserProfile } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
+import { ProfileScreen } from './screens/ProfileScreen';
+import { ChatScreen } from './screens/ChatScreen';
 
 export type LoginCredentials = {
   usernameEmail: string;
@@ -122,16 +124,55 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       { id: 'profile', label: 'Profile' }
     ] as const;
     const buttons = new Map<string, HTMLButtonElement>();
+    const tabIcons: Record<string, string> = {
+      home: '/native-chrome/icons/header-home.svg',
+      reels: '/native-chrome/icons/reels.svg',
+      create: '/native-chrome/icons/header-plus.svg',
+      messages: '/native-chrome/icons/chat.svg',
+      profile: '/native-chrome/icons/profile.svg'
+    };
     for (const tab of tabs) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'tab-button';
       button.dataset.tab = tab.id;
-      button.textContent = tab.label;
+      const icon = document.createElement('img');
+      icon.className = 'tab-button__icon';
+      icon.src = tabIcons[tab.id];
+      icon.alt = '';
+      icon.setAttribute('aria-hidden', 'true');
+      const label = elementWithText('span', tab.label);
+      label.className = 'tab-button__label';
+      button.append(icon, label);
       button.addEventListener('click', () => void selectTab(tab.id));
       buttons.set(tab.id, button);
       nav.append(button);
     }
+
+    const profileScreen = new ProfileScreen(content, session, {
+      onLoadProfile: handlers.onLoadProfile,
+      onManageNotifications: handlers.onManageNotifications,
+      onLoadBlockedUsers: handlers.onLoadBlockedUsers,
+      onDeleteAccount: handlers.onDeleteAccount,
+      onLogout: handlers.onLogout,
+      onOpenPublicPage: handlers.onOpenPublicPage,
+      onOpenWebModule: handlers.onOpenWebModule
+    });
+    const chatScreen = new ChatScreen(content, session, {
+      resolveChatPhotoUrl: handlers.resolveChatPhotoUrl,
+      onLoadConversations: handlers.onLoadConversations,
+      onLoadContacts: handlers.onLoadContacts,
+      onStartConversation: handlers.onStartConversation,
+      onStartGroupConversation: handlers.onStartGroupConversation,
+      onLoadMessages: handlers.onLoadMessages,
+      onSendMessage: handlers.onSendMessage,
+      onTyping: handlers.onTyping,
+      onLeaveConversation: handlers.onLeaveConversation,
+      onDeleteConversation: handlers.onDeleteConversation,
+      onReactToMessage: handlers.onReactToMessage,
+      onDeleteMessage: handlers.onDeleteMessage,
+      onMarkSeen: handlers.onMarkSeen
+    });
 
     async function selectTab(tab: string): Promise<void> {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
@@ -151,14 +192,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         return;
       }
       if (tab === 'messages') {
-        await showConversationList();
+        await chatScreen.render();
         return;
       }
       if (tab === 'notifications') {
         await showNotifications();
         return;
       }
-      await showProfile();
+      await profileScreen.render();
     }
 
 
