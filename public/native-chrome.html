@@ -15,20 +15,22 @@ button{font:inherit}
 .context{min-width:0;flex:1;text-align:center;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 5px}
 .actions{display:flex;align-items:center;gap:2px;margin-left:auto}
 .iconbtn{position:relative;width:38px;height:38px;display:grid;place-items:center;border:0;background:transparent;border-radius:50%;padding:8px}
-.iconbtn img{width:22px;height:22px;object-fit:contain;filter:none}
+.svgicon{display:block;width:23px;height:23px;background:currentColor;-webkit-mask:var(--icon) center/contain no-repeat;mask:var(--icon) center/contain no-repeat}
+.iconbtn .svgicon{width:22px;height:22px}
 .avatar{width:38px;height:38px;border:1px solid var(--border);border-radius:50%;overflow:hidden;padding:0;background:#E8F3FB}
 .avatar img{width:100%;height:100%;object-fit:cover}
 .badge{position:absolute;top:0;right:-1px;min-width:17px;height:17px;padding:0 4px;display:grid;place-items:center;border:2px solid #fff;border-radius:999px;background:#EF4444;color:#fff;font-size:9px;font-weight:800}
 .bottom{height:66px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:end;padding:5px 7px 7px;border-top:1px solid var(--border);background:#fff}
 .nav{position:relative;min-width:0;height:54px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;border:0;background:transparent;color:var(--muted);font-size:10.5px;font-weight:600;padding:3px 2px}
-.nav img{width:23px;height:23px;object-fit:contain}
+.nav .svgicon{width:23px;height:23px}
 .nav.active{color:var(--blue);font-weight:700}
 .nav.active:before{content:"";position:absolute;top:0;left:50%;width:22px;height:3px;transform:translateX(-50%);border-radius:999px;background:var(--blue)}
 .create{transform:translateY(-5px)}
 .create:before{display:none!important}
 .createCircle{width:46px;height:46px;display:grid;place-items:center;border-radius:50%;background:var(--blue);box-shadow:0 7px 18px rgba(0,102,178,.28)}
-.createCircle img{width:24px;height:24px;filter:brightness(0) invert(1)}
+.createCircle .svgicon{width:24px;height:24px;color:#fff}
 .create span:last-child{color:var(--muted)}
+@media(max-width:389px){.top{padding-left:9px;padding-right:9px}.brand{max-width:94px}.brand img{max-width:94px}.iconbtn{width:36px;height:36px;padding:7px}.avatar{width:36px;height:36px}.context{font-size:14px;padding:0 3px}}
 .hidden{display:none!important}
 </style>
 </head>
@@ -38,20 +40,20 @@ button{font:inherit}
   <button id="back" class="back hidden" onclick="act('back')" aria-label="Back">‹</button>
   <div id="context" class="context"></div>
   <div class="actions">
-    <button class="iconbtn" onclick="act('search')" aria-label="Search"><img src="native-chrome/icons/header-search.svg"></button>
-    <button id="groups" class="iconbtn" onclick="act('groups')" aria-label="Groups"><img src="native-chrome/icons/groups.svg"></button>
-    <button id="pages" class="iconbtn" onclick="act('pages')" aria-label="Pages"><img src="native-chrome/icons/pages.svg"></button>
-    <button class="iconbtn" onclick="act('notifications')" aria-label="Notifications"><img src="native-chrome/icons/header-notifications.svg"><span id="badge" class="badge hidden"></span></button>
+    <button class="iconbtn" onclick="act('search')" aria-label="Search"><span class="svgicon" style="--icon:url('native-chrome/icons/header-search.svg')"></span></button>
+    <button id="groups" class="iconbtn" onclick="act('groups')" aria-label="Groups"><span class="svgicon" style="--icon:url('native-chrome/icons/groups.svg')"></span></button>
+    <button id="pages" class="iconbtn" onclick="act('pages')" aria-label="Pages"><span class="svgicon" style="--icon:url('native-chrome/icons/pages.svg')"></span></button>
+    <button class="iconbtn" onclick="act('notifications')" aria-label="Notifications"><span class="svgicon" style="--icon:url('native-chrome/icons/header-notifications.svg')"></span><span id="badge" class="badge hidden"></span></button>
     <button class="avatar" onclick="act('profile')" aria-label="Menu"><img id="avatar" alt=""></button>
   </div>
 </div>
 
 <div id="bottom" class="bottom hidden">
-  <button class="nav" data-tab="home" onclick="act('home')"><img src="native-chrome/icons/header-home.svg"><span>Home</span></button>
-  <button class="nav" data-tab="reels" onclick="act('reels')"><img src="native-chrome/icons/reels.svg"><span>Reels</span></button>
-  <button class="nav create" data-tab="create" onclick="act('create')"><span class="createCircle"><img src="native-chrome/icons/header-plus.svg"></span><span>Create</span></button>
-  <button class="nav" data-tab="messages" onclick="act('messages')"><img src="native-chrome/icons/chat.svg"><span>Chat</span></button>
-  <button class="nav" data-tab="profile" onclick="act('profile')"><img src="native-chrome/icons/profile.svg"><span>Profile</span></button>
+  <button class="nav" data-tab="home" onclick="act('home')"><span class="svgicon" style="--icon:url('native-chrome/icons/header-home.svg')"></span><span>Home</span></button>
+  <button class="nav" data-tab="reels" onclick="act('reels')"><span class="svgicon" style="--icon:url('native-chrome/icons/reels.svg')"></span><span>Reels</span></button>
+  <button class="nav create" data-tab="create" onclick="act('create')"><span class="createCircle"><span class="svgicon" style="--icon:url('native-chrome/icons/header-plus.svg')"></span></span><span>Create</span></button>
+  <button class="nav" data-tab="messages" onclick="act('messages')"><span class="svgicon" style="--icon:url('native-chrome/icons/chat.svg')"></span><span>Chat</span></button>
+  <button class="nav" data-tab="profile" onclick="act('profile')"><span class="svgicon" style="--icon:url('native-chrome/icons/profile.svg')"></span><span>Profile</span></button>
 </div>
 <script>
 const part=new URLSearchParams(location.search).get('part')||'top';
