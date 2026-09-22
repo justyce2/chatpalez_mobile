@@ -22,6 +22,8 @@ const checks = [
   ['Android secure storage plugin is registered', 'android/capacitor.settings.gradle', (s) => s.includes("aparajita-capacitor-secure-storage")],
   ['Android app links secure storage plugin', 'android/app/capacitor.build.gradle', (s) => s.includes("aparajita-capacitor-secure-storage")],
   ['native screen handoff uses Capacitor local origin', 'android/app/src/main/java/chatpalez/app/webview/MainActivity.java', (s) => s.includes('getBridge().getLocalUrl()') && !s.includes('http://localhost/?native=')],
+  ['native web chrome returns through local authenticated handoff', 'android/app/src/main/java/chatpalez/app/webview/MainActivity.java', (s) => s.includes('"/?web=" + Uri.encode(safePath)') && !s.includes('webView.loadUrl(SITE_ORIGIN + path)')],
+  ['local bootstrap accepts authenticated retained-web handoffs', 'src/main.ts', (s) => s.includes('function requestedWebPath()') && s.includes("const webPath = requestedWebPath()") && s.includes("await openWebModule(webPath)")],
   ['retained-web bridge posts without a JWT query string', 'src/web-session.ts', (s) => s.includes("form.method = 'POST'") && !/mobile-session\.php\?.*token/.test(s)]
 ];
 
