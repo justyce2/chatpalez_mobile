@@ -464,3 +464,14 @@ Code/UI audit after native-profile milestone:
 - Publisher **Upload Photos** now opens a mobile source chooser: **Choose from Photos**, **Take Photo**, **Choose File**, before handing selection into the existing Sngine uploader.
 - Physical-device acceptance remains required on Android/iOS for picker source behavior, multi-select, upload progress, cancellation, and post publication.
 - If a WebView/platform still ignores the requested source distinction, promote this chooser to a fully native Capacitor media-picker bridge rather than regressing to the opaque WebView picker.
+
+
+### Native Capacitor media bridge — 2026-09-22
+- Added `@capacitor/camera` and a typed `ChatPalezMobile.pickMedia()` bridge.
+- **Choose from Photos** now uses Capacitor's native photo picker; publisher multi-select requests up to 10 images.
+- **Take Photo** now uses Capacitor Camera.
+- Native selections are converted back to browser `File` objects and injected into Sngine's existing `.x-uploader` input, deliberately preserving Sngine's current chunk uploader, validation, upload endpoint, progress UI, attachment bookkeeping, and post controller.
+- **Choose File** intentionally remains the platform file/document input fallback.
+- No Sngine upload PHP controller rewrite was required.
+- Required local sync after pull: `npm install`, then `npm run cap:sync`.
+- Device acceptance: Android/iOS Photos permission/picker, camera permission, cancel path, one photo, multiple photos, HEIC/JPEG/PNG handling, upload progress, remove attachment, publish post, and file chooser.
