@@ -95,13 +95,20 @@ export class ChatService {
   }
 
   async startConversation(recipientId: number | string, message: string): Promise<Conversation> {
+    return this.startGroupConversation([recipientId], message);
+  }
+
+  async startGroupConversation(recipientIds: Array<number | string>, message: string): Promise<Conversation> {
+    const recipients = [...new Set(recipientIds.map((id) => String(id)).filter(Boolean))];
+    if (recipients.length === 0) throw new Error('Select at least one recipient.');
+
     return this.api.post<Conversation>('chat/message', {
       conversation_id: null,
       message,
       photo: '',
       video: '',
       voice_note: '',
-      recipients: JSON.stringify([recipientId])
+      recipients: JSON.stringify(recipients)
     });
   }
 
