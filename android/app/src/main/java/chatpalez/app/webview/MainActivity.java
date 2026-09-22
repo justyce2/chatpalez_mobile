@@ -10,6 +10,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
+import android.webkit.JavascriptInterface;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -45,6 +46,7 @@ public class MainActivity extends BridgeActivity {
         if (getBridge() == null || getBridge().getWebView() == null) return;
 
         webView = getBridge().getWebView();
+        webView.addJavascriptInterface(new ChatPalezNativeBridge(), "ChatPalezNative");
         ViewGroup parent = (ViewGroup) webView.getParent();
         if (!(parent instanceof FrameLayout)) return;
 
@@ -339,6 +341,27 @@ public class MainActivity extends BridgeActivity {
             || "notifications".equals(target)
             || "profile".equals(target);
     }
+
+    private class ChatPalezNativeBridge {
+        @JavascriptInterface
+        public void share(String title, String url) {
+            runOnUiThread(() -> {
+                Intent sendIntent = new Intent(Intent.ACTION_SEND);
+                sendIntent.setType("text/plain");
+                String safeTitle = title == null || title.trim().isEmpty() ? "Share post" : title;
+                String safeUrl = url == null ? "" : url;
+                sendIntent.putExtra(Intent.EXTRA_SUBJECT, safeTitle);
+                sendIntent.putExtra(Intent.EXTRA_TEXT, safeUrl);
+                startActivity(Intent.createChooser(sendIntent, safeTitle));
+            });
+        }
+
+        @JavascriptInterface
+        public void openNative(String target) {
+            runOnUiThread(() -> openNativeScreen(target));
+        }
+    }
+
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
