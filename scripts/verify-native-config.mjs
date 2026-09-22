@@ -21,9 +21,22 @@ const checks = [
   ['JWT session persistence has no browser-storage fallback', 'src/auth/session.ts', (s) => !/\b(?:sessionStorage|localStorage)\s*[.\[]/.test(s)],
   ['Android secure storage plugin is registered', 'android/capacitor.settings.gradle', (s) => s.includes("aparajita-capacitor-secure-storage")],
   ['Android app links secure storage plugin', 'android/app/capacitor.build.gradle', (s) => s.includes("aparajita-capacitor-secure-storage")],
-  ['native screen handoff uses the proven bundled-app route', 'android/app/src/main/java/chatpalez/app/webview/MainActivity.java', (s) => (s.match(/http:\/\/localhost\/\?native=/g) ?? []).length >= 2],
-  ['retained web feed uses canonical ChatPalez origin', 'android/app/src/main/java/chatpalez/app/webview/MainActivity.java', (s) => s.includes('webView.loadUrl(SITE_ORIGIN + safePath)')],
-  ['local API screens do not derive their route from retained-web state', 'android/app/src/main/java/chatpalez/app/webview/MainActivity.java', (s) => !s.includes('String localBase = getBridge().getLocalUrl()') && s.includes('webView.loadUrl("http://localhost/?native=" + Uri.encode(target))')],
+  ['Android MainActivity is a thin Capacitor bootstrap', 'android/app/src/main/java/chatpalez/app/webview/MainActivity.java', (s) =>
+    s.includes('extends BridgeActivity')
+    && !s.includes('addJavascriptInterface')
+    && !s.includes('loadUrl(')
+    && !s.includes('AlertDialog')
+    && !s.includes('MediaStore')
+    && !s.includes('buildNativeBottomChrome')
+    && !s.includes('buildNativeTopChrome')],
+  ['shared Capacitor bridge owns native share/media behavior', 'src/bridge.ts', (s) =>
+    s.includes("@capacitor/share")
+    && s.includes("@capacitor/camera")
+    && s.includes('Camera.pickImages')
+    && s.includes('Share.share')],
+  ['shared lifecycle owns deep-link routing', 'src/native-lifecycle.ts', (s) =>
+    s.includes("App.addListener('appUrlOpen'")
+    && s.includes('resolveNativeScreen')],
   ['retained-web bridge posts without a JWT query string', 'src/web-session.ts', (s) => s.includes("form.method = 'POST'") && !/mobile-session\.php\?.*token/.test(s)]
 ];
 

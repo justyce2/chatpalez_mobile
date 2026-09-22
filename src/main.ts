@@ -124,7 +124,7 @@ function requestedWebPath(): string | null {
   const requested = params.get('web');
   if (requested === null) return null;
 
-  // The Android native chrome may only request first-party internal paths.
+  // Retained modules may only request first-party internal paths.
   // normalizeInternalPath is applied again inside openAuthenticatedWebModule.
   return requested.startsWith('/') ? requested : '/';
 }
@@ -349,7 +349,7 @@ const shell = createAppShell(root, {
 
 shell.setRetryAction(() => { void bootstrap(); });
 
-async function prepareNativeChrome(): Promise<void> {
+async function prepareNativeUi(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
 
   try {
@@ -450,6 +450,6 @@ window.addEventListener('unhandledrejection', (event) => {
   logError('Unhandled promise rejection', event.reason);
 });
 
-void prepareNativeChrome().then(bootstrap).catch((error) => {
+void prepareNativeUi().then(bootstrap).catch((error) => {
   logError('Native bootstrap pipeline failed', error, { platform: Capacitor.getPlatform() });
 });
