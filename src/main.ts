@@ -71,9 +71,12 @@ async function handleSessionExpiry(): Promise<void> {
   if (handlingSessionExpiry) return;
   handlingSessionExpiry = true;
   try {
-    await logoutNativeNotifications().catch(() => undefined);
-    await clearSession();
-    renderLogin('Your session has expired. Sign in again to continue.');
+    // Do not destroy the native API session because one protected endpoint
+    // returned 401. During retained-web/local transitions a routing, CORS or
+    // backend endpoint problem must not masquerade as a logout. The calling
+    // local screen will surface its own API error while the secure session is
+    // preserved for retry and diagnosis. Explicit sign-out still clears it.
+    logWarn('Protected mobile API request returned 401; preserving secure session for local-screen recovery');
   } finally {
     handlingSessionExpiry = false;
   }
