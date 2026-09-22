@@ -4,11 +4,34 @@ import type { AppConfig } from './config';
 import { resolveAppDeepLink } from './navigation';
 
 export type RouteHandler = (route: string) => void;
+export type NativeScreen = 'messages' | 'notifications';
+export type NativeScreenHandler = (screen: NativeScreen) => void;
 
-export async function registerNativeLifecycle(config: AppConfig, onRoute: RouteHandler): Promise<void> {
+function resolveNativeScreen(url: string): NativeScreen | null {
+  try {
+    const deepLink = new URL(url);
+    if (deepLink.protocol !== 'chatpalez:' || deepLink.hostname !== 'open') return null;
+    const screen = deepLink.searchParams.get('native');
+    return screen === 'messages' || screen === 'notifications' ? screen : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function registerNativeLifecycle(
+  config: AppConfig,
+  onRoute: RouteHandler,
+  onNativeScreen?: NativeScreenHandler
+): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
 
   await App.addListener('appUrlOpen', ({ url }) => {
+    const nativeScreen = resolveNativeScreen(url);
+    if (nativeScreen && onNativeScreen) {
+      onNativeScreen(nativeScreen);
+      return;
+    }
+
     const route = resolveAppDeepLink(url, config);
     if (route) onRoute(route);
   });
