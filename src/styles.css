@@ -1197,9 +1197,14 @@ p { color: #64748b; line-height: 1.55; }
   background: transparent;
 }
 .topbar-brand .brand-mark {
-  width: 104px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   margin: 0;
+  border-radius: 11px;
+  object-fit: cover;
+  overflow: hidden;
 }
 .native-topbar-actions {
   display: flex;
@@ -1262,10 +1267,16 @@ p { color: #64748b; line-height: 1.55; }
   height: 30px !important;
   min-width: 30px !important;
   min-height: 30px !important;
-  padding: 5px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border-radius: 50%;
   background: #0066B2;
-  filter: brightness(0) invert(1);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1;
+  filter: none;
 }
 
 /* Shared cross-platform create chooser. */
