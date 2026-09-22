@@ -3,28 +3,22 @@ package chatpalez.app.webview;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebView;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 import android.widget.FrameLayout;
-import android.widget.ImageButton;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
 
     private static final String SITE_ORIGIN = "https://chatpalez.com";
-    private LinearLayout nativeTopBar;
-    private LinearLayout nativeBottomBar;
     private WebView webView;
+    private WebView topChrome;
+    private WebView bottomChrome;
     private ViewGroup.MarginLayoutParams webViewMargins;
     private boolean chromeVisible = false;
 
@@ -49,6 +43,7 @@ public class MainActivity extends BridgeActivity {
 
         webView = getBridge().getWebView();
         webView.addJavascriptInterface(new ChatPalezNativeBridge(), "ChatPalezNative");
+
         ViewGroup parent = (ViewGroup) webView.getParent();
         if (!(parent instanceof FrameLayout)) return;
 
@@ -56,8 +51,8 @@ public class MainActivity extends BridgeActivity {
             webViewMargins = (ViewGroup.MarginLayoutParams) webView.getLayoutParams();
         }
 
-        nativeTopBar = buildTopBar();
-        nativeBottomBar = buildBottomBar();
+        topChrome = buildChromeWebView("top");
+        bottomChrome = buildChromeWebView("bottom");
 
         FrameLayout.LayoutParams topParams = new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -70,139 +65,62 @@ public class MainActivity extends BridgeActivity {
             Gravity.BOTTOM
         );
 
-        parent.addView(nativeTopBar, topParams);
-        parent.addView(nativeBottomBar, bottomParams);
+        parent.addView(topChrome, topParams);
+        parent.addView(bottomChrome, bottomParams);
 
         setNativeChromeVisible(false);
         webView.post(chromeStateWatcher);
     }
 
-    private LinearLayout buildTopBar() {
-        LinearLayout bar = new LinearLayout(this);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(dp(14), 0, dp(8), 0);
-        bar.setBackgroundColor(Color.WHITE);
-        bar.setElevation(dp(6));
-
-        TextView brand = new TextView(this);
-        brand.setText("ChatPalez");
-        brand.setTextColor(Color.rgb(0, 102, 178));
-        brand.setTextSize(18);
-        brand.setGravity(Gravity.CENTER_VERTICAL);
-        brand.setTypeface(brand.getTypeface(), android.graphics.Typeface.BOLD);
-        bar.addView(brand, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
-
-        ImageButton search = iconButton(android.R.drawable.ic_menu_search, "Search");
-        search.setOnClickListener(v -> loadWebPath("/search"));
-        bar.addView(search);
-
-        ImageButton notifications = iconButton(android.R.drawable.ic_dialog_info, "Notifications");
-        notifications.setOnClickListener(v -> openNativeScreen("notifications"));
-        bar.addView(notifications);
-
-        TextView account = new TextView(this);
-        account.setText("Me");
-        account.setTextColor(Color.rgb(0, 102, 178));
-        account.setTextSize(12);
-        account.setGravity(Gravity.CENTER);
-        GradientDrawable accountBg = new GradientDrawable();
-        accountBg.setShape(GradientDrawable.OVAL);
-        accountBg.setColor(Color.rgb(232, 243, 251));
-        account.setBackground(accountBg);
-        LinearLayout.LayoutParams accountParams = new LinearLayout.LayoutParams(dp(38), dp(38));
-        accountParams.setMargins(dp(4), 0, 0, 0);
-        account.setOnClickListener(v -> openNativeScreen("profile"));
-        bar.addView(account, accountParams);
-
-        return bar;
+    private WebView buildChromeWebView(String part) {
+        WebView chrome = new WebView(this);
+        chrome.setBackgroundColor(Color.WHITE);
+        chrome.setVerticalScrollBarEnabled(false);
+        chrome.setHorizontalScrollBarEnabled(false);
+        chrome.getSettings().setJavaScriptEnabled(true);
+        chrome.getSettings().setDomStorageEnabled(false);
+        chrome.addJavascriptInterface(new ChromeActionBridge(), "ChatPalezChromeAction");
+        chrome.loadUrl("file:///android_asset/public/native-chrome.html?part=" + Uri.encode(part));
+        return chrome;
     }
 
-    private LinearLayout buildBottomBar() {
-        LinearLayout bar = new LinearLayout(this);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setGravity(Gravity.CENTER);
-        bar.setPadding(dp(4), dp(4), dp(4), dp(4));
-        bar.setBackgroundColor(Color.WHITE);
-        bar.setElevation(dp(10));
-
-        bar.addView(navItem("Home", android.R.drawable.ic_menu_view, v -> loadWebPath("/")));
-        bar.addView(navItem("Reels", android.R.drawable.ic_media_play, v -> loadWebPath("/reels")));
-        bar.addView(createNavItem());
-        bar.addView(navItem("Chat", android.R.drawable.ic_dialog_email, v -> openNativeScreen("messages")));
-        bar.addView(navItem("Profile", android.R.drawable.ic_menu_myplaces, v -> openNativeScreen("profile")));
-
-        return bar;
-    }
-
-    private View navItem(String label, int iconRes, View.OnClickListener listener) {
-        LinearLayout item = new LinearLayout(this);
-        item.setOrientation(LinearLayout.VERTICAL);
-        item.setGravity(Gravity.CENTER);
-        item.setPadding(dp(2), dp(3), dp(2), dp(2));
-        item.setOnClickListener(listener);
-
-        ImageButton icon = iconButton(iconRes, label);
-        icon.setClickable(false);
-        item.addView(icon, new LinearLayout.LayoutParams(dp(34), dp(32)));
-
-        TextView text = new TextView(this);
-        text.setText(label);
-        text.setTextColor(Color.rgb(107, 114, 128));
-        text.setTextSize(10);
-        text.setGravity(Gravity.CENTER);
-        item.addView(text, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            dp(20)
-        ));
-
-        item.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
-        return item;
-    }
-
-    private View createNavItem() {
-        LinearLayout item = new LinearLayout(this);
-        item.setOrientation(LinearLayout.VERTICAL);
-        item.setGravity(Gravity.CENTER);
-        item.setPadding(dp(2), 0, dp(2), dp(2));
-        item.setOnClickListener(v -> showCreateSheet());
-
-        TextView plus = new TextView(this);
-        plus.setText("+");
-        plus.setTextColor(Color.WHITE);
-        plus.setTextSize(26);
-        plus.setGravity(Gravity.CENTER);
-        GradientDrawable circle = new GradientDrawable();
-        circle.setShape(GradientDrawable.OVAL);
-        circle.setColor(Color.rgb(0, 102, 178));
-        plus.setBackground(circle);
-        item.addView(plus, new LinearLayout.LayoutParams(dp(44), dp(44)));
-
-        TextView text = new TextView(this);
-        text.setText("Create");
-        text.setTextColor(Color.rgb(107, 114, 128));
-        text.setTextSize(10);
-        text.setGravity(Gravity.CENTER);
-        item.addView(text, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            dp(18)
-        ));
-
-        item.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
-        return item;
-    }
-
-    private ImageButton iconButton(int iconRes, String description) {
-        ImageButton button = new ImageButton(this);
-        button.setImageResource(iconRes);
-        button.setContentDescription(description);
-        button.setColorFilter(Color.rgb(31, 41, 55));
-        button.setBackgroundColor(Color.TRANSPARENT);
-        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(40), dp(40));
-        params.setMargins(dp(1), 0, dp(1), 0);
-        button.setLayoutParams(params);
-        return button;
+    private void performChromeAction(String action) {
+        if (action == null) return;
+        switch (action) {
+            case "home":
+                loadWebPath("/");
+                break;
+            case "reels":
+                loadWebPath("/reels");
+                break;
+            case "create":
+                showCreateSheet();
+                break;
+            case "messages":
+                openNativeScreen("messages");
+                break;
+            case "profile":
+                openNativeScreen("profile");
+                break;
+            case "notifications":
+                openNativeScreen("notifications");
+                break;
+            case "search":
+                loadWebPath("/search");
+                break;
+            case "groups":
+                loadWebPath("/groups");
+                break;
+            case "pages":
+                loadWebPath("/pages");
+                break;
+            case "back":
+                if (webView != null && webView.canGoBack()) webView.goBack();
+                else loadWebPath("/");
+                break;
+            default:
+                break;
+        }
     }
 
     private void showCreateSheet() {
@@ -290,26 +208,16 @@ public class MainActivity extends BridgeActivity {
             }
 
             setNativeChromeVisible(authenticatedSurface);
-
-            if (authenticatedSurface && url != null && url.startsWith(SITE_ORIGIN)) {
-                webView.evaluateJavascript(
-                    "(function(){if(document.body)document.body.classList.add('cp-native-chrome');})();",
-                    null
-                );
-            }
-
             webView.postDelayed(this, 350);
         }
     };
 
     private void setNativeChromeVisible(boolean visible) {
-        if (nativeTopBar == null || nativeBottomBar == null || webView == null || chromeVisible == visible) {
-            return;
-        }
+        if (topChrome == null || bottomChrome == null || webView == null || chromeVisible == visible) return;
 
         chromeVisible = visible;
-        nativeTopBar.setVisibility(visible ? View.VISIBLE : View.GONE);
-        nativeBottomBar.setVisibility(visible ? View.VISIBLE : View.GONE);
+        topChrome.setVisibility(visible ? WebView.VISIBLE : WebView.GONE);
+        bottomChrome.setVisibility(visible ? WebView.VISIBLE : WebView.GONE);
 
         if (webViewMargins != null) {
             webViewMargins.topMargin = visible ? dp(56) : 0;
@@ -318,20 +226,53 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private void pushChromeState(
+        String context,
+        String active,
+        String logo,
+        String avatar,
+        int notifications,
+        boolean groupsEnabled,
+        boolean pagesEnabled,
+        boolean showBack
+    ) {
+        String json = "{"
+            + "\"context\":\"" + js(context) + "\","
+            + "\"active\":\"" + js(active) + "\","
+            + "\"logo\":\"" + js(logo) + "\","
+            + "\"avatar\":\"" + js(avatar) + "\","
+            + "\"notifications\":" + notifications + ","
+            + "\"groupsEnabled\":" + groupsEnabled + ","
+            + "\"pagesEnabled\":" + pagesEnabled + ","
+            + "\"showBack\":" + showBack
+            + "}";
+
+        String call = "window.ChatPalezChrome&&window.ChatPalezChrome.setState(" + quoteJs(json) + ");";
+        if (topChrome != null) topChrome.post(() -> topChrome.evaluateJavascript(call, null));
+        if (bottomChrome != null) bottomChrome.post(() -> bottomChrome.evaluateJavascript(call, null));
+    }
+
+    private String js(String value) {
+        if (value == null) return "";
+        return value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "");
+    }
+
+    private String quoteJs(String value) {
+        return "\"" + js(value) + "\"";
+    }
+
     private void handleChatPalezDeepLink(Intent intent) {
-        if (intent == null || intent.getData() == null || getBridge() == null) {
-            return;
-        }
+        if (intent == null || intent.getData() == null || getBridge() == null) return;
 
         Uri data = intent.getData();
-        if (!"chatpalez".equalsIgnoreCase(data.getScheme()) || !"open".equalsIgnoreCase(data.getHost())) {
-            return;
-        }
+        if (!"chatpalez".equalsIgnoreCase(data.getScheme()) || !"open".equalsIgnoreCase(data.getHost())) return;
 
         String target = data.getQueryParameter("native");
-        if (!isAllowedNativeTarget(target)) {
-            return;
-        }
+        if (!isAllowedNativeTarget(target)) return;
 
         final String localUrl = "http://localhost/?native=" + Uri.encode(target);
         getBridge().getWebView().post(() -> getBridge().getWebView().loadUrl(localUrl));
@@ -342,6 +283,13 @@ public class MainActivity extends BridgeActivity {
             || "messages".equals(target)
             || "notifications".equals(target)
             || "profile".equals(target);
+    }
+
+    private class ChromeActionBridge {
+        @JavascriptInterface
+        public void perform(String action) {
+            runOnUiThread(() -> performChromeAction(action));
+        }
     }
 
     private class ChatPalezNativeBridge {
@@ -362,8 +310,30 @@ public class MainActivity extends BridgeActivity {
         public void openNative(String target) {
             runOnUiThread(() -> openNativeScreen(target));
         }
-    }
 
+        @JavascriptInterface
+        public void setChromeState(
+            String context,
+            String active,
+            String logo,
+            String avatar,
+            int notifications,
+            boolean groupsEnabled,
+            boolean pagesEnabled,
+            boolean showBack
+        ) {
+            runOnUiThread(() -> pushChromeState(
+                context,
+                active,
+                logo,
+                avatar,
+                notifications,
+                groupsEnabled,
+                pagesEnabled,
+                showBack
+            ));
+        }
+    }
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
