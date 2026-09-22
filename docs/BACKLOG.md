@@ -454,3 +454,13 @@ Code/UI audit after native-profile milestone:
 - Media upload remains a release concern: retained-web publisher/profile uploads use Sngine `js_x-uploader` file inputs, while native Chat uses a normal image file input/API upload. iOS already declares Photo Library and Camera purpose strings, but the installed WebView picker/gallery behavior still needs physical-device verification.
 - Recommended next media milestone: add an explicit app bridge/media-picker path for retained-web upload controls (Choose from Photos / Take Photo / Files) rather than relying solely on WebView file-input behavior.
 - UGC acceptance: verify Report post on feed, Report/Block on another user's profile, moderation submission, native OS share sheet, and photo/gallery/camera selection on both Android and iOS.
+
+
+### Share/repost + publisher picker refinement — 2026-09-22
+- Corrected the mobile Share behavior so native external sharing does not replace ChatPalez reposting.
+- Installed-app Share now opens a mobile action sheet with **Repost in ChatPalez** and **Share to other apps**.
+- Repost preserves Sngine's existing internal destinations (Timeline, Page, Group, Event where enabled/available) and message field.
+- External share continues through the Capacitor/OS share sheet.
+- Publisher **Upload Photos** now opens a mobile source chooser: **Choose from Photos**, **Take Photo**, **Choose File**, before handing selection into the existing Sngine uploader.
+- Physical-device acceptance remains required on Android/iOS for picker source behavior, multi-select, upload progress, cancellation, and post publication.
+- If a WebView/platform still ignores the requested source distinction, promote this chooser to a fully native Capacitor media-picker bridge rather than regressing to the opaque WebView picker.
