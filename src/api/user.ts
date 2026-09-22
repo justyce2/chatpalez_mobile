@@ -1,5 +1,29 @@
 import type { ApiPage, ChatPalezApiClient } from './client';
 
+export type UserProfile = {
+  user_id: number | string;
+  user_name?: string | null;
+  user_firstname?: string | null;
+  user_lastname?: string | null;
+  user_fullname?: string | null;
+  user_picture?: string | null;
+  user_cover?: string | null;
+  user_biography?: string | null;
+  user_gender?: string | null;
+  user_birthdate?: string | null;
+  user_relationship?: string | null;
+  user_work_title?: string | null;
+  user_work_place?: string | null;
+  user_current_city?: string | null;
+  user_hometown?: string | null;
+  user_verified?: boolean;
+  user_subscribed?: boolean;
+  friends_count?: number | string | null;
+  followers_count?: number | string | null;
+  followings_count?: number | string | null;
+  [key: string]: unknown;
+};
+
 export type BlockedUser = {
   user_id: number | string;
   user_name?: string;
@@ -11,6 +35,10 @@ export type BlockedUser = {
 
 export class UserService {
   constructor(private readonly api: ChatPalezApiClient) {}
+
+  async getProfile(): Promise<UserProfile> {
+    return this.api.get<UserProfile>('user/profile');
+  }
 
   async getBlockedUsers(offset = 0): Promise<BlockedUser[]> {
     return (await this.getBlockedUsersPage(offset)).data;
