@@ -398,3 +398,22 @@ Local conversation and contact lists now page through the official API with expl
 ## Implementation update — message history paging contract (2026-09-17)
 
 The local service now uses the official offset-history mode correctly by omitting an unused last-message cursor. Older-message UI remains the next shell task.
+
+
+---
+
+## Implementation update — feed/chrome screenshot audit (2026-09-22)
+
+Three real-device screenshots exposed four connected defects in the retained-web home surface: asymmetric feed width, insufficient author/content insets, desktop-header top-space leaking above the app header, and app-header/footer shortcuts re-entering authentication instead of handing off to local authenticated screens.
+
+Implemented:
+- Backend app theme: normalized mobile containers/rows/mainbar to the full viewport with one balanced 8–10px feed gutter; cards now own 100% of that lane.
+- Backend app theme: reinforced 12–14px author/text padding, avatar-to-copy separation, card/media width containment, and bottom-nav content clearance.
+- Backend app theme: removed inherited desktop `.main-wrapper` top spacing so the sticky app header sits directly below the device safe area.
+- Footer terminology changed from **Messages** to **Chat**.
+- Mobile shell: `chatpalez://open?native=messages|notifications` now resolves directly to the already-authenticated local shell rather than being normalized to a retained-web route.
+- Mobile shell: Messages UI terminology changed to **Chat**, including **New chat** and empty-state copy.
+
+Architecture decision: keep the feed server-rendered in `chatpalez_app` because the audited Sngine API still lacks the required feed/post contract. Keep Chat and Notifications app-owned/local because their supported API services already exist. The five-item web bottom bar remains the visual bridge on retained-web pages, while Chat/Notifications hand off to native/local screens.
+
+Acceptance still required on device after pulling both repositories: confirm 360px/390px widths, no right-side dead strip, avatar/text insets, no blank band above the header, notification opens local Notifications without login, Chat opens local Chat without login, Create still opens the publisher, and Home/Discover/Profile remain authenticated.
