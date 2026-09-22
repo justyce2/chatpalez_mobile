@@ -177,7 +177,7 @@ public class MainActivity extends BridgeActivity {
             "x.setAttribute('data-url','posts/publisher.php');" +
             "document.body.appendChild(x);x.click();" +
             (photos
-                ? "setTimeout(function(){var p=document.querySelector('[data-chatpalez-media-picker=\\"photos\\"]');if(p)p.click();},500);"
+                ? "setTimeout(function(){var p=document.querySelector('[data-chatpalez-media-picker=photos]');if(p)p.click();},500);"
                 : "") +
             "setTimeout(function(){x.remove();},0);})();";
         executeRemoteJavascript(script);
