@@ -89,8 +89,9 @@ public class MainActivity extends BridgeActivity {
         webView = getBridge().getWebView();
         webView.addJavascriptInterface(new ChatPalezNativeBridge(), "ChatPalezNative");
 
-        ViewGroup parent = (ViewGroup) webView.getParent();
-        if (!(parent instanceof FrameLayout)) return;
+        ViewGroup webViewParent = (ViewGroup) webView.getParent();
+        ViewGroup overlayHost = findViewById(android.R.id.content);
+        if (webViewParent == null || overlayHost == null) return;
 
         if (webView.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
             webViewMargins = (ViewGroup.MarginLayoutParams) webView.getLayoutParams();
@@ -112,8 +113,10 @@ public class MainActivity extends BridgeActivity {
             Gravity.BOTTOM
         );
 
-        parent.addView(topChrome, topParams);
-        parent.addView(bottomChrome, bottomParams);
+        overlayHost.addView(topChrome, topParams);
+        overlayHost.addView(bottomChrome, bottomParams);
+        topChrome.bringToFront();
+        bottomChrome.bringToFront();
 
         setNativeChromeVisible(false);
         pushCachedChromeState();
