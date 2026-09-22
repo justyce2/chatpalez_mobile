@@ -4,7 +4,7 @@ import type { AppConfig } from './config';
 import { resolveAppDeepLink } from './navigation';
 
 export type RouteHandler = (route: string) => void;
-export type NativeScreen = 'messages' | 'notifications';
+export type NativeScreen = 'messages' | 'notifications' | 'profile';
 export type NativeScreenHandler = (screen: NativeScreen) => void;
 
 function resolveNativeScreen(url: string): NativeScreen | null {
@@ -12,7 +12,7 @@ function resolveNativeScreen(url: string): NativeScreen | null {
     const deepLink = new URL(url);
     if (deepLink.protocol !== 'chatpalez:' || deepLink.hostname !== 'open') return null;
     const screen = deepLink.searchParams.get('native');
-    return screen === 'messages' || screen === 'notifications' ? screen : null;
+    return screen === 'messages' || screen === 'notifications' || screen === 'profile' ? screen : null;
   } catch {
     return null;
   }
