@@ -1039,3 +1039,15 @@ p { color: #64748b; line-height: 1.55; }
 .contact-select-marker { font-size: 1.1rem !important; font-weight: 800; color: #0066B2 !important; }
 .message-photo { max-width: min(100%, 280px); border-radius: 12px; display: block; margin-top: 8px; }
 .message-composer { grid-template-columns: auto minmax(0,1fr) auto; }
+
+.native-settings-form { display: grid; gap: 14px; margin-top: 16px; }
+.native-settings-form textarea,
+.native-settings-form input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 13px 14px;
+  background: #fff;
+  color: #0f172a;
+}
+.settings-form-status { margin: 0; min-height: 20px; }

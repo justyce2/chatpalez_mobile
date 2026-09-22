@@ -259,6 +259,15 @@ const shell = createAppShell(root, {
     logInfo('Native profile loaded', { userId: profile.user_id });
     return profile;
   },
+  onLoadAccount: async () => users.getAccount(),
+  onUpdateProfile: async (payload) => users.updateProfile(payload),
+  onUpdateIdentity: async (payload) => users.updateIdentity(payload),
+  onUpdateWork: async (payload) => users.updateWork(payload),
+  onUpdateLocation: async (payload) => users.updateLocation(payload),
+  onUpdateEducation: async (payload) => users.updateEducation(payload),
+  onUpdateSocial: async (payload) => users.updateSocial(payload),
+  onUpdatePassword: async (payload) => users.updatePassword(payload),
+  onUpdatePrivacy: async (payload) => users.updatePrivacy(payload),
   onManageNotifications: async () => {
     const session = getSession();
     if (!session) throw new Error('Your session has expired. Sign in again to continue.');

@@ -1,6 +1,6 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
 import type { NotificationItem } from './api/notifications';
-import type { BlockedUser, UserProfile } from './api/user';
+import type { BlockedUser, MobileAccount, ProfileUpdate, UserProfile } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
 import { ProfileScreen } from './screens/ProfileScreen';
@@ -21,6 +21,15 @@ export type AppShellHandlers = {
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
   onLoadProfile?: () => Promise<UserProfile>;
+  onLoadAccount?: () => Promise<MobileAccount>;
+  onUpdateProfile?: (payload: ProfileUpdate) => Promise<void>;
+  onUpdateIdentity?: (payload: { username: string; email: string; phone: string; password: string }) => Promise<void>;
+  onUpdateWork?: (payload: { work_title: string; work_place: string; work_url: string }) => Promise<void>;
+  onUpdateLocation?: (payload: { city: string; hometown: string }) => Promise<void>;
+  onUpdateEducation?: (payload: { edu_major: string; edu_school: string; edu_class: string }) => Promise<void>;
+  onUpdateSocial?: (payload: { facebook: string; twitter: string; youtube: string; instagram: string; twitch: string; linkedin: string; vkontakte: string }) => Promise<void>;
+  onUpdatePassword?: (payload: { current: string; new: string; confirm: string }) => Promise<void>;
+  onUpdatePrivacy?: (payload: Record<string, string | boolean>) => Promise<void>;
   onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<PageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
@@ -151,6 +160,15 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     const profileScreen = new ProfileScreen(content, session, {
       onLoadProfile: handlers.onLoadProfile,
+      onLoadAccount: handlers.onLoadAccount,
+      onUpdateProfile: handlers.onUpdateProfile,
+      onUpdateIdentity: handlers.onUpdateIdentity,
+      onUpdateWork: handlers.onUpdateWork,
+      onUpdateLocation: handlers.onUpdateLocation,
+      onUpdateEducation: handlers.onUpdateEducation,
+      onUpdateSocial: handlers.onUpdateSocial,
+      onUpdatePassword: handlers.onUpdatePassword,
+      onUpdatePrivacy: handlers.onUpdatePrivacy,
       onManageNotifications: handlers.onManageNotifications,
       onLoadBlockedUsers: handlers.onLoadBlockedUsers,
       onDeleteAccount: handlers.onDeleteAccount,
