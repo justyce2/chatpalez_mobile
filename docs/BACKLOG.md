@@ -437,3 +437,11 @@ Implemented the next hybrid-shell milestone:
 - Public account-deletion information remains available at `/account-deletion.php`; in-app destructive deletion remains API-backed.
 - Reels and Create deliberately bridge to retained-web experiences until dedicated API-driven screens are completed.
 - Device acceptance: verify five-tab safe-area layout, Reels route, Create publisher route, Contact/Privacy public routes, advanced profile web bridge, successful/failed password deletion flows, and post-deletion session cleanup.
+
+
+### Post-implementation audit — 2026-09-22
+Code/UI audit after native-profile milestone:
+- Fixed a regression where the native footer had five tabs but CSS still allocated four columns; it now uses five equal minmax columns with 44px minimum touch targets.
+- Fixed the retained-web Profile tab so it hands off to the app-owned native Profile/account hub, matching Chat and Notifications handoff behavior.
+- Native deep-link screen allowlist now includes `profile`.
+- iOS submission audit flags remaining release checks: on-device iOS validation; UGC filtering/report/block/contact verification; privacy-label/privacy-policy reconciliation; social-login equivalence/Sign in with Apple review if third-party login is exposed; account-deletion verification including user-generated content; age-rating/social-media questionnaire; App Review demo account; and IAP review if digital goods/subscriptions are sold in-app.
