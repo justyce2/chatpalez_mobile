@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+:root{--blue:#0066B2;--text:#1F2937;--muted:#6B7280;--border:#E5E7EB}
+*{box-sizing:border-box}html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#fff;font-family:Arial,sans-serif;color:var(--text)}
+button{font:inherit}
+.top{height:56px;display:flex;align-items:center;padding:0 10px 0 14px;border-bottom:1px solid var(--border);background:#fff}
+.brand{min-width:0;max-width:122px;height:40px;display:flex;align-items:center;justify-content:flex-start;border:0;background:transparent;padding:0}
+.brand img{max-width:112px;max-height:32px;object-fit:contain}
+.brand span{color:var(--blue);font-size:18px;font-weight:800;white-space:nowrap}
+.back{width:40px;height:40px;flex:0 0 40px;border:0;border-radius:50%;background:transparent;font-size:28px;line-height:1;color:var(--text)}
+.context{min-width:0;flex:1;text-align:center;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 5px}
+.actions{display:flex;align-items:center;gap:2px;margin-left:auto}
+.iconbtn{position:relative;width:38px;height:38px;display:grid;place-items:center;border:0;background:transparent;border-radius:50%;padding:8px}
+.iconbtn img{width:22px;height:22px;object-fit:contain;filter:none}
+.avatar{width:38px;height:38px;border:1px solid var(--border);border-radius:50%;overflow:hidden;padding:0;background:#E8F3FB}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.badge{position:absolute;top:0;right:-1px;min-width:17px;height:17px;padding:0 4px;display:grid;place-items:center;border:2px solid #fff;border-radius:999px;background:#EF4444;color:#fff;font-size:9px;font-weight:800}
+.bottom{height:66px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:end;padding:5px 7px 7px;border-top:1px solid var(--border);background:#fff}
+.nav{position:relative;min-width:0;height:54px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;border:0;background:transparent;color:var(--muted);font-size:10.5px;font-weight:600;padding:3px 2px}
+.nav img{width:23px;height:23px;object-fit:contain}
+.nav.active{color:var(--blue);font-weight:700}
+.nav.active:before{content:"";position:absolute;top:0;left:50%;width:22px;height:3px;transform:translateX(-50%);border-radius:999px;background:var(--blue)}
+.create{transform:translateY(-5px)}
+.create:before{display:none!important}
+.createCircle{width:46px;height:46px;display:grid;place-items:center;border-radius:50%;background:var(--blue);box-shadow:0 7px 18px rgba(0,102,178,.28)}
+.createCircle img{width:24px;height:24px;filter:brightness(0) invert(1)}
+.create span:last-child{color:var(--muted)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="top" class="top hidden">
+  <button id="brand" class="brand" onclick="act('home')"><span id="brandText">ChatPalez</span><img id="brandLogo" class="hidden" alt=""></button>
+  <button id="back" class="back hidden" onclick="act('back')" aria-label="Back">‹</button>
+  <div id="context" class="context"></div>
+  <div class="actions">
+    <button class="iconbtn" onclick="act('search')" aria-label="Search"><img src="native-chrome/icons/header-search.svg"></button>
+    <button id="groups" class="iconbtn" onclick="act('groups')" aria-label="Groups"><img src="native-chrome/icons/groups.svg"></button>
+    <button id="pages" class="iconbtn" onclick="act('pages')" aria-label="Pages"><img src="native-chrome/icons/pages.svg"></button>
+    <button class="iconbtn" onclick="act('notifications')" aria-label="Notifications"><img src="native-chrome/icons/header-notifications.svg"><span id="badge" class="badge hidden"></span></button>
+    <button class="avatar" onclick="act('profile')" aria-label="Menu"><img id="avatar" alt=""></button>
+  </div>
+</div>
+
+<div id="bottom" class="bottom hidden">
+  <button class="nav" data-tab="home" onclick="act('home')"><img src="native-chrome/icons/header-home.svg"><span>Home</span></button>
+  <button class="nav" data-tab="reels" onclick="act('reels')"><img src="native-chrome/icons/reels.svg"><span>Reels</span></button>
+  <button class="nav create" data-tab="create" onclick="act('create')"><span class="createCircle"><img src="native-chrome/icons/header-plus.svg"></span><span>Create</span></button>
+  <button class="nav" data-tab="messages" onclick="act('messages')"><img src="native-chrome/icons/chat.svg"><span>Chat</span></button>
+  <button class="nav" data-tab="profile" onclick="act('profile')"><img src="native-chrome/icons/profile.svg"><span>Profile</span></button>
+</div>
+<script>
+const part=new URLSearchParams(location.search).get('part')||'top';
+document.getElementById(part==='bottom'?'bottom':'top').classList.remove('hidden');
+function act(action){if(window.ChatPalezChromeAction&&ChatPalezChromeAction.perform)ChatPalezChromeAction.perform(action)}
+window.ChatPalezChrome={
+ setState(raw){
+  let s={};try{s=typeof raw==='string'?JSON.parse(raw):raw||{}}catch(e){}
+  const logo=document.getElementById('brandLogo'),brandText=document.getElementById('brandText');
+  if(s.logo){logo.src=s.logo;logo.classList.remove('hidden');brandText.classList.add('hidden')}else{logo.classList.add('hidden');brandText.classList.remove('hidden')}
+  const avatar=document.getElementById('avatar'); if(s.avatar) avatar.src=s.avatar;
+  const badge=document.getElementById('badge'); const n=Number(s.notifications||0);
+  if(n>0){badge.textContent=n>99?'99+':String(n);badge.classList.remove('hidden')}else badge.classList.add('hidden');
+  document.getElementById('groups').classList.toggle('hidden',s.groupsEnabled===false);
+  document.getElementById('pages').classList.toggle('hidden',s.pagesEnabled===false);
+  const back=document.getElementById('back'),brand=document.getElementById('brand');
+  if(s.showBack){back.classList.remove('hidden');brand.classList.add('hidden')}else{back.classList.add('hidden');brand.classList.remove('hidden')}
+  document.getElementById('context').textContent=s.context||'';
+  document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.dataset.tab===s.active));
+ }
+};
+</script>
+</body>
+</html>
