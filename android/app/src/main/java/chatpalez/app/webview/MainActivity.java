@@ -374,6 +374,53 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private void showSharePostSheet(String title, String url, String repostUrl, boolean repostDisabled) {
+        String safeTitle = title == null || title.trim().isEmpty() ? "Share post" : title;
+        String safeUrl = url == null ? "" : url;
+        String safeRepostUrl = repostUrl == null ? "" : repostUrl;
+
+        if (!repostDisabled && !safeRepostUrl.isEmpty()) {
+            final String[] actions = { "Repost in ChatPalez", "Share to other apps" };
+            new AlertDialog.Builder(this)
+                .setTitle("Share post")
+                .setItems(actions, (dialog, which) -> {
+                    if (which == 0) {
+                        executeRemoteJavascript(
+                            "(function(){var x=document.createElement('div');" +
+                            "x.setAttribute('data-toggle','modal');" +
+                            "x.setAttribute('data-url'," + quoteJs(safeRepostUrl) + ");" +
+                            "x.style.display='none';document.body.appendChild(x);x.click();" +
+                            "setTimeout(function(){x.remove();},0);})();"
+                        );
+                    } else {
+                        shareExternally(safeTitle, safeUrl);
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+            return;
+        }
+
+        shareExternally(safeTitle, safeUrl);
+    }
+
+    private void shareExternally(String title, String url) {
+        Intent sendIntent = new Intent(Intent.ACTION_SEND);
+        sendIntent.setType("text/plain");
+        sendIntent.putExtra(Intent.EXTRA_SUBJECT, title);
+        sendIntent.putExtra(Intent.EXTRA_TEXT, url);
+        startActivity(Intent.createChooser(sendIntent, title));
+    }
+
+    private String quoteJs(String value) {
+        if (value == null) return """";
+        return """ + value
+            .replace("\\", "\\\\")
+            .replace(""", "\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "") + """;
+    }
+
     private void showCreateSheet() {
         final String[] actions = {
             "Create post",
@@ -617,14 +664,15 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void share(String title, String url) {
             runOnUiThread(() -> {
-                Intent sendIntent = new Intent(Intent.ACTION_SEND);
-                sendIntent.setType("text/plain");
                 String safeTitle = title == null || title.trim().isEmpty() ? "Share post" : title;
                 String safeUrl = url == null ? "" : url;
-                sendIntent.putExtra(Intent.EXTRA_SUBJECT, safeTitle);
-                sendIntent.putExtra(Intent.EXTRA_TEXT, safeUrl);
-                startActivity(Intent.createChooser(sendIntent, safeTitle));
+                shareExternally(safeTitle, safeUrl);
             });
+        }
+
+        @JavascriptInterface
+        public void sharePost(String title, String url, String repostUrl, boolean repostDisabled) {
+            runOnUiThread(() -> showSharePostSheet(title, url, repostUrl, repostDisabled));
         }
 
         @JavascriptInterface
