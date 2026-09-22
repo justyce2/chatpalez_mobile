@@ -514,7 +514,8 @@ public class MainActivity extends BridgeActivity {
         }
         chromeShowBack = false;
         pushCachedChromeState();
-        webView.loadUrl("http://localhost/?native=" + Uri.encode(target));
+        String localBase = getBridge().getLocalUrl();
+        webView.loadUrl(localBase + "/?native=" + Uri.encode(target));
     }
 
     private final Runnable chromeStateWatcher = new Runnable() {
