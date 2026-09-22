@@ -6,7 +6,6 @@ import { createAppShell } from './app-shell';
 import { ChatPalezApiClient, ApiError } from './api/client';
 import { AuthService, type TwoFactorChallenge } from './api/auth';
 import { ChatService } from './api/chat';
-import { FeedService } from './api/feed';
 import { NotificationsService } from './api/notifications';
 import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
@@ -45,7 +44,6 @@ const api = new ChatPalezApiClient({
 });
 const auth = new AuthService(api);
 const chat = new ChatService(api);
-const feed = new FeedService(api);
 const notifications = new NotificationsService(api);
 const registration = new RegistrationService(api);
 const users = new UserService(api);
@@ -227,17 +225,6 @@ const shell = createAppShell(root, {
   },
   onOpenWebModule: openWebModule,
   onOpenPublicPage: openPublicModule,
-  onLoadFeed: async (offset) => {
-    const page = await feed.getFeed(offset);
-    logInfo('Native feed loaded', { count: page.data.length, offset, hasMore: page.hasMore });
-    return { items: page.data, hasMore: page.hasMore };
-  },
-  onReactToPost: async (postId, reaction, action) => feed.react(postId, reaction, action),
-  onCommentOnPost: async (postId, message) => feed.comment(postId, message),
-  onSavePost: async (postId, action) => feed.save(postId, action),
-  onReportPost: async (postId, reason) => {
-    await feed.report(postId, 0, reason);
-  },
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
   onManageNotifications: async () => {
     const session = getSession();
