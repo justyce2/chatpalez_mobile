@@ -141,11 +141,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
       content.replaceChildren();
       if (tab === 'home') {
-        if (handlers.onLoadFeed) {
-          await showNativeFeed();
-        } else {
-          handlers.onOpenWebModule('/');
-        }
+        // Home remains on the stable ChatPalez app theme until the native feed API
+        // is explicitly re-enabled and device-validated.
+        handlers.onOpenWebModule('/');
         return;
       }
       if (tab === 'messages') {
