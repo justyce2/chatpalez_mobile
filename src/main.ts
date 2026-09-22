@@ -17,7 +17,6 @@ import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
 import { getChatPhotoUrl } from './media';
 import {
-  initializeNativeNotifications,
   logoutNativeNotifications,
   requestNativeNotificationPermission
 } from './notifications/native';
