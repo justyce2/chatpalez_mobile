@@ -15,19 +15,16 @@ export type WebSessionTransitionOptions = {
 export function openAuthenticatedWebModule(options: WebSessionTransitionOptions): void {
   const transition = createWebSessionTransition(options);
 
-  if (options.target) {
-    const frame = document.querySelector<HTMLIFrameElement>(`iframe[name="${cssEscape(options.target)}"]`);
-    if (!frame) throw new Error('ChatPalez could not find the retained web surface.');
-
-    frame.srcdoc = createSelfSubmittingDocument(transition);
-    return;
-  }
-
+  // Submit the session bridge from the trusted Capacitor document directly
+  // into the retained frame. Using iframe.srcdoc here creates a separate
+  // document/origin and can prevent the authenticated redirect from becoming
+  // the retained ChatPalez page.
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = transition.action;
   form.style.display = 'none';
   form.autocomplete = 'off';
+  if (options.target) form.target = options.target;
   form.append(hiddenInput('token', transition.token), hiddenInput('path', transition.path));
   document.body.append(form);
   form.submit();
@@ -70,29 +67,3 @@ function hiddenInput(name: string, value: string): HTMLInputElement {
   return input;
 }
 
-
-function createSelfSubmittingDocument(transition: WebSessionTransition): string {
-  return `<!doctype html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body>
-<form id="cp-session" method="post" action="${escapeHtml(transition.action)}">
-<input type="hidden" name="token" value="${escapeHtml(transition.token)}">
-<input type="hidden" name="path" value="${escapeHtml(transition.path)}">
-</form>
-<script>document.getElementById('cp-session').submit();<\/script>
-</body>
-</html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function cssEscape(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
