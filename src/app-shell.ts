@@ -115,7 +115,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     nav.setAttribute('aria-label', 'Primary');
     const tabs = [
       { id: 'home', label: 'Home' },
-      { id: 'messages', label: 'Messages' },
+      { id: 'messages', label: 'Chat' },
       { id: 'notifications', label: 'Alerts' },
       { id: 'profile', label: 'Profile' }
     ] as const;
@@ -326,16 +326,16 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     async function showConversationList(): Promise<void> {
       content.replaceChildren();
       const headingRow = element('div', 'section-heading-row');
-      headingRow.append(screenTitle('Messages'));
+      headingRow.append(screenTitle('Chat'));
       if (handlers.onLoadContacts && handlers.onStartConversation) {
-        const compose = secondaryButton('New message');
+        const compose = secondaryButton('New chat');
         compose.classList.add('compact-button');
         compose.addEventListener('click', () => void showNewConversation());
         headingRow.append(compose);
       }
       content.append(headingRow);
       if (!handlers.onLoadConversations) {
-        content.append(paragraph('Messaging is not wired yet.'));
+        content.append(paragraph('Chat is not wired yet.'));
         return;
       }
       const list = element('div', 'conversation-list');
@@ -350,7 +350,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           if (!append) list.replaceChildren();
           for (const conversation of page.items) list.append(conversationList([conversation], (item) => void showConversation(item)).firstElementChild!);
           hasMore = page.hasMore;
-          if (!append && page.items.length === 0) content.append(paragraph('No conversations yet. Start a new message.'));
+          if (!append && page.items.length === 0) content.append(paragraph('No chats yet. Start a new chat.'));
           more.hidden = !hasMore;
         } catch (error) {
           content.append(paragraph(error instanceof Error ? error.message : 'Unable to load conversations.'));
@@ -369,7 +369,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const back = secondaryButton('Back');
       back.classList.add('compact-button');
       back.addEventListener('click', () => void showConversationList());
-      header.append(back, screenTitle('New message'));
+      header.append(back, screenTitle('New chat'));
       content.append(header);
 
       const modeNote = paragraph('Select one person for a direct chat, or select multiple people to start a group conversation.');
