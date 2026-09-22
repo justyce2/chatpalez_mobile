@@ -1,6 +1,6 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
 import type { NotificationItem } from './api/notifications';
-import type { BlockedUser } from './api/user';
+import type { BlockedUser, UserProfile } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
 
@@ -18,6 +18,7 @@ export type AppShellHandlers = {
   onOpenPublicPage?: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
+  onLoadProfile?: () => Promise<UserProfile>;
   onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<PageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
@@ -157,24 +158,109 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         await showNotifications();
         return;
       }
-      showProfile();
+      await showProfile();
     }
 
 
-    function showProfile(): void {
+    async function showProfile(): Promise<void> {
       content.replaceChildren(screenTitle('Profile'));
-      const profileCard = element('div', 'profile-card');
-      profileCard.append(elementWithText('strong', displayName));
-      if (user.user_email) profileCard.append(elementWithText('span', String(user.user_email)));
-      if (user.user_name) profileCard.append(elementWithText('span', `@${String(user.user_name)}`));
-      content.append(profileCard);
+      const loading = paragraph('Loading profile…');
+      content.append(loading);
+
+      let profile: UserProfile = {
+        user_id: user.user_id,
+        user_name: user.user_name,
+        user_firstname: user.user_firstname,
+        user_lastname: user.user_lastname,
+        user_fullname: user.user_fullname,
+        user_picture: user.user_picture
+      };
+
+      if (handlers.onLoadProfile) {
+        try {
+          profile = await handlers.onLoadProfile();
+        } catch (error) {
+          loading.textContent = error instanceof Error ? error.message : 'Unable to refresh profile details.';
+        }
+      }
+
+      const name = String(profile.user_fullname || profile.user_firstname || profile.user_name || displayName);
+      content.replaceChildren(screenTitle('Profile'));
+
+      const hero = element('section', 'native-profile-card');
+      if (profile.user_cover) {
+        const cover = document.createElement('img');
+        cover.className = 'native-profile-cover';
+        cover.src = String(profile.user_cover);
+        cover.alt = '';
+        cover.loading = 'lazy';
+        hero.append(cover);
+      }
+
+      const identity = element('div', 'native-profile-identity');
+      if (profile.user_picture) {
+        const photo = document.createElement('img');
+        photo.className = 'native-profile-avatar';
+        photo.src = String(profile.user_picture);
+        photo.alt = name;
+        photo.loading = 'lazy';
+        identity.append(photo);
+      } else {
+        const fallback = elementWithText('div', initials(name));
+        fallback.className = 'native-profile-avatar native-profile-avatar--fallback';
+        identity.append(fallback);
+      }
+
+      const copy = element('div', 'native-profile-copy');
+      const nameRow = element('div', 'native-profile-name-row');
+      nameRow.append(elementWithText('strong', name));
+      if (profile.user_verified) nameRow.append(elementWithText('span', '✓'));
+      copy.append(nameRow);
+      if (profile.user_name) copy.append(elementWithText('span', `@${String(profile.user_name)}`));
+      if (profile.user_biography) copy.append(elementWithText('p', String(profile.user_biography)));
+      identity.append(copy);
+      hero.append(identity);
+
+      const stats = element('div', 'native-profile-stats');
+      const statItems: Array<[string, unknown]> = [
+        ['Friends', profile.friends_count],
+        ['Followers', profile.followers_count],
+        ['Following', profile.followings_count]
+      ];
+      for (const [label, value] of statItems) {
+        if (value === null || value === undefined || value === '') continue;
+        const stat = element('div', 'native-profile-stat');
+        stat.append(elementWithText('strong', String(value)), elementWithText('span', label));
+        stats.append(stat);
+      }
+      if (stats.childElementCount) hero.append(stats);
+      content.append(hero);
+
+      const details = element('section', 'settings-card native-profile-details');
+      details.append(elementWithText('h3', 'About'));
+      const rows: Array<[string, unknown]> = [
+        ['Work', [profile.user_work_title, profile.user_work_place].filter(Boolean).join(' · ')],
+        ['Current city', profile.user_current_city],
+        ['Hometown', profile.user_hometown],
+        ['Relationship', profile.user_relationship],
+        ['Birthday', profile.user_birthdate]
+      ];
+      let detailsAdded = 0;
+      for (const [label, value] of rows) {
+        if (!value) continue;
+        const row = element('div', 'native-profile-detail-row');
+        row.append(elementWithText('span', label), elementWithText('strong', String(value)));
+        details.append(row);
+        detailsAdded += 1;
+      }
+      if (!detailsAdded) details.append(paragraph('No additional profile details yet.'));
+      content.append(details);
+
       const actions = element('section', 'settings-card profile-actions');
       actions.append(elementWithText('h3', 'Account'));
       const settings = secondaryButton('Account & settings');
       settings.addEventListener('click', () => void showSettings());
-      const fullProfile = secondaryButton('Advanced profile');
-      fullProfile.addEventListener('click', () => handlers.onOpenWebModule('/settings/profile'));
-      actions.append(settings, fullProfile);
+      actions.append(settings);
       content.append(actions);
 
       const support = element('section', 'settings-card profile-actions');
@@ -198,7 +284,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const header = element('div', 'conversation-header');
       const back = secondaryButton('Back');
       back.classList.add('compact-button');
-      back.addEventListener('click', showProfile);
+      back.addEventListener('click', () => { void showProfile(); });
       header.append(back, screenTitle('Account & settings'));
       content.append(header);
 
