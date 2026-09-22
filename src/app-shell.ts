@@ -1,5 +1,4 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
-import type { FeedPost, FeedReaction } from './api/feed';
 import type { NotificationItem } from './api/notifications';
 import type { BlockedUser } from './api/user';
 import type { AuthSession } from './auth/session';
@@ -16,11 +15,6 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string) => void;
-  onLoadFeed?: (offset: number) => Promise<PageResult<FeedPost>>;
-  onReactToPost?: (postId: number | string, reaction: FeedReaction, action: 'react' | 'unreact') => Promise<FeedPost>;
-  onCommentOnPost?: (postId: number | string, message: string) => Promise<unknown>;
-  onSavePost?: (postId: number | string, action: 'save' | 'unsave') => Promise<FeedPost>;
-  onReportPost?: (postId: number | string, reason: string) => Promise<void>;
   onOpenPublicPage?: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
@@ -851,125 +845,4 @@ function nativeNotificationStatusMessage(status: NativeNotificationStatus): stri
     case 'unsupported':
       return 'Native notifications are available in the installed Android or iOS app.';
   }
-}
-
-
-type NativeFeedPostHandlers = {
-  onOpenWeb: (path: string) => void;
-  onReact?: (postId: number | string, reaction: FeedReaction, action: 'react' | 'unreact') => Promise<FeedPost>;
-  onComment?: (postId: number | string, message: string) => Promise<unknown>;
-  onSave?: (postId: number | string, action: 'save' | 'unsave') => Promise<FeedPost>;
-  onReport?: (postId: number | string, reason: string) => Promise<void>;
-  onRefresh: () => Promise<void>;
-};
-
-function nativeFeedPost(post: FeedPost, handlers: NativeFeedPostHandlers): HTMLElement {
-  const card = element('article', 'native-feed-post');
-  const header = element('div', 'native-feed-post__header');
-  const author = element('div', 'native-feed-post__author');
-  if (post.author_picture) {
-    const img = document.createElement('img');
-    img.src = post.author_picture;
-    img.alt = '';
-    img.loading = 'lazy';
-    author.append(img);
-  }
-  const meta = element('div');
-  meta.append(elementWithText('strong', post.author_name || 'ChatPalez'));
-  meta.append(elementWithText('span', post.time || ''));
-  author.append(meta);
-  header.append(author);
-
-  const menu = secondaryButton('•••');
-  menu.classList.add('compact-button');
-  menu.addEventListener('click', () => {
-    const action = window.prompt('Type SAVE, REPORT or WEB');
-    if (!action) return;
-    const normalized = action.trim().toLowerCase();
-    if (normalized === 'web') {
-      handlers.onOpenWeb(post.url || `/posts/${post.post_id}`);
-      return;
-    }
-    if (normalized === 'save' && handlers.onSave) {
-      void handlers.onSave(post.post_id, post.i_save ? 'unsave' : 'save').then(() => handlers.onRefresh());
-      return;
-    }
-    if (normalized === 'report' && handlers.onReport) {
-      const reason = window.prompt('Reason for report');
-      if (reason) void handlers.onReport(post.post_id, reason).then(() => window.alert('Report submitted.'));
-    }
-  });
-  header.append(menu);
-  card.append(header);
-
-  if (post.text) card.append(elementWithText('div', post.text));
-
-  if (post.photos?.length) {
-    const media = element('div', 'native-feed-post__media');
-    for (const photo of post.photos.slice(0, 4)) {
-      const img = document.createElement('img');
-      img.src = photo.source;
-      img.alt = '';
-      img.loading = 'lazy';
-      media.append(img);
-    }
-    card.append(media);
-  } else if (post.video?.source || post.reel?.source) {
-    const video = document.createElement('video');
-    video.controls = true;
-    video.playsInline = true;
-    video.src = post.video?.source || post.reel?.source || '';
-    video.poster = post.video?.thumbnail || post.reel?.thumbnail || '';
-    card.append(video);
-  } else if (post.link) {
-    const link = element('a', 'native-feed-post__link');
-    link.href = post.link.url || '#';
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.append(elementWithText('strong', post.link.title || post.link.host || 'Link'));
-    if (post.link.description) link.append(elementWithText('span', post.link.description));
-    card.append(link);
-  }
-
-  const stats = element('div', 'native-feed-post__stats');
-  const reactionTotal = Object.values(post.reactions || {}).reduce((sum, value) => sum + Number(value || 0), 0);
-  stats.append(
-    elementWithText('span', `${reactionTotal} reactions`),
-    elementWithText('span', `${post.comments || 0} comments`)
-  );
-  card.append(stats);
-
-  const actions = element('div', 'native-feed-post__actions');
-  const like = secondaryButton(post.i_react ? 'Unlike' : 'Like');
-  like.classList.add('compact-button');
-  like.addEventListener('click', () => {
-    if (!handlers.onReact) return;
-    like.disabled = true;
-    void handlers.onReact(post.post_id, post.i_reaction || 'like', post.i_react ? 'unreact' : 'react')
-      .then(() => handlers.onRefresh())
-      .finally(() => { like.disabled = false; });
-  });
-
-  const comment = secondaryButton('Comment');
-  comment.classList.add('compact-button');
-  comment.addEventListener('click', () => {
-    if (!handlers.onComment) {
-      handlers.onOpenWeb(post.url || `/posts/${post.post_id}`);
-      return;
-    }
-    const message = window.prompt('Write a comment');
-    if (!message?.trim()) return;
-    comment.disabled = true;
-    void handlers.onComment(post.post_id, message.trim())
-      .then(() => handlers.onRefresh())
-      .finally(() => { comment.disabled = false; });
-  });
-
-  const open = secondaryButton('Open');
-  open.classList.add('compact-button');
-  open.addEventListener('click', () => handlers.onOpenWeb(post.url || `/posts/${post.post_id}`));
-
-  actions.append(like, comment, open);
-  card.append(actions);
-  return card;
 }
