@@ -2,24 +2,59 @@ package chatpalez.app.webview;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.getcapacitor.BridgeActivity;
+
+import java.io.InputStream;
+import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends BridgeActivity {
 
     private static final String SITE_ORIGIN = "https://chatpalez.com";
+    private static final int COLOR_BLUE = Color.rgb(0, 102, 178);
+    private static final int COLOR_TEXT = Color.rgb(31, 41, 55);
+    private static final int COLOR_MUTED = Color.rgb(107, 114, 128);
+    private static final int COLOR_BORDER = Color.rgb(229, 231, 235);
+    private static final int COLOR_AVATAR_BG = Color.rgb(232, 243, 251);
+
     private WebView webView;
-    private WebView topChrome;
-    private WebView bottomChrome;
+    private LinearLayout topChrome;
+    private LinearLayout bottomChrome;
     private ViewGroup.MarginLayoutParams webViewMargins;
+    private int baseWebViewTopMargin = 0;
+    private int baseWebViewBottomMargin = 0;
+
+    private LinearLayout brandButton;
+    private ImageView brandLogo;
+    private TextView brandText;
+    private TextView backButton;
+    private TextView contextText;
+    private ImageView groupsButton;
+    private ImageView pagesButton;
+    private ImageView avatarButton;
+    private TextView notificationBadge;
+
+    private final Map<String, BottomItem> bottomItems = new HashMap<>();
+
     private boolean chromeVisible = false;
     private String chromeContext = "";
     private String chromeActive = "";
@@ -29,6 +64,8 @@ public class MainActivity extends BridgeActivity {
     private boolean chromeGroupsEnabled = true;
     private boolean chromePagesEnabled = true;
     private boolean chromeShowBack = false;
+    private String loadedLogoUrl = "";
+    private String loadedAvatarUrl = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,10 +94,12 @@ public class MainActivity extends BridgeActivity {
 
         if (webView.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
             webViewMargins = (ViewGroup.MarginLayoutParams) webView.getLayoutParams();
+            baseWebViewTopMargin = webViewMargins.topMargin;
+            baseWebViewBottomMargin = webViewMargins.bottomMargin;
         }
 
-        topChrome = buildChromeWebView("top");
-        bottomChrome = buildChromeWebView("bottom");
+        topChrome = buildNativeTopChrome();
+        bottomChrome = buildNativeBottomChrome();
 
         FrameLayout.LayoutParams topParams = new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -77,20 +116,220 @@ public class MainActivity extends BridgeActivity {
         parent.addView(bottomChrome, bottomParams);
 
         setNativeChromeVisible(false);
+        pushCachedChromeState();
         webView.post(chromeStateWatcher);
     }
 
-    private WebView buildChromeWebView(String part) {
-        WebView chrome = new WebView(this);
-        chrome.setBackgroundColor(Color.WHITE);
-        chrome.setVerticalScrollBarEnabled(false);
-        chrome.setHorizontalScrollBarEnabled(false);
-        chrome.getSettings().setJavaScriptEnabled(true);
-        chrome.getSettings().setDomStorageEnabled(false);
-        chrome.addJavascriptInterface(new ChromeActionBridge(), "ChatPalezChromeAction");
-        chrome.loadUrl("file:///android_asset/public/native-chrome.html?part=" + Uri.encode(part));
-        chrome.postDelayed(this::pushCachedChromeState, 250);
-        return chrome;
+    private LinearLayout buildNativeTopChrome() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(dp(10), 0, dp(8), 0);
+        bar.setBackgroundColor(Color.WHITE);
+        bar.setElevation(dp(4));
+
+        brandButton = new LinearLayout(this);
+        brandButton.setOrientation(LinearLayout.HORIZONTAL);
+        brandButton.setGravity(Gravity.CENTER_VERTICAL);
+        brandButton.setPadding(dp(4), 0, dp(4), 0);
+        brandButton.setClickable(true);
+        brandButton.setFocusable(true);
+        brandButton.setOnClickListener(view -> performChromeAction("home"));
+
+        brandLogo = new ImageView(this);
+        brandLogo.setAdjustViewBounds(true);
+        brandLogo.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        brandLogo.setVisibility(View.GONE);
+        brandButton.addView(brandLogo, new LinearLayout.LayoutParams(dp(104), dp(34)));
+
+        brandText = new TextView(this);
+        brandText.setText("ChatPalez");
+        brandText.setTextColor(COLOR_BLUE);
+        brandText.setTextSize(18);
+        brandText.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        brandButton.addView(brandText, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        backButton = new TextView(this);
+        backButton.setText("‹");
+        backButton.setTextColor(COLOR_TEXT);
+        backButton.setTextSize(32);
+        backButton.setGravity(Gravity.CENTER);
+        backButton.setContentDescription("Back");
+        backButton.setClickable(true);
+        backButton.setFocusable(true);
+        backButton.setOnClickListener(view -> performChromeAction("back"));
+
+        contextText = new TextView(this);
+        contextText.setTextColor(COLOR_TEXT);
+        contextText.setTextSize(14);
+        contextText.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        contextText.setGravity(Gravity.CENTER);
+        contextText.setSingleLine(true);
+        contextText.setPadding(dp(3), 0, dp(3), 0);
+
+        bar.addView(brandButton, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        bar.addView(backButton, new LinearLayout.LayoutParams(dp(40), ViewGroup.LayoutParams.MATCH_PARENT));
+
+        LinearLayout.LayoutParams contextParams = new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            1f
+        );
+        bar.addView(contextText, contextParams);
+
+        bar.addView(nativeIconButton(R.drawable.cp_search, "search", "Search"), iconParams());
+
+        groupsButton = nativeIconButton(R.drawable.cp_groups, "groups", "Groups");
+        bar.addView(groupsButton, iconParams());
+
+        pagesButton = nativeIconButton(R.drawable.cp_pages, "pages", "Pages");
+        bar.addView(pagesButton, iconParams());
+
+        FrameLayout notificationFrame = new FrameLayout(this);
+        ImageView notificationButton = nativeIconButton(
+            R.drawable.cp_notifications,
+            "notifications",
+            "Notifications"
+        );
+        notificationFrame.addView(notificationButton, new FrameLayout.LayoutParams(dp(38), dp(38), Gravity.CENTER));
+
+        notificationBadge = new TextView(this);
+        notificationBadge.setTextColor(Color.WHITE);
+        notificationBadge.setTextSize(9);
+        notificationBadge.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        notificationBadge.setGravity(Gravity.CENTER);
+        notificationBadge.setMinWidth(dp(17));
+        notificationBadge.setPadding(dp(3), 0, dp(3), 0);
+        notificationBadge.setBackground(circleDrawable(Color.rgb(239, 68, 68)));
+        notificationBadge.setVisibility(View.GONE);
+        FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            dp(17),
+            Gravity.TOP | Gravity.END
+        );
+        badgeParams.topMargin = dp(1);
+        badgeParams.rightMargin = dp(1);
+        notificationFrame.addView(notificationBadge, badgeParams);
+        bar.addView(notificationFrame, iconParams());
+
+        avatarButton = new ImageView(this);
+        avatarButton.setImageResource(R.drawable.cp_profile);
+        avatarButton.setColorFilter(COLOR_BLUE);
+        avatarButton.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        avatarButton.setPadding(dp(8), dp(8), dp(8), dp(8));
+        avatarButton.setBackground(circleDrawable(COLOR_AVATAR_BG));
+        avatarButton.setClipToOutline(true);
+        avatarButton.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
+        avatarButton.setContentDescription("Profile");
+        avatarButton.setClickable(true);
+        avatarButton.setFocusable(true);
+        avatarButton.setOnClickListener(view -> performChromeAction("profile"));
+        LinearLayout.LayoutParams avatarParams = new LinearLayout.LayoutParams(dp(38), dp(38));
+        avatarParams.leftMargin = dp(2);
+        bar.addView(avatarButton, avatarParams);
+
+        return bar;
+    }
+
+    private LinearLayout buildNativeBottomChrome() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER);
+        bar.setPadding(dp(4), dp(4), dp(4), dp(5));
+        bar.setBackgroundColor(Color.WHITE);
+        bar.setElevation(dp(8));
+
+        addBottomItem(bar, "home", "Home", R.drawable.cp_home, false);
+        addBottomItem(bar, "reels", "Reels", R.drawable.cp_reels, false);
+        addBottomItem(bar, "create", "Create", R.drawable.cp_plus, true);
+        addBottomItem(bar, "messages", "Chat", R.drawable.cp_chat, false);
+        addBottomItem(bar, "profile", "Profile", R.drawable.cp_profile, false);
+
+        return bar;
+    }
+
+    private ImageView nativeIconButton(int drawable, String action, String contentDescription) {
+        ImageView button = new ImageView(this);
+        button.setImageResource(drawable);
+        button.setColorFilter(COLOR_TEXT);
+        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        button.setPadding(dp(8), dp(8), dp(8), dp(8));
+        button.setContentDescription(contentDescription);
+        button.setClickable(true);
+        button.setFocusable(true);
+        button.setOnClickListener(view -> performChromeAction(action));
+        return button;
+    }
+
+    private LinearLayout.LayoutParams iconParams() {
+        return new LinearLayout.LayoutParams(dp(38), dp(38));
+    }
+
+    private void addBottomItem(
+        LinearLayout bar,
+        String action,
+        String label,
+        int drawable,
+        boolean createAction
+    ) {
+        LinearLayout item = new LinearLayout(this);
+        item.setOrientation(LinearLayout.VERTICAL);
+        item.setGravity(Gravity.CENTER);
+        item.setClickable(true);
+        item.setFocusable(true);
+        item.setContentDescription(label);
+        item.setOnClickListener(view -> performChromeAction(action));
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(drawable);
+        icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+
+        LinearLayout.LayoutParams iconLayout;
+        if (createAction) {
+            icon.setColorFilter(Color.WHITE);
+            icon.setPadding(dp(10), dp(10), dp(10), dp(10));
+            icon.setBackground(circleDrawable(COLOR_BLUE));
+            iconLayout = new LinearLayout.LayoutParams(dp(44), dp(44));
+        } else {
+            icon.setColorFilter(COLOR_MUTED);
+            icon.setPadding(dp(3), dp(3), dp(3), dp(3));
+            iconLayout = new LinearLayout.LayoutParams(dp(27), dp(27));
+        }
+        item.addView(icon, iconLayout);
+
+        TextView text = new TextView(this);
+        text.setText(label);
+        text.setTextColor(COLOR_MUTED);
+        text.setTextSize(10);
+        text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        text.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams textLayout = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        if (createAction) textLayout.topMargin = -dp(2);
+        item.addView(text, textLayout);
+
+        LinearLayout.LayoutParams itemLayout = new LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            1f
+        );
+        bar.addView(item, itemLayout);
+        bottomItems.put(action, new BottomItem(item, icon, text, createAction));
+    }
+
+    private GradientDrawable circleDrawable(int color) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setShape(GradientDrawable.OVAL);
+        drawable.setColor(color);
+        return drawable;
     }
 
     private void performChromeAction(String action) {
@@ -234,15 +473,16 @@ public class MainActivity extends BridgeActivity {
     };
 
     private void setNativeChromeVisible(boolean visible) {
-        if (topChrome == null || bottomChrome == null || webView == null || chromeVisible == visible) return;
+        if (topChrome == null || bottomChrome == null || webView == null) return;
 
         chromeVisible = visible;
-        topChrome.setVisibility(visible ? WebView.VISIBLE : WebView.GONE);
-        bottomChrome.setVisibility(visible ? WebView.VISIBLE : WebView.GONE);
+        int visibility = visible ? View.VISIBLE : View.GONE;
+        topChrome.setVisibility(visibility);
+        bottomChrome.setVisibility(visibility);
 
         if (webViewMargins != null) {
-            webViewMargins.topMargin = visible ? dp(56) : 0;
-            webViewMargins.bottomMargin = visible ? dp(66) : 0;
+            webViewMargins.topMargin = baseWebViewTopMargin + (visible ? dp(56) : 0);
+            webViewMargins.bottomMargin = baseWebViewBottomMargin + (visible ? dp(66) : 0);
             webView.setLayoutParams(webViewMargins);
         }
     }
@@ -269,33 +509,85 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void pushCachedChromeState() {
-        String json = "{"
-            + "\"context\":\"" + js(chromeContext) + "\","
-            + "\"active\":\"" + js(chromeActive) + "\","
-            + "\"logo\":\"" + js(chromeLogo) + "\","
-            + "\"avatar\":\"" + js(chromeAvatar) + "\","
-            + "\"notifications\":" + chromeNotifications + ","
-            + "\"groupsEnabled\":" + chromeGroupsEnabled + ","
-            + "\"pagesEnabled\":" + chromePagesEnabled + ","
-            + "\"showBack\":" + chromeShowBack
-            + "}";
+        runOnUiThread(() -> {
+            if (contextText == null) return;
 
-        String call = "window.ChatPalezChrome&&window.ChatPalezChrome.setState(" + quoteJs(json) + ");";
-        if (topChrome != null) topChrome.post(() -> topChrome.evaluateJavascript(call, null));
-        if (bottomChrome != null) bottomChrome.post(() -> bottomChrome.evaluateJavascript(call, null));
+            contextText.setText(chromeContext);
+            brandButton.setVisibility(chromeShowBack ? View.GONE : View.VISIBLE);
+            backButton.setVisibility(chromeShowBack ? View.VISIBLE : View.GONE);
+            groupsButton.setVisibility(chromeGroupsEnabled ? View.VISIBLE : View.GONE);
+            pagesButton.setVisibility(chromePagesEnabled ? View.VISIBLE : View.GONE);
+
+            if (chromeNotifications > 0) {
+                notificationBadge.setText(chromeNotifications > 99 ? "99+" : String.valueOf(chromeNotifications));
+                notificationBadge.setVisibility(View.VISIBLE);
+            } else {
+                notificationBadge.setVisibility(View.GONE);
+            }
+
+            if (chromeLogo.isEmpty()) {
+                loadedLogoUrl = "";
+                brandLogo.setImageDrawable(null);
+                brandLogo.setVisibility(View.GONE);
+                brandText.setVisibility(View.VISIBLE);
+            } else if (!chromeLogo.equals(loadedLogoUrl)) {
+                loadedLogoUrl = chromeLogo;
+                loadRemoteImage(chromeLogo, brandLogo, () -> {
+                    if (chromeLogo.equals(loadedLogoUrl)) {
+                        brandLogo.setVisibility(View.VISIBLE);
+                        brandText.setVisibility(View.GONE);
+                    }
+                }, () -> {
+                    brandLogo.setVisibility(View.GONE);
+                    brandText.setVisibility(View.VISIBLE);
+                });
+            }
+
+            if (chromeAvatar.isEmpty()) {
+                loadedAvatarUrl = "";
+                showAvatarFallback();
+            } else if (!chromeAvatar.equals(loadedAvatarUrl)) {
+                loadedAvatarUrl = chromeAvatar;
+                loadRemoteImage(chromeAvatar, avatarButton, () -> {
+                    if (chromeAvatar.equals(loadedAvatarUrl)) {
+                        avatarButton.setPadding(0, 0, 0, 0);
+                        avatarButton.clearColorFilter();
+                    }
+                }, this::showAvatarFallback);
+            }
+
+            for (Map.Entry<String, BottomItem> entry : bottomItems.entrySet()) {
+                boolean active = entry.getKey().equals(chromeActive);
+                entry.getValue().setActive(active);
+            }
+        });
     }
 
-    private String js(String value) {
-        if (value == null) return "";
-        return value
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "");
+    private void showAvatarFallback() {
+        if (avatarButton == null) return;
+        avatarButton.setImageResource(R.drawable.cp_profile);
+        avatarButton.setColorFilter(COLOR_BLUE);
+        avatarButton.setPadding(dp(8), dp(8), dp(8), dp(8));
     }
 
-    private String quoteJs(String value) {
-        return "\"" + js(value) + "\"";
+    private void loadRemoteImage(
+        String rawUrl,
+        ImageView target,
+        Runnable onSuccess,
+        Runnable onFailure
+    ) {
+        new Thread(() -> {
+            try (InputStream input = new URL(rawUrl).openStream()) {
+                Bitmap bitmap = BitmapFactory.decodeStream(input);
+                if (bitmap == null) throw new IllegalStateException("Image decode failed");
+                runOnUiThread(() -> {
+                    target.setImageBitmap(bitmap);
+                    onSuccess.run();
+                });
+            } catch (Exception ignored) {
+                runOnUiThread(onFailure);
+            }
+        }).start();
     }
 
     private void handleChatPalezDeepLink(Intent intent) {
@@ -316,13 +608,6 @@ public class MainActivity extends BridgeActivity {
             || "messages".equals(target)
             || "notifications".equals(target)
             || "profile".equals(target);
-    }
-
-    private class ChromeActionBridge {
-        @JavascriptInterface
-        public void perform(String action) {
-            runOnUiThread(() -> performChromeAction(action));
-        }
     }
 
     private class ChatPalezNativeBridge {
@@ -365,6 +650,30 @@ public class MainActivity extends BridgeActivity {
                 pagesEnabled,
                 showBack
             ));
+        }
+    }
+
+    private class BottomItem {
+        final View root;
+        final ImageView icon;
+        final TextView label;
+        final boolean createAction;
+
+        BottomItem(View root, ImageView icon, TextView label, boolean createAction) {
+            this.root = root;
+            this.icon = icon;
+            this.label = label;
+            this.createAction = createAction;
+        }
+
+        void setActive(boolean active) {
+            int tint = active ? COLOR_BLUE : COLOR_MUTED;
+            label.setTextColor(tint);
+            label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
+            if (!createAction) {
+                icon.setColorFilter(tint);
+            }
+            root.setSelected(active);
         }
     }
 
