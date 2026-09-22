@@ -445,3 +445,12 @@ Code/UI audit after native-profile milestone:
 - Fixed the retained-web Profile tab so it hands off to the app-owned native Profile/account hub, matching Chat and Notifications handoff behavior.
 - Native deep-link screen allowlist now includes `profile`.
 - iOS submission audit flags remaining release checks: on-device iOS validation; UGC filtering/report/block/contact verification; privacy-label/privacy-policy reconciliation; social-login equivalence/Sign in with Apple review if third-party login is exposed; account-deletion verification including user-generated content; age-rating/social-media questionnaire; App Review demo account; and IAP review if digital goods/subscriptions are sold in-app.
+
+
+### UGC actions, sharing, and media-picker audit — 2026-09-22
+- Confirmed retained feed already exposes **Report post** in each non-owned post's overflow menu, backed by the existing report modal/administration flow.
+- Confirmed other-user profiles already expose both **Report** and **Block** in the profile overflow menu; Block uses Sngine's `js_block-user` workflow.
+- Feed sharing was web-modal-first and felt non-native. Mobile-app feed Share actions are now marked for the ChatPalez bridge and invoke Capacitor's native OS share sheet; browser/web behavior retains the existing Sngine share modal (timeline/page/group/event + copy/social links).
+- Media upload remains a release concern: retained-web publisher/profile uploads use Sngine `js_x-uploader` file inputs, while native Chat uses a normal image file input/API upload. iOS already declares Photo Library and Camera purpose strings, but the installed WebView picker/gallery behavior still needs physical-device verification.
+- Recommended next media milestone: add an explicit app bridge/media-picker path for retained-web upload controls (Choose from Photos / Take Photo / Files) rather than relying solely on WebView file-input behavior.
+- UGC acceptance: verify Report post on feed, Report/Block on another user's profile, moderation submission, native OS share sheet, and photo/gallery/camera selection on both Android and iOS.
