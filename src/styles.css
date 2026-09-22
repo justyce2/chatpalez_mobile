@@ -1146,3 +1146,39 @@ p { color: #64748b; line-height: 1.55; }
   object-fit: cover !important;
   object-position: center !important;
 }
+
+
+/* Chat identity images: every avatar surface uses a fixed circular crop. */
+.chat-conversation-item .conversation-avatar,
+.selectable-contact .contact-avatar {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  flex: 0 0 44px !important;
+  display: grid !important;
+  place-items: center;
+  overflow: hidden !important;
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1;
+  background: #E8F3FB;
+  color: #0066B2;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+.chat-conversation-item .conversation-avatar > img,
+.selectable-contact .contact-avatar > img {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  display: block !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+}
