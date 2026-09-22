@@ -29,23 +29,36 @@ let storageReady: Promise<void> | null = null;
 export async function restoreSession(): Promise<AuthSession | null> {
   if (!isNative()) return current;
 
-  try {
-    await prepareNativeStorage();
-    const raw = await SecureStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
+  await prepareNativeStorage();
 
-    const restored = parseSession(raw);
-    if (!restored) {
-      await SecureStorage.removeItem(SESSION_KEY);
-      return null;
+  let raw: string | null = null;
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      raw = await SecureStorage.getItem(SESSION_KEY);
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 100));
     }
-
-    current = restored;
-    return current;
-  } catch {
-    // A protected-store failure must never make us fall back to browser storage.
-    return current;
   }
+
+  if (lastError) {
+    throw new Error('The secure mobile session could not be restored.');
+  }
+
+  if (!raw) return null;
+
+  const restored = parseSession(raw);
+  if (!restored) {
+    await SecureStorage.removeItem(SESSION_KEY);
+    throw new Error('The stored mobile session is invalid. Please sign in again.');
+  }
+
+  current = restored;
+  return current;
 }
 
 export function getSession(): AuthSession | null {
@@ -68,8 +81,17 @@ export async function setSession(session: AuthSession): Promise<void> {
   try {
     await prepareNativeStorage();
     await SecureStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  } catch {
-    // Do not write a JWT to sessionStorage/localStorage as a fallback.
+
+    // Verify persistence immediately. A successful API login is not enough:
+    // local/API-driven screens must be able to restore the same token after
+    // the WebView leaves the bundled app for retained web content.
+    const persisted = await SecureStorage.getItem(SESSION_KEY);
+    if (!persisted || !parseSession(persisted)) {
+      throw new Error('Secure session verification failed.');
+    }
+  } catch (error) {
+    current = null;
+    throw new Error('ChatPalez could not securely save your mobile session.');
   }
 }
 
