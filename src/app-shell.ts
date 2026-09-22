@@ -37,7 +37,7 @@ export type AppShellHandlers = {
 export type AppShell = {
   showStartup: (title: string, message: string, canRetry?: boolean) => void;
   showLogin: (error?: string) => void;
-  showAuthenticated: (session: AuthSession) => void;
+  showAuthenticated: (session: AuthSession, initialTab?: 'home' | 'messages' | 'notifications' | 'profile') => void;
   setBusy: (busy: boolean, message?: string) => void;
   setRetryAction: (action: () => void) => void;
 };
@@ -93,7 +93,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     root.append(wrap);
   };
 
-  const showAuthenticated = (session: AuthSession): void => {
+  const showAuthenticated = (session: AuthSession, initialTab: 'home' | 'messages' | 'notifications' | 'profile' = 'home'): void => {
     root.replaceChildren();
     const user = session.user;
     const displayName = String(user.user_fullname || user.user_firstname || user.user_name || 'ChatPalez');
@@ -604,7 +604,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     layout.append(topbar, content, nav);
     root.append(layout);
-    void selectTab('home');
+    void selectTab(initialTab);
   };
 
   const setBusy = (busy: boolean, message = 'Please wait…'): void => {
