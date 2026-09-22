@@ -866,3 +866,102 @@ p { color: #64748b; line-height: 1.55; }
   .conversation-header .compact-button { padding-left: 8px; padding-right: 8px; }
   .message-bubble { max-width: 88%; }
 }
+
+
+/* Native profile */
+.native-profile-card {
+  overflow: hidden;
+  margin-top: 12px;
+  border: 1px solid #E5E7EB;
+  border-radius: 18px;
+  background: #FFFFFF;
+}
+.native-profile-cover {
+  width: 100%;
+  height: 132px;
+  display: block;
+  object-fit: cover;
+  background: #E8F3FB;
+}
+.native-profile-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+}
+.native-profile-avatar {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  border: 3px solid #FFFFFF;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #E8F3FB;
+}
+.native-profile-card .native-profile-cover + .native-profile-identity .native-profile-avatar {
+  margin-top: -42px;
+}
+.native-profile-avatar--fallback {
+  display: grid;
+  place-items: center;
+  color: #0066B2;
+  font-weight: 800;
+}
+.native-profile-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.native-profile-copy > span {
+  color: #6B7280;
+  font-size: 12px;
+}
+.native-profile-copy p {
+  margin: 5px 0 0;
+  color: #374151;
+  font-size: 13px;
+}
+.native-profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.native-profile-name-row strong {
+  overflow: hidden;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.native-profile-name-row span {
+  color: #0066B2;
+  font-weight: 800;
+}
+.native-profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  border-top: 1px solid #EEF2F7;
+}
+.native-profile-stat {
+  padding: 11px 6px;
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+.native-profile-stat + .native-profile-stat {
+  border-left: 1px solid #EEF2F7;
+}
+.native-profile-stat strong { font-size: 14px; }
+.native-profile-stat span { color: #6B7280; font-size: 10px; }
+.native-profile-details {
+  gap: 0;
+}
+.native-profile-detail-row {
+  min-height: 44px;
+  padding: 10px 0;
+  display: grid;
+  gap: 2px;
+  border-bottom: 1px solid #EEF2F7;
+}
+.native-profile-detail-row:last-child { border-bottom: 0; }
+.native-profile-detail-row span { color: #6B7280; font-size: 11px; }
+.native-profile-detail-row strong { color: #1F2937; font-size: 13px; font-weight: 650; }
