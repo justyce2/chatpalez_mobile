@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -193,7 +194,7 @@ public class MainActivity extends BridgeActivity {
         button.setContentDescription(description);
         button.setColorFilter(Color.rgb(31, 41, 55));
         button.setBackgroundColor(Color.TRANSPARENT);
-        button.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
+        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(40), dp(40));
         params.setMargins(dp(1), 0, dp(1), 0);
         button.setLayoutParams(params);
