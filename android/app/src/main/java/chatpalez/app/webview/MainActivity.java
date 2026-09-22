@@ -21,6 +21,14 @@ public class MainActivity extends BridgeActivity {
     private WebView bottomChrome;
     private ViewGroup.MarginLayoutParams webViewMargins;
     private boolean chromeVisible = false;
+    private String chromeContext = "";
+    private String chromeActive = "";
+    private String chromeLogo = "";
+    private String chromeAvatar = "";
+    private int chromeNotifications = 0;
+    private boolean chromeGroupsEnabled = true;
+    private boolean chromePagesEnabled = true;
+    private boolean chromeShowBack = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,6 +89,7 @@ public class MainActivity extends BridgeActivity {
         chrome.getSettings().setDomStorageEnabled(false);
         chrome.addJavascriptInterface(new ChromeActionBridge(), "ChatPalezChromeAction");
         chrome.loadUrl("file:///android_asset/public/native-chrome.html?part=" + Uri.encode(part));
+        chrome.postDelayed(this::pushCachedChromeState, 250);
         return chrome;
     }
 
@@ -191,6 +200,18 @@ public class MainActivity extends BridgeActivity {
 
     private void openNativeScreen(String target) {
         if (webView == null || !isAllowedNativeTarget(target)) return;
+        if ("messages".equals(target)) {
+            chromeActive = "messages";
+            chromeContext = "Chat";
+        } else if ("profile".equals(target)) {
+            chromeActive = "profile";
+            chromeContext = "Profile";
+        } else if ("notifications".equals(target)) {
+            chromeActive = "";
+            chromeContext = "Notifications";
+        }
+        chromeShowBack = false;
+        pushCachedChromeState();
         webView.loadUrl("http://localhost/?native=" + Uri.encode(target));
     }
 
@@ -236,15 +257,27 @@ public class MainActivity extends BridgeActivity {
         boolean pagesEnabled,
         boolean showBack
     ) {
+        chromeContext = context == null ? "" : context;
+        chromeActive = active == null ? "" : active;
+        chromeLogo = logo == null ? "" : logo;
+        chromeAvatar = avatar == null ? "" : avatar;
+        chromeNotifications = notifications;
+        chromeGroupsEnabled = groupsEnabled;
+        chromePagesEnabled = pagesEnabled;
+        chromeShowBack = showBack;
+        pushCachedChromeState();
+    }
+
+    private void pushCachedChromeState() {
         String json = "{"
-            + "\"context\":\"" + js(context) + "\","
-            + "\"active\":\"" + js(active) + "\","
-            + "\"logo\":\"" + js(logo) + "\","
-            + "\"avatar\":\"" + js(avatar) + "\","
-            + "\"notifications\":" + notifications + ","
-            + "\"groupsEnabled\":" + groupsEnabled + ","
-            + "\"pagesEnabled\":" + pagesEnabled + ","
-            + "\"showBack\":" + showBack
+            + "\"context\":\"" + js(chromeContext) + "\","
+            + "\"active\":\"" + js(chromeActive) + "\","
+            + "\"logo\":\"" + js(chromeLogo) + "\","
+            + "\"avatar\":\"" + js(chromeAvatar) + "\","
+            + "\"notifications\":" + chromeNotifications + ","
+            + "\"groupsEnabled\":" + chromeGroupsEnabled + ","
+            + "\"pagesEnabled\":" + chromePagesEnabled + ","
+            + "\"showBack\":" + chromeShowBack
             + "}";
 
         String call = "window.ChatPalezChrome&&window.ChatPalezChrome.setState(" + quoteJs(json) + ");";
