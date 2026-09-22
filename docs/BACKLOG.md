@@ -417,3 +417,11 @@ Implemented:
 Architecture decision: keep the feed server-rendered in `chatpalez_app` because the audited Sngine API still lacks the required feed/post contract. Keep Chat and Notifications app-owned/local because their supported API services already exist. The five-item web bottom bar remains the visual bridge on retained-web pages, while Chat/Notifications hand off to native/local screens.
 
 Acceptance still required on device after pulling both repositories: confirm 360px/390px widths, no right-side dead strip, avatar/text insets, no blank band above the header, notification opens local Notifications without login, Chat opens local Chat without login, Create still opens the publisher, and Home/Discover/Profile remain authenticated.
+
+
+### Navigation refinement — 2026-09-22
+Implemented the client-priority navigation change in the installed app theme:
+- Bottom navigation is now **Home · Reels · Create · Chat · Profile**.
+- **Discover** was removed from the bottom bar because global Search/Discover is already available from the header.
+- Added a dedicated **Groups** shortcut to the app header, between Search and Notifications, conditional on Groups being enabled.
+- Reels opens the existing `/reels` experience; Groups opens `/groups`.
