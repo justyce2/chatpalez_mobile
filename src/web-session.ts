@@ -4,6 +4,7 @@ export type WebSessionTransitionOptions = {
   config: AppConfig;
   token: string;
   path: string;
+  target?: string;
 };
 
 /**
@@ -18,10 +19,12 @@ export function openAuthenticatedWebModule(options: WebSessionTransitionOptions)
   form.action = transition.action;
   form.style.display = 'none';
   form.autocomplete = 'off';
+  if (options.target) form.target = options.target;
 
   form.append(hiddenInput('token', transition.token), hiddenInput('path', transition.path));
   document.body.append(form);
   form.submit();
+  window.setTimeout(() => form.remove(), 0);
 }
 
 export type WebSessionTransition = {

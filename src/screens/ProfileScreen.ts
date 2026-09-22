@@ -20,7 +20,7 @@ export type ProfileScreenHandlers = {
   onDeleteAccount?: (password: string) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenPublicPage?: (path: string) => void;
-  onOpenWebModule: (path: string) => void;
+  onOpenWebModule: (path: string, target?: string) => void;
 };
 
 export class ProfileScreen {

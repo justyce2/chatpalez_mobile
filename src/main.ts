@@ -104,10 +104,9 @@ async function showAuthenticatedSession(session: AuthSession): Promise<void> {
     });
   }
 
-  // Feed is the post-login home for the preserved develop build.
-  // The JWT-to-web-session bridge establishes the normal Sngine web cookies
-  // and opens the authenticated mobile feed directly in the main WebView.
-  await openWebModule('/');
+  // Keep the shared Capacitor shell resident after authentication. Retained
+  // Sngine pages are opened inside the shell rather than replacing the app root.
+  shell.showAuthenticated(session, 'home');
 }
 
 function requestedNativeScreen(): 'feed' | 'messages' | 'notifications' | 'profile' | null {
@@ -148,7 +147,7 @@ function openPublicModule(path: string): void {
   window.location.assign(destination.toString());
 }
 
-async function openWebModule(path: string): Promise<void> {
+async function openWebModule(path: string, target?: string): Promise<void> {
   const token = getAuthToken();
   if (!token) {
     void clearSession();
@@ -162,8 +161,8 @@ async function openWebModule(path: string): Promise<void> {
       window.alert('This ChatPalez section needs an internet connection. Reconnect and try again.');
       return;
     }
-    logInfo('Authenticated retained-web transition requested', { path });
-    openAuthenticatedWebModule({ config, token, path });
+    logInfo('Authenticated retained-web transition requested', { path, target: target ?? null });
+    openAuthenticatedWebModule({ config, token, path, target });
   } catch (error) {
     logWarn('Retained-web transition was blocked', {
       path,
@@ -388,8 +387,7 @@ async function bootstrap(): Promise<void> {
         logInfo('Opening retained web module through restored mobile session', { path: webPath });
         await openWebModule(webPath);
       } else if (nativeScreen === 'feed') {
-        // Feed remains retained-web in the current three-layer hybrid.
-        await openWebModule('/');
+        shell.showAuthenticated(session, 'home');
       } else if (nativeScreen === 'messages') {
         logInfo('Opening API-driven native messaging screen');
         shell.showAuthenticated(session, 'messages');

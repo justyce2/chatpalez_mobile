@@ -16,7 +16,7 @@ export type PageResult<T> = { items: T[]; hasMore: boolean; };
 export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
-  onOpenWebModule: (path: string) => void;
+  onOpenWebModule: (path: string, target?: string) => void;
   onOpenPublicPage?: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
@@ -192,21 +192,46 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onMarkSeen: handlers.onMarkSeen
     });
 
+    function showRetainedModule(path: string, titleText: string, activeTab: string): void {
+      for (const [id, button] of buttons) button.classList.toggle('is-active', id === activeTab);
+      content.replaceChildren();
+
+      const wrapper = element('section', 'retained-module');
+      const loading = paragraph(`Opening ${titleText}…`);
+      loading.className = 'retained-module-loading';
+
+      const frame = document.createElement('iframe');
+      frame.className = 'retained-module-frame';
+      frame.name = 'chatpalez-retained-module';
+      frame.title = titleText;
+      frame.setAttribute('allow', 'camera; microphone; autoplay; clipboard-write');
+      frame.addEventListener('load', () => {
+        loading.hidden = true;
+        frame.classList.add('is-ready');
+      });
+      frame.addEventListener('error', () => {
+        loading.hidden = false;
+        loading.textContent = `Unable to open ${titleText}. Check your connection and try again.`;
+      });
+
+      wrapper.append(loading, frame);
+      content.append(wrapper);
+      handlers.onOpenWebModule(path, frame.name);
+    }
+
     async function selectTab(tab: string): Promise<void> {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
       content.replaceChildren();
       if (tab === 'home') {
-        // Home remains on the stable ChatPalez app theme until the native feed API
-        // is explicitly re-enabled and device-validated.
-        handlers.onOpenWebModule('/');
+        showRetainedModule('/', 'Home', 'home');
         return;
       }
       if (tab === 'reels') {
-        handlers.onOpenWebModule('/reels');
+        showRetainedModule('/reels', 'Reels', 'reels');
         return;
       }
       if (tab === 'create') {
-        handlers.onOpenWebModule('/?publisher=open');
+        showRetainedModule('/?publisher=open', 'Create', 'create');
         return;
       }
       if (tab === 'messages') {

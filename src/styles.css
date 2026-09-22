@@ -1051,3 +1051,20 @@ p { color: #64748b; line-height: 1.55; }
   color: #0f172a;
 }
 .settings-form-status { margin: 0; min-height: 20px; }
+
+.retained-module {
+  width: 100%;
+  min-height: calc(100dvh - 150px);
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+.retained-module-loading { margin: 8px 0 12px; text-align: center; }
+.retained-module-frame {
+  width: 100%;
+  min-height: calc(100dvh - 170px);
+  border: 0;
+  background: #fff;
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+.retained-module-frame.is-ready { opacity: 1; }
