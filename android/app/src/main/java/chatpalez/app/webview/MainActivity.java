@@ -508,7 +508,7 @@ public class MainActivity extends BridgeActivity {
             String url = webView.getUrl();
             boolean authenticatedSurface = false;
             if (url != null) {
-                authenticatedSurface = url.startsWith(SITE_ORIGIN)
+                authenticatedSurface = isChatPalezWebUrl(url)
                     || url.contains("?native=messages")
                     || url.contains("?native=notifications")
                     || url.contains("?native=profile");
@@ -518,6 +518,17 @@ public class MainActivity extends BridgeActivity {
             webView.postDelayed(this, 350);
         }
     };
+
+    private boolean isChatPalezWebUrl(String rawUrl) {
+        try {
+            Uri uri = Uri.parse(rawUrl);
+            String host = uri.getHost();
+            return "https".equalsIgnoreCase(uri.getScheme())
+                && ("chatpalez.com".equalsIgnoreCase(host) || "www.chatpalez.com".equalsIgnoreCase(host));
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
 
     private void setNativeChromeVisible(boolean visible) {
         if (topChrome == null || bottomChrome == null || webView == null) return;
