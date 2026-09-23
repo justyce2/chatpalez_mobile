@@ -270,6 +270,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onOpenWebModule: handlers.onOpenWebModule
     });
     const chatScreen = new ChatScreen(content, session, {
+      onConversationModeChange: (active) => {
+        layout.classList.toggle('is-active-conversation', active);
+        nav.hidden = active;
+      },
       resolveChatPhotoUrl: handlers.resolveChatPhotoUrl,
       onLoadConversations: handlers.onLoadConversations,
       onLoadContacts: handlers.onLoadContacts,
