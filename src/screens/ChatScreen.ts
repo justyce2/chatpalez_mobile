@@ -18,6 +18,7 @@ export type ChatScreenHandlers = {
   onReactToMessage?: (messageId: number | string, reaction: string) => Promise<void>;
   onDeleteMessage?: (messageId: number | string) => Promise<void>;
   onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
+  onOpenConversation?: (conversationId: number | string, refresh: () => Promise<void>) => (() => void) | void;
 };
 
 export class ChatScreen {
@@ -355,6 +356,15 @@ export class ChatScreen {
         if (!older) thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
       }
     };
+
+    const stopRealtime = this.handlers.onOpenConversation?.(conversationId, () => refresh(false));
+
+    const leaveThread = (): void => {
+      if (typingTimer) window.clearTimeout(typingTimer);
+      setTyping(false);
+      stopRealtime?.();
+    };
+    back.addEventListener('click', leaveThread, { once: true });
 
     loadOlder.addEventListener('click', () => void refresh(true));
     composer.addEventListener('submit', (event) => {
