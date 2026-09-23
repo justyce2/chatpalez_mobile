@@ -34,6 +34,8 @@ interface WebContentSurfaceNativePlugin {
   postMessage(options: { message: unknown }): Promise<void>;
   showCreateActions(): Promise<{ action?: string }>;
   addListener(eventName: 'routeChanged', listener: (event: { url: string }) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(eventName: 'loadStarted', listener: (event: { url?: string }) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(eventName: 'loadFinished', listener: (event: { url: string }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: 'command', listener: (event: WebSurfaceCommand) => void): Promise<{ remove: () => Promise<void> }>;
 }
 
@@ -146,6 +148,18 @@ export class WebContentSurface {
   async onCommand(listener: (command: WebSurfaceCommand) => void): Promise<() => Promise<void>> {
     if (!this.isSupported()) return async () => undefined;
     const handle = await NativeSurface.addListener('command', listener);
+    return () => handle.remove();
+  }
+
+  async onLoadStarted(listener: (url?: string) => void): Promise<() => Promise<void>> {
+    if (!this.isSupported()) return async () => undefined;
+    const handle = await NativeSurface.addListener('loadStarted', ({ url }) => listener(url));
+    return () => handle.remove();
+  }
+
+  async onLoadFinished(listener: (url: string) => void): Promise<() => Promise<void>> {
+    if (!this.isSupported()) return async () => undefined;
+    const handle = await NativeSurface.addListener('loadFinished', ({ url }) => listener(url));
     return () => handle.remove();
   }
 
