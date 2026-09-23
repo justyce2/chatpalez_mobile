@@ -1,5 +1,6 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from '../api/chat';
 import type { AuthSession } from '../auth/session';
+import { CoalescedResync } from '../chat-resync';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
 
@@ -333,20 +334,12 @@ export class ChatScreen {
     text.addEventListener('blur', () => setTyping(false));
 
     let historyOffset = 0;
-    let refreshInFlight = false;
-    let refreshQueued = false;
+    let latestResync: CoalescedResync;
     const refresh = async (older = false): Promise<void> => {
-      /*
-       * Realtime message/typing/seen events can arrive in bursts. Coalesce
-       * ordinary resyncs so one slow HTTP request cannot fan out into several
-       * overlapping history loads. Explicit "load older" paging remains
-       * independent and is never collapsed into a newest-message refresh.
-       */
-      if (!older && refreshInFlight) {
-        refreshQueued = true;
+      if (!older && latestResync?.isRunning) {
+        await latestResync.request();
         return;
       }
-      if (!older) refreshInFlight = true;
       try {
         const nextOffset = older ? historyOffset + 1 : 0;
         const result = await this.handlers.onLoadMessages!(conversationId, nextOffset);
@@ -377,19 +370,12 @@ export class ChatScreen {
         if (ids.length && this.handlers.onMarkSeen) void this.handlers.onMarkSeen(ids).catch(() => undefined);
       } catch (error) {
         if (!older) thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
-      } finally {
-        if (!older) {
-          refreshInFlight = false;
-          if (refreshQueued) {
-            refreshQueued = false;
-            void refresh(false);
-          }
-        }
       }
     };
+    latestResync = new CoalescedResync(() => refresh(false));
 
     const stopRealtime = this.handlers.onOpenConversation?.(conversation, {
-      refresh: () => refresh(false),
+      refresh: () => latestResync.request(),
       setTyping: (typingNameList) => {
         presence.textContent = typingNameList ? `${typingNameList} typing…` : presence.textContent;
       },
