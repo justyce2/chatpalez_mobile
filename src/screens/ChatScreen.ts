@@ -319,7 +319,10 @@ export class ChatScreen {
     this.content.append(composer);
 
     let typingTimer: number | undefined;
+    let typingActive = false;
     const setTyping = (typing: boolean): void => {
+      if (typingActive === typing) return;
+      typingActive = typing;
       if (this.handlers.onTyping) void this.handlers.onTyping(conversationId, typing).catch(() => undefined);
     };
     text.addEventListener('input', () => {
