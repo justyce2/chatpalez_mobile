@@ -497,9 +497,6 @@ const shell = createAppShell(root, {
     const participantIds = new Set(
       (conversation.recipients ?? []).map((recipient) => String(recipient.user_id))
     );
-    events.markConversationSeen = () => {
-      if (chatRealtime.isConnected()) chatRealtime.markSeen(conversationId);
-    };
     const stop = chatRealtime.subscribe({
       onMessage: (event) => {
         if (String(event.conversation?.conversation_id ?? '') === currentConversationId) void events.refresh();
