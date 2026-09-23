@@ -37,6 +37,7 @@ const mobileBridge = installMobileBridge(config);
 bindWebBridgeEvents(mobileBridge, config);
 let handlingSessionExpiry = false;
 let nativeLifecycleRegistration: Promise<void> | null = null;
+let webSurfaceRouteRegistration: Promise<void> | null = null;
 const api = new ChatPalezApiClient({
   config,
   getAuthToken,
@@ -180,6 +181,18 @@ async function openWebModule(path: string, target?: string): Promise<void> {
     });
     window.alert(error instanceof Error ? error.message : 'Unable to open this ChatPalez section.');
   }
+}
+
+async function ensureWebSurfaceRouteRegistration(): Promise<void> {
+  if (!webSurfaceRouteRegistration && webContentSurface.isSupported()) {
+    webSurfaceRouteRegistration = webContentSurface.onRouteChanged((url) => {
+      mobileBridge.notifyRouteChanged(url);
+    }).then(() => undefined).catch((error) => {
+      webSurfaceRouteRegistration = null;
+      throw error;
+    });
+  }
+  await webSurfaceRouteRegistration;
 }
 
 async function ensureNativeLifecycleRegistration(): Promise<void> {
@@ -379,6 +392,7 @@ async function bootstrap(): Promise<void> {
 
   try {
     await ensureNativeLifecycleRegistration();
+    await ensureWebSurfaceRouteRegistration();
 
     const network = await Network.getStatus();
     if (!network.connected) {
