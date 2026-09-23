@@ -217,7 +217,7 @@ async function ensureWebSurfaceCommandRegistration(): Promise<void> {
           renderLogin('Your session has expired. Sign in again to continue.');
           return;
         }
-        shell.showAuthenticated(session, screen);
+        void shell.navigateToNative(screen);
       }
     }).then(() => undefined).catch((error) => {
       webSurfaceCommandRegistration = null;
@@ -231,6 +231,9 @@ async function ensureWebSurfaceRouteRegistration(): Promise<void> {
   if (!webSurfaceRouteRegistration && webContentSurface.isSupported()) {
     webSurfaceRouteRegistration = webContentSurface.onRouteChanged((url) => {
       mobileBridge.notifyRouteChanged(url);
+      void webContentSurface.canGoBack()
+        .then((available) => shell.setWebBackAvailable(available))
+        .catch(() => shell.setWebBackAvailable(false));
     }).then(() => undefined).catch((error) => {
       webSurfaceRouteRegistration = null;
       throw error;
@@ -255,7 +258,7 @@ async function ensureNativeLifecycleRegistration(): Promise<void> {
         }
 
         logInfo('Native app screen requested from retained web module', { screen });
-        shell.showAuthenticated(session, screen);
+        void shell.navigateToNative(screen);
       },
       () => shell.navigateBack()
     ).catch((error) => {
