@@ -95,6 +95,12 @@ export class WebContentSurface {
     this.visible = false;
   }
 
+  async reset(): Promise<void> {
+    await this.hide();
+    this.opened = false;
+    this.currentPath = null;
+  }
+
   async syncFrame(): Promise<void> {
     if (!this.isSupported() || !this.visible) return;
     await NativeSurface.setFrame(currentFrame());
