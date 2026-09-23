@@ -67,6 +67,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   let activeNativeNavigationHandler: ((screen: 'messages' | 'notifications' | 'profile') => Promise<boolean>) | null = null;
   let activeWebBackAvailabilityHandler: ((available: boolean) => void) | null = null;
   let retryAction: (() => void) | null = null;
+  let authBackHandler: (() => boolean) | null = null;
 
   const showStartup = (title: string, message: string, canRetry = false): void => {
     root.replaceChildren();
@@ -81,6 +82,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   };
 
   const showLogin = (error?: string): void => {
+    authBackHandler = null;
     root.replaceChildren();
     const wrap = element('section', 'auth-screen');
     const header = element('div', 'auth-header');
@@ -1116,7 +1118,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     showStartup,
     showLogin,
     showAuthenticated,
-    navigateBack: async () => activeBackHandler ? activeBackHandler() : false,
+    navigateBack: async () => {
+      if (authBackHandler?.()) return true;
+      return activeBackHandler ? activeBackHandler() : false;
+    },
     navigateToNative: async (screen) => activeNativeNavigationHandler ? activeNativeNavigationHandler(screen) : false,
     setWebBackAvailable: (available) => activeWebBackAvailabilityHandler?.(available),
     setBusy,
