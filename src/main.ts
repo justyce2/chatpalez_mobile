@@ -158,7 +158,18 @@ function openPublicModule(path: string): void {
     return;
   }
 
-  window.location.assign(destination.toString());
+  const titles: Record<string, string> = {
+    '/static/privacy': 'Privacy Policy',
+    '/static/terms': 'Terms',
+    '/static/childsafetypolicy': 'Child Safety'
+  };
+  const frame = shell.showPublicPage(titles[destination.pathname] || 'ChatPalez', () => renderLogin());
+  if (frame instanceof HTMLIFrameElement) {
+    shell.setBusy(true, 'Loading page…');
+    frame.addEventListener('load', () => shell.setBusy(false), { once: true });
+    frame.addEventListener('error', () => shell.setBusy(false), { once: true });
+    frame.src = destination.toString();
+  }
 }
 
 async function openWebModule(path: string, target?: string): Promise<void> {
