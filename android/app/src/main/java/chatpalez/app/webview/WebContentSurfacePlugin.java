@@ -8,6 +8,7 @@ import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.WebResourceRequest;
 import android.widget.FrameLayout;
 
 import com.getcapacitor.JSObject;
@@ -22,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 @CapacitorPlugin(name = "WebContentSurface")
 public class WebContentSurfacePlugin extends Plugin {
     private WebView contentWebView;
+    private String allowedOrigin;
 
     @Override
     public void load() {
@@ -50,7 +52,17 @@ public class WebContentSurfacePlugin extends Plugin {
         cookies.setAcceptCookie(true);
         cookies.setAcceptThirdPartyCookies(contentWebView, true);
 
-        contentWebView.setWebViewClient(new WebViewClient());
+        contentWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return !isAllowed(request.getUrl());
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                emitRouteChanged(url);
+            }
+        });
         host.addView(contentWebView, new FrameLayout.LayoutParams(1, 1));
         contentWebView.bringToFront();
     }
@@ -60,13 +72,16 @@ public class WebContentSurfacePlugin extends Plugin {
         String action = call.getString("action");
         String token = call.getString("token");
         String path = call.getString("path");
-        if (action == null || token == null || path == null) {
+        String requestedOrigin = call.getString("allowedOrigin");
+        if (action == null || token == null || path == null || requestedOrigin == null) {
             call.reject("Missing authenticated web transition.");
             return;
         }
 
         Uri actionUri = Uri.parse(action);
-        if (!"https".equalsIgnoreCase(actionUri.getScheme())) {
+        Uri originUri = Uri.parse(requestedOrigin);
+        if (!"https".equalsIgnoreCase(actionUri.getScheme()) || !"https".equalsIgnoreCase(originUri.getScheme())
+                || actionUri.getHost() == null || !actionUri.getHost().equalsIgnoreCase(originUri.getHost())) {
             call.reject("ChatPalez web content requires HTTPS.");
             return;
         }
@@ -78,6 +93,7 @@ public class WebContentSurfacePlugin extends Plugin {
                 return;
             }
 
+            allowedOrigin = requestedOrigin;
             applyFrame(call);
             String body = "token=" + encode(token) + "&path=" + encode(path);
             contentWebView.setVisibility(View.VISIBLE);
@@ -156,6 +172,23 @@ public class WebContentSurfacePlugin extends Plugin {
         params.leftMargin = x;
         params.topMargin = y;
         contentWebView.setLayoutParams(params);
+    }
+
+
+    private boolean isAllowed(Uri uri) {
+        if (uri == null || allowedOrigin == null) return false;
+        Uri trusted = Uri.parse(allowedOrigin);
+        return "https".equalsIgnoreCase(uri.getScheme())
+                && trusted.getHost() != null
+                && trusted.getHost().equalsIgnoreCase(uri.getHost());
+    }
+
+    private void emitRouteChanged(String url) {
+        Uri uri = Uri.parse(url);
+        if (!isAllowed(uri)) return;
+        JSObject data = new JSObject();
+        data.put("url", url);
+        notifyListeners("routeChanged", data);
     }
 
     private static String encode(String value) {
