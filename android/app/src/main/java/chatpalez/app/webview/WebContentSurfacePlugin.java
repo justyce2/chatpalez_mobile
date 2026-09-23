@@ -9,6 +9,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebResourceRequest;
+import android.content.Intent;
 import android.widget.FrameLayout;
 
 import com.getcapacitor.JSObject;
@@ -55,7 +56,15 @@ public class WebContentSurfacePlugin extends Plugin {
         contentWebView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return !isAllowed(request.getUrl());
+                Uri uri = request.getUrl();
+                if (isAllowed(uri)) return false;
+                if ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())) {
+                    try {
+                        getActivity().startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                    } catch (Exception ignored) {
+                    }
+                }
+                return true;
             }
 
             @Override
