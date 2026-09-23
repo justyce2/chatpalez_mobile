@@ -424,9 +424,26 @@ const shell = createAppShell(root, {
     return result;
   },
   onSendMessage: async (conversationId, message, photo) => {
+    /*
+     * Keep uploads on HTTP. Plain text may use Socket.IO when connected, but
+     * failure falls back to the existing HTTP path so realtime availability
+     * never becomes a requirement for sending.
+     */
+    if (!photo && chatRealtime.isConnected()) {
+      try {
+        await chatRealtime.sendMessage(conversationId, message);
+        logInfo('Message sent through realtime chat', { conversationId });
+        return;
+      } catch (error) {
+        logWarn('Realtime message send failed; falling back to HTTP', {
+          conversationId,
+          detail: error instanceof Error ? error.message : String(error ?? '')
+        });
+      }
+    }
     const photoSource = photo ? await uploads.uploadChatPhoto(photo) : '';
     await chat.sendMessage(conversationId, message, photoSource);
-    logInfo('Message sent', { conversationId });
+    logInfo('Message sent through HTTP chat', { conversationId });
   },
   onTyping: async (conversationId, isTyping) => {
     if (chatRealtime.isConnected()) {
