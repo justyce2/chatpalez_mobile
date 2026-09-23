@@ -15,14 +15,6 @@ export type WebSessionTransitionOptions = {
 export function openAuthenticatedWebModule(options: WebSessionTransitionOptions): void {
   const transition = createWebSessionTransition(options);
 
-  if (options.target) {
-    const frame = document.querySelector<HTMLIFrameElement>(`iframe[name="${cssEscape(options.target)}"]`);
-    if (!frame) throw new Error('ChatPalez could not find the retained web surface.');
-
-    frame.srcdoc = createSelfSubmittingDocument(transition);
-    return;
-  }
-
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = transition.action;
@@ -68,31 +60,4 @@ function hiddenInput(name: string, value: string): HTMLInputElement {
   input.name = name;
   input.value = value;
   return input;
-}
-
-
-function createSelfSubmittingDocument(transition: WebSessionTransition): string {
-  return `<!doctype html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body>
-<form id="cp-session" method="post" action="${escapeHtml(transition.action)}">
-<input type="hidden" name="token" value="${escapeHtml(transition.token)}">
-<input type="hidden" name="path" value="${escapeHtml(transition.path)}">
-</form>
-<script>document.getElementById('cp-session').submit();<\/script>
-</body>
-</html>`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function cssEscape(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
