@@ -101,9 +101,10 @@ function renderNewPasswordStep(options: PasswordRecoveryOptions, emailAddress: s
 function recoveryCard(title: string, message: string): HTMLElement {
   const card = document.createElement('section');
   card.className = 'auth-screen';
-  const mark = document.createElement('div');
+  const mark = document.createElement('img');
   mark.className = 'brand-mark';
-  mark.textContent = 'C';
+  mark.src = '/brand/chatpalez-app-icon.png';
+  mark.alt = '';
   mark.setAttribute('aria-hidden', 'true');
   const heading = document.createElement('h1');
   heading.textContent = title;
