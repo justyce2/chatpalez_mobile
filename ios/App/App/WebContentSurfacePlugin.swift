@@ -237,9 +237,14 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         decisionHandler(.cancel)
     }
 
+    public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        notifyListeners("loadStarted", data: ["url": webView.url?.absoluteString ?? ""])
+    }
+
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let url = webView.url, isAllowed(url) else { return }
         notifyListeners("routeChanged", data: ["url": url.absoluteString])
+        notifyListeners("loadFinished", data: ["url": url.absoluteString])
     }
 
     private func isAllowed(_ url: URL) -> Bool {
