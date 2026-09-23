@@ -43,7 +43,10 @@ export async function registerNativeLifecycle(
         return;
       }
 
-      if (canGoBack) {
+      // Auth, registration, recovery and public/legal screens live in the
+      // primary Capacitor WebView rather than the authenticated shell stack.
+      // Give their real browser history a chance before minimizing the app.
+      if (canGoBack || window.history.length > 1) {
         window.history.back();
         return;
       }
