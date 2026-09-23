@@ -488,7 +488,9 @@ const shell = createAppShell(root, {
         }
       },
       onSeen: (event) => {
-        if (String(event.conversation_id) === currentConversationId) void events.refresh();
+        if (String(event.conversation_id) === currentConversationId) {
+          events.setSeen(String(event.seen_name_list ?? ''));
+        }
       },
       onConversationDeleted: (event) => {
         if (String(event.conversation_id) === currentConversationId) events.close('This conversation is no longer available.');
