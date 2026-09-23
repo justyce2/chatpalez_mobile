@@ -226,7 +226,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onMarkSeen: handlers.onMarkSeen
     });
 
-    function showRetainedModule(path: string, titleText: string, activeTab: string): void {
+    function showRetainedModule(path: string, _titleText: string, activeTab: string): void {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === activeTab);
 
       // Retained web pages now use the Capacitor WebView itself. Do not create
