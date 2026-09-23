@@ -737,6 +737,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showConversationList(): Promise<void> {
+      layout.classList.remove('is-active-conversation');
       content.replaceChildren();
       const headingRow = element('div', 'section-heading-row');
       headingRow.append(screenTitle('Chat'));
@@ -781,7 +782,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const header = element('div', 'conversation-header');
       const back = secondaryButton('Back');
       back.classList.add('compact-button');
-      back.addEventListener('click', () => void showConversationList());
+      back.addEventListener('click', () => {
+        layout.classList.remove('is-active-conversation');
+        void showConversationList();
+      });
       header.append(back, screenTitle('New chat'));
       content.append(header);
 
@@ -933,6 +937,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showConversation(conversation: Conversation): Promise<void> {
+      layout.classList.add('is-active-conversation');
       const conversationId = conversation.conversation_id;
       const titleText = String(conversation.name || conversation.name_list || 'Conversation');
       content.replaceChildren();
@@ -986,8 +991,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       text.rows = 2;
       text.placeholder = 'Write a message…';
       text.setAttribute('aria-label', 'Message');
-      const send = actionButton('Send');
+      const send = actionButton('');
       send.type = 'submit';
+      send.classList.add('message-send-button');
+      send.setAttribute('aria-label', 'Send message');
+      send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
       const photo = document.createElement('input');
       photo.type = 'file';
       photo.accept = 'image/*';
@@ -1069,7 +1077,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         const selectedPhoto = photo.files?.[0];
         if ((!message && !selectedPhoto) || !handlers.onSendMessage) return;
         send.disabled = true;
-        send.textContent = 'Sending…';
+        send.classList.add('is-sending');
+        send.setAttribute('aria-label', 'Sending message');
         setTyping(false);
         void handlers.onSendMessage(conversationId, message, selectedPhoto)
           .then(async () => {
@@ -1082,7 +1091,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           })
           .finally(() => {
             send.disabled = false;
-            send.textContent = 'Send';
+            send.classList.remove('is-sending');
+            send.setAttribute('aria-label', 'Send message');
           });
       });
       await refreshThread();
