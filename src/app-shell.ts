@@ -133,8 +133,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     const brand = element('button', 'topbar-brand');
     brand.type = 'button';
-    brand.append(brandMark('small'));
-    brand.setAttribute('aria-label', 'Home');
+    brand.append(brandMark('small'), elementWithText('span', 'ChatPalez'));
+    brand.setAttribute('aria-label', 'ChatPalez Home');
     brand.addEventListener('click', () => void selectTab('home'));
 
     const topActions = element('div', 'native-topbar-actions');
@@ -173,7 +173,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
     avatar.addEventListener('click', () => void selectTab('profile'));
     topActions.append(avatar);
-    topbar.append(backButton, brand, topActions);
+    const brandRow = element('div', 'mobile-topbar__brand-row');
+    brandRow.append(brand);
+    const actionRow = element('div', 'mobile-topbar__action-row');
+    actionRow.append(backButton, topActions);
+    topbar.append(brandRow, actionRow);
 
     const content = element('main', 'mobile-content');
     const nav = element('nav', 'bottom-tabs');
