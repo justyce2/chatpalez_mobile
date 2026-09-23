@@ -264,8 +264,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       destination.kind === 'web' ? `web:${destination.path}` : `local:${destination.tab}`;
 
     function updateBackButton(): void {
+      // Keep Back permanently allocated in the navigation row. Disabling it
+      // at the absolute app root preserves the row geometry and prevents the
+      // control from disappearing when native web history is briefly stale.
       const atRoot = destinationKey(currentDestination ?? { kind: 'web', path: '/', title: 'Home', activeTab: 'home' }) === 'web:/';
-      backButton.hidden = !webCanGoBack && navigationStack.length === 0 && atRoot;
+      const canNavigateBack = webCanGoBack || navigationStack.length > 0 || !atRoot;
+      backButton.hidden = false;
+      backButton.disabled = !canNavigateBack;
+      backButton.setAttribute('aria-disabled', canNavigateBack ? 'false' : 'true');
     }
 
     function recordDestination(destination: ShellDestination, replace = false): void {
