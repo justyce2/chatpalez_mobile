@@ -25,6 +25,7 @@ export type ChatScreenHandlers = {
       refresh: () => Promise<void>;
       setTyping: (typingNameList: string) => void;
       setPresence: (online: boolean, lastSeen?: string) => void;
+      close: (reason?: string) => void;
     }
   ) => (() => void) | void;
 };
@@ -369,6 +370,13 @@ export class ChatScreen {
     };
     const latestResync = new CoalescedResync(() => refresh(false));
 
+    let threadClosed = false;
+    const closeThread = (reason?: string): void => {
+      if (threadClosed) return;
+      threadClosed = true;
+      if (reason) window.alert(reason);
+      void this.render();
+    };
     const stopRealtime = this.handlers.onOpenConversation?.(conversation, {
       refresh: () => latestResync.request(),
       setTyping: (typingNameList) => {
@@ -377,7 +385,8 @@ export class ChatScreen {
       setPresence: (online, lastSeen) => {
         if (conversation.multiple_recipients) return;
         presence.textContent = online ? 'Online' : lastSeen ? `Last seen ${lastSeen}` : '';
-      }
+      },
+      close: closeThread
     });
 
     const leaveThread = (): void => {
