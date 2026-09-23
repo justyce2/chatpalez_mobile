@@ -2,7 +2,6 @@ import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import type { AppConfig } from './config';
 import { resolveAppDeepLink } from './navigation';
-import { webContentSurface } from './web-content-surface';
 
 export type RouteHandler = (route: string) => void;
 export type NativeScreen = 'messages' | 'notifications' | 'profile';
@@ -40,11 +39,6 @@ export async function registerNativeLifecycle(
 
   if (Capacitor.getPlatform() === 'android') {
     await App.addListener('backButton', async ({ canGoBack }) => {
-      if (await webContentSurface.canGoBack()) {
-        await webContentSurface.goBack();
-        return;
-      }
-
       if (onAppBack && await onAppBack()) {
         return;
       }
