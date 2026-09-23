@@ -1,6 +1,7 @@
 import type { ChatContact, Conversation, Message, MessagesResult } from '../api/chat';
 import type { AuthSession } from '../auth/session';
 import { CoalescedResync } from '../chat-resync';
+import { RealtimeDeliveryUncertainError } from '../chat-realtime';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
 
@@ -425,7 +426,14 @@ export class ChatScreen {
           photo.value = '';
           await refresh();
         })
-        .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to send message.'))
+        .catch(async (error: unknown) => {
+          if (error instanceof RealtimeDeliveryUncertainError) {
+            await latestResync.request().catch(() => undefined);
+            window.alert('Delivery could not be confirmed. The conversation was refreshed; check whether your message appears before retrying.');
+            return;
+          }
+          window.alert(error instanceof Error ? error.message : 'Unable to send message.');
+        })
         .finally(() => {
           send.disabled = false;
           send.classList.remove('is-sending');
