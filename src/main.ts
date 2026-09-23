@@ -191,7 +191,7 @@ async function openWebModule(path: string, target?: string): Promise<void> {
     if (webContentSurface.isSupported()) {
       shell.setBusy(true, 'Loading page…');
       let loaded = false;
-      const stop = await webContentSurface.onRouteChanged(() => {
+      const stop = await webContentSurface.onLoadFinished(() => {
         if (loaded) return;
         loaded = true;
         shell.setBusy(false);
@@ -205,7 +205,7 @@ async function openWebModule(path: string, target?: string): Promise<void> {
             shell.setBusy(false);
             void stop();
           }
-        }, 12000);
+        }, 15000);
       } catch (error) {
         shell.setBusy(false);
         void stop();
