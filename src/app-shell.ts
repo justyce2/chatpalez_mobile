@@ -17,6 +17,7 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string, target?: string) => void;
+  onHideWebModule?: () => void;
   onOpenPublicPage?: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
@@ -228,10 +229,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     function showRetainedModule(path: string, _titleText: string, activeTab: string): void {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === activeTab);
+      content.classList.add('mobile-content--web-surface');
+      content.replaceChildren();
 
-      // Retained web pages now use the Capacitor WebView itself. Do not create
-      // or target an iframe here; leave the existing authenticated transition
-      // mechanism unchanged and invoke it without a frame target.
+      // The shared Capacitor document keeps the app chrome resident while a
+      // separate native WebView/WKWebView owns the remote ChatPalez page.
       handlers.onOpenWebModule(path);
     }
 
@@ -276,7 +278,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     async function selectTab(tab: string): Promise<void> {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
-      content.classList.remove('mobile-content--retained');
+      content.classList.remove('mobile-content--retained', 'mobile-content--web-surface');
       content.replaceChildren();
       if (tab === 'home') {
         showRetainedModule('/', 'Home', 'home');
@@ -286,6 +288,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         showRetainedModule('/reels', 'Reels', 'reels');
         return;
       }
+
+      // Local/API-driven screens and the shared create sheet must sit above the
+      // local Capacitor document, so hide only the native web-content surface.
+      handlers.onHideWebModule?.();
+
       if (tab === 'create') {
         showCreateSheet();
         return;
