@@ -256,7 +256,8 @@ async function ensureNativeLifecycleRegistration(): Promise<void> {
 
         logInfo('Native app screen requested from retained web module', { screen });
         shell.showAuthenticated(session, screen);
-      }
+      },
+      () => shell.navigateBack()
     ).catch((error) => {
       nativeLifecycleRegistration = null;
       throw error;
@@ -319,6 +320,8 @@ const shell = createAppShell(root, {
   },
   onOpenWebModule: openWebModule,
   onHideWebModule: () => { void webContentSurface.hide(); },
+  onCanGoBackWebModule: () => webContentSurface.canGoBack(),
+  onGoBackWebModule: () => webContentSurface.goBack(),
   onOpenPublicPage: openPublicModule,
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
   onLoadProfile: async () => {
