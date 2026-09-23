@@ -22,7 +22,8 @@ function resolveNativeScreen(url: string): NativeScreen | null {
 export async function registerNativeLifecycle(
   config: AppConfig,
   onRoute: RouteHandler,
-  onNativeScreen?: NativeScreenHandler
+  onNativeScreen?: NativeScreenHandler,
+  onAppBack?: () => Promise<boolean>
 ): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
 
@@ -41,6 +42,10 @@ export async function registerNativeLifecycle(
     await App.addListener('backButton', async ({ canGoBack }) => {
       if (await webContentSurface.canGoBack()) {
         await webContentSurface.goBack();
+        return;
+      }
+
+      if (onAppBack && await onAppBack()) {
         return;
       }
 
