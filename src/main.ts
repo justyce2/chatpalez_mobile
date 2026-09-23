@@ -144,16 +144,20 @@ async function completeAuthenticatedSession(session: AuthSession): Promise<void>
 }
 
 function openPublicModule(path: string): void {
-  const returnUrl = window.location.href;
-
   const destination = new URL(path, config.origin);
   if (!config.allowedHosts.has(destination.hostname.toLowerCase())) {
     throw new Error('ChatPalez blocked an untrusted public destination.');
   }
-  try {
-    sessionStorage.setItem('chatpalez:public-return-url', returnUrl);
-  } catch { /* storage may be unavailable; browser history remains fallback */ }
-  destination.searchParams.set('chatpalez_app', '1');
+
+  // Public/legal pages stay inside the dedicated native web surface as well.
+  // This keeps the shared ChatPalez header and its Back control available
+  // instead of replacing the primary Capacitor WebView.
+  const token = getAuthToken();
+  if (token && webContentSurface.isSupported()) {
+    void openWebModule(path);
+    return;
+  }
+
   window.location.assign(destination.toString());
 }
 
