@@ -279,10 +279,11 @@ export class ProfileScreen {
   private async renderPrivacyEditor(account: MobileAccount): Promise<void> {
     this.content.replaceChildren(backHeader('Privacy', () => void this.renderSettings()));
     const privacy = account.privacy || {};
-    const chat = formInput('Who can chat with me', String(privacy.user_privacy_chat || 'public'));
-    const wall = formInput('Who can post on my wall', String(privacy.user_privacy_wall || 'public'));
-    const friends = formInput('Who can see my friends', String(privacy.user_privacy_friends || 'public'));
-    const photos = formInput('Who can see my photos', String(privacy.user_privacy_photos || 'public'));
+    const privacyOptions: Array<[string, string]> = [['public','Everyone'], ['friends','Friends'], ['me','Only me']];
+    const chat = formSelect('Who can chat with me', String(privacy.user_privacy_chat || 'public'), privacyOptions);
+    const wall = formSelect('Who can post on my wall', String(privacy.user_privacy_wall || 'public'), privacyOptions);
+    const friends = formSelect('Who can see my friends', String(privacy.user_privacy_friends || 'public'), privacyOptions);
+    const photos = formSelect('Who can see my photos', String(privacy.user_privacy_photos || 'public'), privacyOptions);
     await this.renderForm([chat,wall,friends,photos], 'Save privacy', async () => {
       await this.handlers.onUpdatePrivacy?.({
         ...privacy,
@@ -312,12 +313,12 @@ export class ProfileScreen {
   }
 
   private async renderForm(
-    controls: Array<HTMLInputElement | HTMLTextAreaElement>,
+    controls: Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
     submitLabel: string,
     save: () => Promise<void | undefined>
   ): Promise<void> {
     const form = element('form', 'native-settings-form') as HTMLFormElement;
-    for (const control of controls) form.append(field(control.placeholder, control));
+    for (const control of controls) form.append(field(control.dataset.label || control.getAttribute('aria-label') || control.getAttribute('placeholder') || '', control));
     const message = element('p', 'settings-form-status');
     const submit = primaryButton(submitLabel); submit.type = 'submit';
     form.append(message, submit);
@@ -353,4 +354,5 @@ function initials(name:string):string{return name.trim().split(/\s+/).slice(0,2)
 function backHeader(text:string,onBack:()=>void):HTMLDivElement{const h=element('div','conversation-header');const b=secondaryButton('Back');b.classList.add('compact-button');b.addEventListener('click',onBack);h.append(b,title(text));return h;}
 function formInput(label:string,value:string,type='text'):HTMLInputElement{const i=document.createElement('input');i.placeholder=label;i.value=value;i.type=type;return i;}
 function formTextarea(label:string,value:string):HTMLTextAreaElement{const i=document.createElement('textarea');i.placeholder=label;i.value=value;i.rows=4;return i;}
+function formSelect(label:string,value:string,options:Array<[string,string]>):HTMLSelectElement{const s=document.createElement('select');s.dataset.label=label;s.setAttribute('aria-label',label);for(const [optionValue,optionLabel] of options){const o=document.createElement('option');o.value=optionValue;o.textContent=optionLabel;s.append(o);}s.value=value;return s;}
 function field(label:string,control:HTMLElement):HTMLLabelElement{const l=element('label','field');l.append(elementWithText('span',label),control);return l;}
