@@ -48,6 +48,8 @@ function currentFrame(): WebContentFrame {
 
 export class WebContentSurface {
   private visible = false;
+  private opened = false;
+  private currentPath: string | null = null;
 
   isSupported(): boolean {
     return Capacitor.isNativePlatform();
@@ -60,6 +62,14 @@ export class WebContentSurface {
 
     const transition = createWebSessionTransition({ config, token, path });
     const frame = currentFrame();
+
+    if (this.opened && this.currentPath === transition.path) {
+      await NativeSurface.setFrame(frame);
+      await NativeSurface.show();
+      this.visible = true;
+      return;
+    }
+
     await NativeSurface.open({
       ...frame,
       action: transition.action,
@@ -68,6 +78,8 @@ export class WebContentSurface {
       allowedOrigin: config.origin.origin
     });
     this.visible = true;
+    this.opened = true;
+    this.currentPath = transition.path;
   }
 
   async show(): Promise<void> {
