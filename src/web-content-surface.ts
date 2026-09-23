@@ -13,6 +13,7 @@ type OpenOptions = WebContentFrame & {
   action: string;
   token: string;
   path: string;
+  allowedOrigin: string;
 };
 
 interface WebContentSurfaceNativePlugin {
@@ -23,6 +24,7 @@ interface WebContentSurfaceNativePlugin {
   canGoBack(): Promise<{ value: boolean }>;
   goBack(): Promise<void>;
   reload(): Promise<void>;
+  addListener(eventName: 'routeChanged', listener: (event: { url: string }) => void): Promise<{ remove: () => Promise<void> }>;
 }
 
 const NativeSurface = registerPlugin<WebContentSurfaceNativePlugin>('WebContentSurface');
@@ -62,7 +64,8 @@ export class WebContentSurface {
       ...frame,
       action: transition.action,
       token: transition.token,
-      path: transition.path
+      path: transition.path,
+      allowedOrigin: config.origin.origin
     });
     this.visible = true;
   }
@@ -99,6 +102,13 @@ export class WebContentSurface {
     if (!this.isSupported() || !this.visible) return;
     await NativeSurface.reload();
   }
+
+  async onRouteChanged(listener: (url: string) => void): Promise<() => Promise<void>> {
+    if (!this.isSupported()) return async () => undefined;
+    const handle = await NativeSurface.addListener('routeChanged', ({ url }) => listener(url));
+    return () => handle.remove();
+  }
+
 }
 
 export const webContentSurface = new WebContentSurface();
