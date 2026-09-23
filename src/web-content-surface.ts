@@ -16,6 +16,12 @@ type OpenOptions = WebContentFrame & {
   allowedOrigin: string;
 };
 
+export type WebSurfaceCommand = {
+  type: 'share' | 'pick-media' | 'open-native' | 'open-external';
+  requestId?: string;
+  payload?: unknown;
+};
+
 interface WebContentSurfaceNativePlugin {
   open(options: OpenOptions): Promise<void>;
   show(): Promise<void>;
@@ -24,7 +30,9 @@ interface WebContentSurfaceNativePlugin {
   canGoBack(): Promise<{ value: boolean }>;
   goBack(): Promise<void>;
   reload(): Promise<void>;
+  postMessage(options: { message: unknown }): Promise<void>;
   addListener(eventName: 'routeChanged', listener: (event: { url: string }) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(eventName: 'command', listener: (event: WebSurfaceCommand) => void): Promise<{ remove: () => Promise<void> }>;
 }
 
 const NativeSurface = registerPlugin<WebContentSurfaceNativePlugin>('WebContentSurface');
@@ -119,6 +127,17 @@ export class WebContentSurface {
   async reload(): Promise<void> {
     if (!this.isSupported() || !this.visible) return;
     await NativeSurface.reload();
+  }
+
+  async postMessage(message: unknown): Promise<void> {
+    if (!this.isSupported() || !this.opened) return;
+    await NativeSurface.postMessage({ message });
+  }
+
+  async onCommand(listener: (command: WebSurfaceCommand) => void): Promise<() => Promise<void>> {
+    if (!this.isSupported()) return async () => undefined;
+    const handle = await NativeSurface.addListener('command', listener);
+    return () => handle.remove();
   }
 
   async onRouteChanged(listener: (url: string) => void): Promise<() => Promise<void>> {
