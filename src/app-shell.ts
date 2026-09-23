@@ -446,6 +446,13 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function selectTab(tab: string, record = true): Promise<void> {
+      // Create is an overlay/action, not a destination. Never destroy the
+      // current local screen or hide the retained web surface just to present it.
+      if (tab === 'create') {
+        await showCreateSheet();
+        return;
+      }
+
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
       content.classList.remove('mobile-content--retained', 'mobile-content--web-surface');
       content.replaceChildren();
@@ -455,13 +462,6 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       }
       if (tab === 'reels') {
         showRetainedModule('/reels', 'Reels', 'reels', record);
-        return;
-      }
-
-      // Create is an overlay over the current destination. Keep the native
-      // web surface visible so the feed/page remains behind the sheet.
-      if (tab === 'create') {
-        await showCreateSheet();
         return;
       }
 
