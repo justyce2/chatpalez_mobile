@@ -12,7 +12,13 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.content.Intent;
 import android.widget.FrameLayout;
-import android.app.AlertDialog;
+import android.app.Dialog;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
+import android.view.Window;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Button;
 
 import com.getcapacitor.JSObject;
 import org.json.JSONObject;
@@ -183,28 +189,104 @@ public class WebContentSurfacePlugin extends Plugin {
     @PluginMethod
     public void showCreateActions(PluginCall call) {
         getActivity().runOnUiThread(() -> {
+            final Dialog dialog = new Dialog(getActivity());
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+            LinearLayout panel = new LinearLayout(getActivity());
+            panel.setOrientation(LinearLayout.VERTICAL);
+            int side = dp(18);
+            panel.setPadding(side, dp(12), side, dp(16));
+
+            GradientDrawable background = new GradientDrawable();
+            background.setColor(Color.WHITE);
+            background.setCornerRadii(new float[] { dp(24), dp(24), dp(24), dp(24), 0, 0, 0, 0 });
+            panel.setBackground(background);
+
+            TextView handle = new TextView(getActivity());
+            GradientDrawable handleBackground = new GradientDrawable();
+            handleBackground.setColor(Color.rgb(203, 213, 225));
+            handleBackground.setCornerRadius(dp(3));
+            handle.setBackground(handleBackground);
+            LinearLayout.LayoutParams handleParams = new LinearLayout.LayoutParams(dp(42), dp(4));
+            handleParams.gravity = Gravity.CENTER_HORIZONTAL;
+            handleParams.bottomMargin = dp(12);
+            panel.addView(handle, handleParams);
+
+            TextView title = new TextView(getActivity());
+            title.setText("Create");
+            title.setTextSize(20);
+            title.setTextColor(Color.rgb(17, 24, 39));
+            title.setGravity(Gravity.CENTER);
+            title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
+            LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
+            titleParams.bottomMargin = dp(10);
+            panel.addView(title, titleParams);
+
             final String[] labels = { "Create post", "Upload photos", "Create story", "Create reel" };
+            final String[] subtitles = { "Share an update with your community", "Choose photos from your device", "Post a moment to your story", "Create a short-form video" };
             final String[] actions = { "post", "photos", "story", "reel" };
-            AlertDialog dialog = new AlertDialog.Builder(getActivity())
-                    .setTitle("Create")
-                    .setItems(labels, (ignored, which) -> {
-                        JSObject result = new JSObject();
-                        result.put("action", actions[which]);
-                        call.resolve(result);
-                    })
-                    .setNegativeButton("Cancel", (ignored, which) -> {
-                        JSObject result = new JSObject();
-                        result.put("action", JSONObject.NULL);
-                        call.resolve(result);
-                    })
-                    .setOnCancelListener(ignored -> {
-                        JSObject result = new JSObject();
-                        result.put("action", JSONObject.NULL);
-                        call.resolve(result);
-                    })
-                    .create();
+            for (int i = 0; i < labels.length; i++) {
+                final int index = i;
+                Button action = new Button(getActivity());
+                action.setAllCaps(false);
+                action.setText(labels[i] + "\n" + subtitles[i]);
+                action.setTextSize(16);
+                action.setTextColor(Color.rgb(31, 41, 55));
+                action.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+                action.setPadding(dp(16), dp(8), dp(16), dp(8));
+                GradientDrawable actionBg = new GradientDrawable();
+                actionBg.setColor(Color.rgb(247, 250, 252));
+                actionBg.setCornerRadius(dp(14));
+                action.setBackground(actionBg);
+                LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(-1, dp(62));
+                actionParams.bottomMargin = dp(8);
+                panel.addView(action, actionParams);
+                action.setOnClickListener(v -> {
+                    JSObject result = new JSObject();
+                    result.put("action", actions[index]);
+                    call.resolve(result);
+                    dialog.dismiss();
+                });
+            }
+
+            Button cancel = new Button(getActivity());
+            cancel.setAllCaps(false);
+            cancel.setText("Cancel");
+            cancel.setTextSize(16);
+            cancel.setTextColor(Color.rgb(0, 102, 178));
+            GradientDrawable cancelBg = new GradientDrawable();
+            cancelBg.setColor(Color.rgb(232, 243, 251));
+            cancelBg.setCornerRadius(dp(14));
+            cancel.setBackground(cancelBg);
+            panel.addView(cancel, new LinearLayout.LayoutParams(-1, dp(50)));
+            cancel.setOnClickListener(v -> {
+                JSObject result = new JSObject();
+                result.put("action", JSONObject.NULL);
+                call.resolve(result);
+                dialog.dismiss();
+            });
+            dialog.setOnCancelListener(ignored -> {
+                JSObject result = new JSObject();
+                result.put("action", JSONObject.NULL);
+                call.resolve(result);
+            });
+
+            dialog.setContentView(panel);
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.setBackgroundDrawableResource(android.R.color.transparent);
+                window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                window.setGravity(Gravity.BOTTOM);
+                window.setDimAmount(0.34f);
+                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            }
             dialog.show();
+            if (window != null) window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         });
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getContext().getResources().getDisplayMetrics().density);
     }
 
     @PluginMethod
