@@ -148,6 +148,14 @@ export class ChatRealtimeService {
     return this.socket?.connected === true;
   }
 
+  pause(): void {
+    this.socket?.disconnect();
+  }
+
+  resume(): void {
+    if (this.socket && this.token && !this.socket.connected) this.socket.connect();
+  }
+
   private emitJsonAck<T>(event: string, payload: unknown): Promise<T> {
     const socket = this.socket;
     if (!socket?.connected) return Promise.reject(new Error('Realtime chat is not connected.'));
