@@ -38,6 +38,7 @@ bindWebBridgeEvents(mobileBridge, config);
 let handlingSessionExpiry = false;
 let nativeLifecycleRegistration: Promise<void> | null = null;
 let webSurfaceRouteRegistration: Promise<void> | null = null;
+let webSurfaceCommandRegistration: Promise<void> | null = null;
 const api = new ChatPalezApiClient({
   config,
   getAuthToken,
@@ -181,6 +182,49 @@ async function openWebModule(path: string, target?: string): Promise<void> {
     });
     window.alert(error instanceof Error ? error.message : 'Unable to open this ChatPalez section.');
   }
+}
+
+async function ensureWebSurfaceCommandRegistration(): Promise<void> {
+  if (!webSurfaceCommandRegistration && webContentSurface.isSupported()) {
+    webSurfaceCommandRegistration = webContentSurface.onCommand((command) => {
+      if (command.type === 'share') {
+        void mobileBridge.share((command.payload ?? {}) as import('./bridge').SharePayload);
+        return;
+      }
+
+      if (command.type === 'pick-media' && command.requestId) {
+        void mobileBridge.pickMedia((command.payload ?? {}) as import('./bridge').MediaPickerPayload)
+          .then((items) => webContentSurface.postMessage({
+            source: 'chatpalez-shell',
+            type: 'media-result',
+            requestId: command.requestId,
+            items
+          }));
+        return;
+      }
+
+      if (command.type === 'open-external') {
+        const url = (command.payload as { url?: string } | undefined)?.url;
+        if (url) void mobileBridge.openExternal(url);
+        return;
+      }
+
+      if (command.type === 'open-native') {
+        const screen = (command.payload as { screen?: string } | undefined)?.screen;
+        if (screen !== 'messages' && screen !== 'notifications' && screen !== 'profile') return;
+        const session = getSession();
+        if (!session) {
+          renderLogin('Your session has expired. Sign in again to continue.');
+          return;
+        }
+        shell.showAuthenticated(session, screen);
+      }
+    }).then(() => undefined).catch((error) => {
+      webSurfaceCommandRegistration = null;
+      throw error;
+    });
+  }
+  await webSurfaceCommandRegistration;
 }
 
 async function ensureWebSurfaceRouteRegistration(): Promise<void> {
@@ -393,6 +437,7 @@ async function bootstrap(): Promise<void> {
   try {
     await ensureNativeLifecycleRegistration();
     await ensureWebSurfaceRouteRegistration();
+    await ensureWebSurfaceCommandRegistration();
 
     const network = await Network.getStatus();
     if (!network.connected) {
