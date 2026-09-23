@@ -30,6 +30,7 @@ interface WebContentSurfaceNativePlugin {
   canGoBack(): Promise<{ value: boolean }>;
   goBack(): Promise<void>;
   reload(): Promise<void>;
+  resetSession(): Promise<void>;
   postMessage(options: { message: unknown }): Promise<void>;
   showCreateActions(): Promise<{ action?: string }>;
   addListener(eventName: 'routeChanged', listener: (event: { url: string }) => void): Promise<{ remove: () => Promise<void> }>;
@@ -105,7 +106,8 @@ export class WebContentSurface {
   }
 
   async reset(): Promise<void> {
-    await this.hide();
+    if (this.isSupported()) await NativeSurface.resetSession();
+    this.visible = false;
     this.opened = false;
     this.currentPath = null;
   }
