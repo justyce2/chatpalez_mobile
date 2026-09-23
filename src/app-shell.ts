@@ -228,30 +228,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     function showRetainedModule(path: string, titleText: string, activeTab: string): void {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === activeTab);
-      content.classList.add('mobile-content--retained');
-      content.replaceChildren();
 
-      const wrapper = element('section', 'retained-module');
-      const loading = paragraph(`Opening ${titleText}…`);
-      loading.className = 'retained-module-loading';
-
-      const frame = document.createElement('iframe');
-      frame.className = 'retained-module-frame';
-      frame.name = 'chatpalez-retained-module';
-      frame.title = titleText;
-      frame.setAttribute('allow', 'camera; microphone; autoplay; clipboard-write');
-      frame.addEventListener('load', () => {
-        loading.hidden = true;
-        frame.classList.add('is-ready');
-      });
-      frame.addEventListener('error', () => {
-        loading.hidden = false;
-        loading.textContent = `Unable to open ${titleText}. Check your connection and try again.`;
-      });
-
-      wrapper.append(loading, frame);
-      content.append(wrapper);
-      handlers.onOpenWebModule(path, frame.name);
+      // Retained web pages now use the Capacitor WebView itself. Do not create
+      // or target an iframe here; leave the existing authenticated transition
+      // mechanism unchanged and invoke it without a frame target.
+      handlers.onOpenWebModule(path);
     }
 
     function showCreateSheet(): void {
