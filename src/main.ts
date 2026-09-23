@@ -174,7 +174,28 @@ async function openWebModule(path: string, target?: string): Promise<void> {
     logInfo('Authenticated retained-web transition requested', { path, target: target ?? null });
 
     if (webContentSurface.isSupported()) {
-      await webContentSurface.openAuthenticated(config, token, path);
+      shell.setBusy(true, 'Loading page…');
+      let loaded = false;
+      const stop = await webContentSurface.onRouteChanged(() => {
+        if (loaded) return;
+        loaded = true;
+        shell.setBusy(false);
+        void stop();
+      });
+      try {
+        await webContentSurface.openAuthenticated(config, token, path);
+        window.setTimeout(() => {
+          if (!loaded) {
+            loaded = true;
+            shell.setBusy(false);
+            void stop();
+          }
+        }, 12000);
+      } catch (error) {
+        shell.setBusy(false);
+        void stop();
+        throw error;
+      }
       return;
     }
 
