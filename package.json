@@ -31,7 +31,8 @@
     "@capacitor/status-bar": "^8.0.0",
     "@onesignal/capacitor-plugin": "^1.1.12",
     "@aparajita/capacitor-secure-storage": "^8.0.0",
-    "@capacitor/camera": "^8.0.0"
+    "@capacitor/camera": "^8.0.0",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@capacitor/android": "^8.0.0",
