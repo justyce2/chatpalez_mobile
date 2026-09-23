@@ -14,7 +14,8 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         CAPPluginMethod(name: "canGoBack", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "goBack", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "reload", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "postMessage", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "postMessage", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showCreateActions", returnType: CAPPluginReturnPromise)
     ]
 
     private var contentWebView: WKWebView?
@@ -118,6 +119,43 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
                 self.contentWebView?.goBack()
             }
             call.resolve()
+        }
+    }
+
+    @objc func showCreateActions(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let presenter = self.bridge?.viewController else {
+                call.reject("Unable to present ChatPalez create actions.")
+                return
+            }
+
+            let sheet = UIAlertController(title: "Create", message: nil, preferredStyle: .actionSheet)
+            let actions: [(String, String)] = [
+                ("Create post", "post"),
+                ("Upload photos", "photos"),
+                ("Create story", "story"),
+                ("Create reel", "reel")
+            ]
+            for (title, value) in actions {
+                sheet.addAction(UIAlertAction(title: title, style: .default) { _ in
+                    call.resolve(["action": value])
+                })
+            }
+            sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+                call.resolve(["action": NSNull()])
+            })
+
+            if let popover = sheet.popoverPresentationController {
+                popover.sourceView = presenter.view
+                popover.sourceRect = CGRect(
+                    x: presenter.view.bounds.midX,
+                    y: presenter.view.bounds.maxY - 1,
+                    width: 1,
+                    height: 1
+                )
+                popover.permittedArrowDirections = []
+            }
+            presenter.present(sheet, animated: true)
         }
     }
 
