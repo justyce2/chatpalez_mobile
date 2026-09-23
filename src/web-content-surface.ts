@@ -59,7 +59,6 @@ export class WebContentSurface {
   private visible = false;
   private opened = false;
   private currentPath: string | null = null;
-  private routeChangedListeners = new Set<(url: string) => void>();
 
   isSupported(): boolean {
     return Capacitor.isNativePlatform();
