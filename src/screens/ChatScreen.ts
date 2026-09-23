@@ -24,6 +24,7 @@ export type ChatScreenHandlers = {
     events: {
       refresh: () => Promise<void>;
       setTyping: (typingNameList: string) => void;
+      setSeen: (seenNameList: string) => void;
       setPresence: (online: boolean, lastSeen?: string) => void;
       close: (reason?: string) => void;
     }
@@ -291,7 +292,9 @@ export class ChatScreen {
     presence.textContent = conversation.multiple_recipients
       ? `${conversation.recipients?.length ?? 0} participants`
       : conversation.user_is_online ? 'Online' : '';
-    this.content.append(presence);
+    const seenState = element('p', 'conversation-seen-state');
+    seenState.textContent = '';
+    this.content.append(presence, seenState);
 
     const loadOlder = secondaryButton('Load older messages');
     loadOlder.hidden = true;
@@ -350,6 +353,7 @@ export class ChatScreen {
           : result.user_is_online ? 'Online'
           : result.user_last_seen ? `Last seen ${String(result.user_last_seen)}`
           : presence.textContent;
+        seenState.textContent = result.seen_name_list ? `Seen by ${String(result.seen_name_list)}` : '';
         loadOlder.hidden = !result.has_more;
         if (!older) thread.replaceChildren();
         if (!older && messages.length === 0) thread.append(paragraph('No messages yet.'));
@@ -386,6 +390,9 @@ export class ChatScreen {
       refresh: () => latestResync.request(),
       setTyping: (typingNameList) => {
         presence.textContent = typingNameList ? `${typingNameList} typing…` : presence.textContent;
+      },
+      setSeen: (seenNameList) => {
+        seenState.textContent = seenNameList ? `Seen by ${seenNameList}` : '';
       },
       setPresence: (online, lastSeen) => {
         if (conversation.multiple_recipients) return;
