@@ -1293,27 +1293,55 @@ p { color: #64748b; line-height: 1.55; }
 }
 
 .app-back-button {
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
-  min-height: 38px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   display: grid;
   place-items: center;
-  margin: 0 2px 0 0;
-  padding: 0 0 3px;
+  margin: -3px 0;
+  padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: #1f2937;
-  font-size: 38px;
-  font-weight: 300;
-  line-height: 1;
+  color: #0066B2;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-back-button__glyph {
+  width: 12px;
+  height: 12px;
+  display: block;
+  border-left: 2.5px solid currentColor;
+  border-bottom: 2.5px solid currentColor;
+  transform: translateX(2px) rotate(45deg);
+  border-radius: 1px;
 }
 .app-back-button:active {
   background: #eef2f7;
 }
+.app-back-button:focus-visible {
+  outline: 2px solid #0066B2;
+  outline-offset: 2px;
+}
 .app-back-button[hidden] {
   display: none;
+}
+
+@media (max-width: 360px) {
+  .mobile-topbar {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .native-topbar-actions {
+    gap: 0;
+  }
+  .native-top-action,
+  .avatar-button {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+  }
 }
 
 /* Shared cross-platform create chooser. */
