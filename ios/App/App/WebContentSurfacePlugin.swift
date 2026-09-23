@@ -129,7 +129,14 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
             decisionHandler(.cancel)
             return
         }
-        decisionHandler(isAllowed(url) ? .allow : .cancel)
+        if isAllowed(url) {
+            decisionHandler(.allow)
+            return
+        }
+        if url.scheme?.lowercased() == "http" || url.scheme?.lowercased() == "https" {
+            UIApplication.shared.open(url)
+        }
+        decisionHandler(.cancel)
     }
 
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
