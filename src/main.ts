@@ -25,6 +25,7 @@ import { registerNativeLifecycle } from './native-lifecycle';
 import { openAuthenticatedWebModule } from './web-session';
 import { installMobileBridge } from './bridge';
 import { bindWebBridgeEvents } from './web-bridge-events';
+import { webContentSurface } from './web-content-surface';
 import './styles.css';
 
 const appRoot = document.querySelector<HTMLElement>('#app');
@@ -83,6 +84,7 @@ async function handleSessionExpiry(): Promise<void> {
 }
 
 function renderLogin(error?: string): void {
+  void webContentSurface.hide();
   shell.showLogin(error);
   installPasswordRecovery({
     root,
@@ -162,6 +164,14 @@ async function openWebModule(path: string, target?: string): Promise<void> {
       return;
     }
     logInfo('Authenticated retained-web transition requested', { path, target: target ?? null });
+
+    if (webContentSurface.isSupported()) {
+      await webContentSurface.openAuthenticated(config, token, path);
+      return;
+    }
+
+    // Browser-only fallback. Installed Android/iOS builds use the dedicated
+    // native content surface so the shared Capacitor chrome remains resident.
     openAuthenticatedWebModule({ config, token, path, target });
   } catch (error) {
     logWarn('Retained-web transition was blocked', {
@@ -251,6 +261,7 @@ const shell = createAppShell(root, {
     }
   },
   onOpenWebModule: openWebModule,
+  onHideWebModule: () => { void webContentSurface.hide(); },
   onOpenPublicPage: openPublicModule,
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
   onLoadProfile: async () => {
@@ -426,6 +437,14 @@ async function bootstrap(): Promise<void> {
     }
   }
 }
+
+window.addEventListener('resize', () => {
+  void webContentSurface.syncFrame().catch((error) => {
+    logDebug('Native web-content surface frame could not be synchronized', {
+      detail: error instanceof Error ? error.message : String(error ?? '')
+    });
+  });
+});
 
 void Network.addListener('networkStatusChange', (status) => {
   logInfo('Network state changed', {
