@@ -20,6 +20,7 @@ export type AppShellHandlers = {
   onHideWebModule?: () => void;
   onCanGoBackWebModule?: () => Promise<boolean>;
   onGoBackWebModule?: () => Promise<void>;
+  onShowCreateActions?: () => Promise<string | null>;
   onOpenPublicPage?: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
@@ -338,15 +339,36 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       handlers.onOpenWebModule(path);
     }
 
-    function showCreateSheet(): void {
+    async function showCreateSheet(): Promise<void> {
       const previousActiveTab = currentDestination?.kind === 'local'
         ? currentDestination.tab
         : currentDestination?.activeTab;
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === 'create');
 
+      if (handlers.onShowCreateActions) {
+        try {
+          const action = await handlers.onShowCreateActions();
+          const destinations: Record<string, [string, string]> = {
+            post: ['/?publisher=open', 'Create post'],
+            photos: ['/?publisher=open&media=photos', 'Add photos'],
+            story: ['/?publisher=open&type=story', 'Create story'],
+            reel: ['/?publisher=open&type=reel', 'Create reel']
+          };
+          const destination = action ? destinations[action] : undefined;
+          if (destination) {
+            showRetainedModule(destination[0], destination[1], 'create');
+            return;
+          }
+        } finally {
+          for (const [id, button] of buttons) button.classList.toggle('is-active', id === previousActiveTab);
+        }
+        return;
+      }
+
+      // Browser fallback: installed Android/iOS builds use the native action
+      // sheet so it can sit above the separately hosted WebView/WKWebView.
       const existing = layout.querySelector('.shared-action-sheet');
       existing?.remove();
-
       const sheet = element('div', 'shared-action-sheet');
       const backdrop = element('button', 'shared-action-sheet__backdrop');
       backdrop.setAttribute('aria-label', 'Close');
@@ -354,7 +376,6 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       panel.setAttribute('role', 'dialog');
       panel.setAttribute('aria-modal', 'true');
       panel.append(element('div', 'shared-action-sheet__handle'), elementWithText('h3', 'Create'));
-
       const actions = element('div', 'shared-action-sheet__actions');
       const addAction = (label: string, path: string, titleText: string): void => {
         const button = secondaryButton(label);
@@ -365,12 +386,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         });
         actions.append(button);
       };
-
       addAction('Create post', '/?publisher=open', 'Create post');
       addAction('Upload photos', '/?publisher=open&media=photos', 'Add photos');
       addAction('Create story', '/?publisher=open&type=story', 'Create story');
       addAction('Create reel', '/?publisher=open&type=reel', 'Create reel');
-
       const dismiss = (): void => {
         sheet.remove();
         for (const [id, button] of buttons) button.classList.toggle('is-active', id === previousActiveTab);
@@ -400,7 +419,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       // Create is an overlay over the current destination. Keep the native
       // web surface visible so the feed/page remains behind the sheet.
       if (tab === 'create') {
-        showCreateSheet();
+        await showCreateSheet();
         return;
       }
 
