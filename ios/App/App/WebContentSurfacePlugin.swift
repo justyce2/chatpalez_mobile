@@ -189,6 +189,22 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         }
     }
 
+    @objc func resetSession(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.contentWebView?.stopLoading()
+            self.contentWebView?.loadHTMLString("", baseURL: nil)
+            self.contentWebView?.isHidden = true
+            self.allowedOrigin = nil
+            let store = WKWebsiteDataStore.default()
+            let types = WKWebsiteDataStore.allWebsiteDataTypes()
+            store.fetchDataRecords(ofTypes: types) { records in
+                store.removeData(ofTypes: types, for: records) {
+                    call.resolve()
+                }
+            }
+        }
+    }
+
     @objc func reload(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             self.contentWebView?.reload()
