@@ -55,12 +55,16 @@ export type AppShell = {
   showLogin: (error?: string) => void;
   showAuthenticated: (session: AuthSession, initialTab?: 'home' | 'messages' | 'notifications' | 'profile') => void;
   navigateBack: () => Promise<boolean>;
+  navigateToNative: (screen: 'messages' | 'notifications' | 'profile') => Promise<boolean>;
+  setWebBackAvailable: (available: boolean) => void;
   setBusy: (busy: boolean, message?: string) => void;
   setRetryAction: (action: () => void) => void;
 };
 
 export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): AppShell {
   let activeBackHandler: (() => Promise<boolean>) | null = null;
+  let activeNativeNavigationHandler: ((screen: 'messages' | 'notifications' | 'profile') => Promise<boolean>) | null = null;
+  let activeWebBackAvailabilityHandler: ((available: boolean) => void) | null = null;
   let retryAction: (() => void) | null = null;
 
   const showStartup = (title: string, message: string, canRetry = false): void => {
@@ -121,7 +125,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     backButton.type = 'button';
     backButton.className = 'app-back-button';
     backButton.setAttribute('aria-label', 'Back');
-    backButton.textContent = '‹';
+    const backGlyph = element('span', 'app-back-button__glyph');
+    backGlyph.setAttribute('aria-hidden', 'true');
+    backButton.append(backGlyph);
     backButton.hidden = true;
 
     const brand = element('button', 'topbar-brand');
@@ -247,12 +253,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       | { kind: 'local'; tab: 'messages' | 'notifications' | 'profile' };
     const navigationStack: ShellDestination[] = [];
     let currentDestination: ShellDestination | null = null;
+    let webCanGoBack = false;
 
     const destinationKey = (destination: ShellDestination): string =>
       destination.kind === 'web' ? `web:${destination.path}` : `local:${destination.tab}`;
 
     function updateBackButton(): void {
-      backButton.hidden = navigationStack.length === 0 && destinationKey(currentDestination ?? { kind: 'web', path: '/', title: 'Home', activeTab: 'home' }) === 'web:/';
+      const atRoot = destinationKey(currentDestination ?? { kind: 'web', path: '/', title: 'Home', activeTab: 'home' }) === 'web:/';
+      backButton.hidden = !webCanGoBack && navigationStack.length === 0 && atRoot;
     }
 
     function recordDestination(destination: ShellDestination, replace = false): void {
@@ -279,8 +287,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         return true;
       }
 
-      if (currentDestination?.kind === 'web' && await handlers.onCanGoBackWebModule?.()) {
+      if (currentDestination?.kind === 'web' && (webCanGoBack || await handlers.onCanGoBackWebModule?.())) {
         await handlers.onGoBackWebModule?.();
+        webCanGoBack = await handlers.onCanGoBackWebModule?.() ?? false;
+        updateBackButton();
         return true;
       }
 
@@ -307,6 +317,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     backButton.addEventListener('click', () => { void navigateBack(); });
     activeBackHandler = navigateBack;
+    activeNativeNavigationHandler = async (screen) => {
+      await selectTab(screen, true);
+      return true;
+    };
+    activeWebBackAvailabilityHandler = (available) => {
+      webCanGoBack = available;
+      updateBackButton();
+    };
 
 
     function showRetainedModule(path: string, _titleText: string, activeTab: string, record = true): void {
@@ -1046,7 +1064,16 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   const setRetryAction = (action: () => void): void => {
     retryAction = action;
   };
-  return { showStartup, showLogin, showAuthenticated, navigateBack: async () => activeBackHandler ? activeBackHandler() : false, setBusy, setRetryAction };
+  return {
+    showStartup,
+    showLogin,
+    showAuthenticated,
+    navigateBack: async () => activeBackHandler ? activeBackHandler() : false,
+    navigateToNative: async (screen) => activeNativeNavigationHandler ? activeNativeNavigationHandler(screen) : false,
+    setWebBackAvailable: (available) => activeWebBackAvailabilityHandler?.(available),
+    setBusy,
+    setRetryAction
+  };
 }
 
 function conversationList(conversations: Conversation[], onOpen: (conversation: Conversation) => void): HTMLDivElement {
