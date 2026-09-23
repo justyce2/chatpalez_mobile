@@ -425,9 +425,9 @@ const shell = createAppShell(root, {
   },
   onSendMessage: async (conversationId, message, photo) => {
     /*
-     * Keep uploads on HTTP. Plain text may use Socket.IO when connected, but
-     * failure falls back to the existing HTTP path so realtime availability
-     * never becomes a requirement for sending.
+     * Keep uploads on HTTP. Plain text may use Socket.IO when connected.
+     * HTTP is selected when realtime is unavailable before submission; once a
+     * realtime send is attempted, ambiguous delivery is never blindly retried.
      */
     if (!photo && chatRealtime.isConnected()) {
       try {
@@ -453,7 +453,7 @@ const shell = createAppShell(root, {
           });
           throw error;
         }
-        logWarn('Realtime message send failed before delivery confirmation; falling back to HTTP', {
+        logWarn('Realtime message send failed with a definite rejection; falling back to HTTP', {
           conversationId,
           detail: error instanceof Error ? error.message : String(error ?? '')
         });
