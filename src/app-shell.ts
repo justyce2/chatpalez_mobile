@@ -339,6 +339,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     function showCreateSheet(): void {
+      const previousActiveTab = currentDestination?.kind === 'local'
+        ? currentDestination.tab
+        : currentDestination?.activeTab;
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === 'create');
 
       const existing = layout.querySelector('.shared-action-sheet');
@@ -368,10 +371,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       addAction('Create story', '/?publisher=open&type=story', 'Create story');
       addAction('Create reel', '/?publisher=open&type=reel', 'Create reel');
 
+      const dismiss = (): void => {
+        sheet.remove();
+        for (const [id, button] of buttons) button.classList.toggle('is-active', id === previousActiveTab);
+      };
       const cancel = secondaryButton('Cancel');
       cancel.classList.add('shared-action-sheet__cancel');
-      cancel.addEventListener('click', () => sheet.remove());
-      backdrop.addEventListener('click', () => sheet.remove());
+      cancel.addEventListener('click', dismiss);
+      backdrop.addEventListener('click', dismiss);
       panel.append(actions, cancel);
       sheet.append(backdrop, panel);
       layout.append(sheet);
