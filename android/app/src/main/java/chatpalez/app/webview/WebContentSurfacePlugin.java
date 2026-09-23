@@ -159,6 +159,10 @@ public class WebContentSurfacePlugin extends Plugin {
     }
 
     private static String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+        try {
+            return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
+        } catch (Exception error) {
+            throw new IllegalStateException("Unable to encode authenticated web transition.", error);
+        }
     }
 }
