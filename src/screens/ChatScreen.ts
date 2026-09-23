@@ -19,7 +19,7 @@ export type ChatScreenHandlers = {
   onDeleteMessage?: (messageId: number | string) => Promise<void>;
   onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
   onOpenConversation?: (
-    conversationId: number | string,
+    conversation: Conversation,
     events: {
       refresh: () => Promise<void>;
       setTyping: (typingNameList: string) => void;
@@ -385,7 +385,7 @@ export class ChatScreen {
       }
     };
 
-    const stopRealtime = this.handlers.onOpenConversation?.(conversationId, {
+    const stopRealtime = this.handlers.onOpenConversation?.(conversation, {
       refresh: () => refresh(false),
       setTyping: (typingNameList) => {
         presence.textContent = typingNameList ? `${typingNameList} typing…` : presence.textContent;
