@@ -12,7 +12,7 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.content.Intent;
 import android.widget.FrameLayout;
-import androidx.appcompat.app.AlertDialog;
+import android.app.AlertDialog;
 
 import com.getcapacitor.JSObject;
 import org.json.JSONObject;
