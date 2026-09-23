@@ -18,6 +18,8 @@ export type AppShellHandlers = {
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string, target?: string) => void;
   onHideWebModule?: () => void;
+  onCanGoBackWebModule?: () => Promise<boolean>;
+  onGoBackWebModule?: () => Promise<void>;
   onOpenPublicPage?: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
@@ -52,11 +54,13 @@ export type AppShell = {
   showStartup: (title: string, message: string, canRetry?: boolean) => void;
   showLogin: (error?: string) => void;
   showAuthenticated: (session: AuthSession, initialTab?: 'home' | 'messages' | 'notifications' | 'profile') => void;
+  navigateBack: () => Promise<boolean>;
   setBusy: (busy: boolean, message?: string) => void;
   setRetryAction: (action: () => void) => void;
 };
 
 export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): AppShell {
+  let activeBackHandler: (() => Promise<boolean>) | null = null;
   let retryAction: (() => void) | null = null;
 
   const showStartup = (title: string, message: string, canRetry = false): void => {
@@ -113,6 +117,13 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     const displayName = String(user.user_fullname || user.user_firstname || user.user_name || 'ChatPalez');
     const layout = element('section', 'mobile-layout');
     const topbar = element('header', 'mobile-topbar');
+    const backButton = document.createElement('button');
+    backButton.type = 'button';
+    backButton.className = 'app-back-button';
+    backButton.setAttribute('aria-label', 'Back');
+    backButton.textContent = '‹';
+    backButton.hidden = true;
+
     const brand = element('button', 'topbar-brand');
     brand.type = 'button';
     brand.append(brandMark('small'));
@@ -155,7 +166,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
     avatar.addEventListener('click', () => void selectTab('profile'));
     topActions.append(avatar);
-    topbar.append(brand, topActions);
+    topbar.append(backButton, brand, topActions);
 
     const content = element('main', 'mobile-content');
     const nav = element('nav', 'bottom-tabs');
@@ -180,10 +191,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       button.type = 'button';
       button.className = 'tab-button';
       button.dataset.tab = tab.id;
-      const icon = document.createElement('img');
+      const icon = tab.id === 'create'
+        ? elementWithText('span', '+')
+        : document.createElement('img');
       icon.className = 'tab-button__icon';
-      icon.src = tabIcons[tab.id];
-      icon.alt = '';
+      if (icon instanceof HTMLImageElement) {
+        icon.src = tabIcons[tab.id];
+        icon.alt = '';
+      }
       icon.setAttribute('aria-hidden', 'true');
       const label = elementWithText('span', tab.label);
       label.className = 'tab-button__label';
@@ -227,10 +242,78 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onMarkSeen: handlers.onMarkSeen
     });
 
-    function showRetainedModule(path: string, _titleText: string, activeTab: string): void {
+    type ShellDestination =
+      | { kind: 'web'; path: string; title: string; activeTab: string }
+      | { kind: 'local'; tab: 'messages' | 'notifications' | 'profile' };
+    const navigationStack: ShellDestination[] = [];
+    let currentDestination: ShellDestination | null = null;
+
+    const destinationKey = (destination: ShellDestination): string =>
+      destination.kind === 'web' ? `web:${destination.path}` : `local:${destination.tab}`;
+
+    function updateBackButton(): void {
+      backButton.hidden = navigationStack.length === 0 && destinationKey(currentDestination ?? { kind: 'web', path: '/', title: 'Home', activeTab: 'home' }) === 'web:/';
+    }
+
+    function recordDestination(destination: ShellDestination, replace = false): void {
+      if (currentDestination && destinationKey(currentDestination) !== destinationKey(destination)) {
+        if (!replace) navigationStack.push(currentDestination);
+      }
+      currentDestination = destination;
+      updateBackButton();
+    }
+
+    async function renderDestination(destination: ShellDestination, record = true): Promise<void> {
+      if (destination.kind === 'web') {
+        showRetainedModule(destination.path, destination.title, destination.activeTab, record);
+        return;
+      }
+      await selectTab(destination.tab, record);
+    }
+
+    async function navigateBack(): Promise<boolean> {
+      const sheet = layout.querySelector('.shared-action-sheet');
+      if (sheet) {
+        sheet.remove();
+        for (const [id, button] of buttons) button.classList.toggle('is-active', id === (currentDestination?.kind === 'local' ? currentDestination.tab : currentDestination?.activeTab));
+        return true;
+      }
+
+      if (currentDestination?.kind === 'web' && await handlers.onCanGoBackWebModule?.()) {
+        await handlers.onGoBackWebModule?.();
+        return true;
+      }
+
+      const previous = navigationStack.pop();
+      if (previous) {
+        currentDestination = null;
+        await renderDestination(previous, false);
+        currentDestination = previous;
+        updateBackButton();
+        return true;
+      }
+
+      if (!currentDestination || destinationKey(currentDestination) !== 'web:/') {
+        const home: ShellDestination = { kind: 'web', path: '/', title: 'Home', activeTab: 'home' };
+        currentDestination = null;
+        await renderDestination(home, false);
+        currentDestination = home;
+        updateBackButton();
+        return true;
+      }
+
+      return false;
+    }
+
+    backButton.addEventListener('click', () => { void navigateBack(); });
+    activeBackHandler = navigateBack;
+
+
+    function showRetainedModule(path: string, _titleText: string, activeTab: string, record = true): void {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === activeTab);
       content.classList.add('mobile-content--web-surface');
       content.replaceChildren();
+      if (record) recordDestination({ kind: 'web', path, title: _titleText, activeTab });
 
       // The shared Capacitor document keeps the app chrome resident while a
       // separate native WebView/WKWebView owns the remote ChatPalez page.
@@ -276,7 +359,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       layout.append(sheet);
     }
 
-    async function selectTab(tab: string): Promise<void> {
+    async function selectTab(tab: string, record = true): Promise<void> {
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
       content.classList.remove('mobile-content--retained', 'mobile-content--web-surface');
       content.replaceChildren();
@@ -298,13 +381,16 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         return;
       }
       if (tab === 'messages') {
+        if (record) recordDestination({ kind: 'local', tab: 'messages' });
         await chatScreen.render();
         return;
       }
       if (tab === 'notifications') {
+        if (record) recordDestination({ kind: 'local', tab: 'notifications' });
         await showNotifications();
         return;
       }
+      if (record) recordDestination({ kind: 'local', tab: 'profile' });
       await profileScreen.render();
     }
 
@@ -948,7 +1034,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     layout.append(topbar, content, nav);
     root.append(layout);
-    void selectTab(initialTab);
+    void selectTab(initialTab, true);
   };
 
   const setBusy = (busy: boolean, message = 'Please wait…'): void => {
