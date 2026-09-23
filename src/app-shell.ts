@@ -46,6 +46,7 @@ export type AppShellHandlers = {
   onReactToMessage?: (messageId: number | string, reaction: string) => Promise<void>;
   onDeleteMessage?: (messageId: number | string) => Promise<void>;
   onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
+  onOpenConversation?: import('./screens/ChatScreen').ChatScreenHandlers['onOpenConversation'];
   onLoadNotifications?: () => Promise<NotificationItem[]>;
   onLoadBlockedUsers?: (offset: number) => Promise<PageResult<BlockedUser>>;
   onDeleteAccount?: (password: string) => Promise<void>;
@@ -286,7 +287,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onDeleteConversation: handlers.onDeleteConversation,
       onReactToMessage: handlers.onReactToMessage,
       onDeleteMessage: handlers.onDeleteMessage,
-      onMarkSeen: handlers.onMarkSeen
+      onMarkSeen: handlers.onMarkSeen,
+      onOpenConversation: handlers.onOpenConversation
     });
 
     type ShellDestination =
@@ -457,6 +459,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         return;
       }
 
+      if (tab !== 'messages') chatScreen.deactivate();
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
       content.classList.remove('mobile-content--retained', 'mobile-content--web-surface');
       content.replaceChildren();
