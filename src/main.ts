@@ -6,6 +6,7 @@ import { createAppShell } from './app-shell';
 import { ChatPalezApiClient, ApiError } from './api/client';
 import { AuthService, type TwoFactorChallenge } from './api/auth';
 import { ChatService } from './api/chat';
+import { ChatRealtimeService } from './chat-realtime';
 import { NotificationsService } from './api/notifications';
 import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
@@ -46,6 +47,7 @@ const api = new ChatPalezApiClient({
 });
 const auth = new AuthService(api);
 const chat = new ChatService(api);
+const chatRealtime = new ChatRealtimeService(config.chatSocketUrl);
 const notifications = new NotificationsService(api);
 const registration = new RegistrationService(api);
 const users = new UserService(api);
@@ -86,6 +88,7 @@ async function handleSessionExpiry(): Promise<void> {
 }
 
 function renderLogin(error?: string): void {
+  chatRealtime.disconnect();
   void webContentSurface.reset();
   shell.showLogin(error);
   installPasswordRecovery({
@@ -98,6 +101,7 @@ function renderLogin(error?: string): void {
 
 async function showAuthenticatedSession(session: AuthSession): Promise<void> {
   await setSession(session);
+  chatRealtime.connect(session.token);
   logInfo('Mobile authentication completed', { userId: session.user.user_id });
 
   try {
@@ -425,6 +429,10 @@ const shell = createAppShell(root, {
     logInfo('Message sent', { conversationId });
   },
   onTyping: async (conversationId, isTyping) => {
+    if (chatRealtime.isConnected()) {
+      chatRealtime.setTyping(conversationId, isTyping);
+      return;
+    }
     await chat.setTyping(conversationId, isTyping);
   },
   onLeaveConversation: async (conversationId) => {
@@ -440,7 +448,31 @@ const shell = createAppShell(root, {
     await chat.deleteMessage(messageId);
   },
   onMarkSeen: async (ids) => {
+    if (chatRealtime.isConnected() && ids.length === 1) {
+      chatRealtime.markSeen(ids[0]);
+      return;
+    }
     await chat.markSeen(ids);
+  },
+  onOpenConversation: (conversationId, refresh) => {
+    chatRealtime.openConversation(conversationId);
+    const stop = chatRealtime.subscribe({
+      onMessage: (event) => {
+        if (String(event.conversation?.conversation_id ?? '') === String(conversationId)) void refresh();
+      },
+      onTyping: (event) => {
+        if (String(event.conversation_id) === String(conversationId)) void refresh();
+      },
+      onSeen: (event) => {
+        if (String(event.conversation_id) === String(conversationId)) void refresh();
+      },
+      onConnect: () => { void refresh(); },
+      onError: (message) => logWarn('Realtime chat event failed; HTTP chat remains available', { message })
+    });
+    return () => {
+      stop();
+      chatRealtime.closeConversation(conversationId);
+    };
   },
   onLoadNotifications: async () => {
     const items = await notifications.getNotifications();
@@ -500,6 +532,7 @@ async function bootstrap(): Promise<void> {
 
     const session = await restoreSession();
     if (session) {
+      chatRealtime.connect(session.token);
       logInfo('Restored in-process mobile API session', { userId: session.user.user_id });
       const nativeScreen = requestedNativeScreen();
       const webPath = requestedWebPath();
