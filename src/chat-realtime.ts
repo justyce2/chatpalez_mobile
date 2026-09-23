@@ -117,15 +117,15 @@ export class ChatRealtimeService {
   closeConversation(conversationId: number | string): void {
     const id = String(conversationId);
     this.activeConversations.delete(id);
-    this.socket?.emit('event_client_close_chatbox', { conversation_id: id });
+    if (this.socket?.connected) this.socket.emit('event_client_close_chatbox', { conversation_id: id });
   }
 
   setTyping(conversationId: number | string, isTyping: boolean): void {
-    this.socket?.emit('event_client_typing', { conversation_id: conversationId, is_typing: isTyping });
+    if (this.socket?.connected) this.socket.emit('event_client_typing', { conversation_id: conversationId, is_typing: isTyping });
   }
 
   markSeen(conversationId: number | string): void {
-    this.socket?.emit('event_client_seen', { ids: [conversationId] });
+    if (this.socket?.connected) this.socket.emit('event_client_seen', { ids: [conversationId] });
   }
 
   sendMessage(
