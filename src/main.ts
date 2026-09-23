@@ -359,6 +359,7 @@ const shell = createAppShell(root, {
         });
       });
       await clearSession();
+      await webContentSurface.reset().catch(() => undefined);
       shell.setBusy(false);
       renderLogin();
     }
