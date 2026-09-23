@@ -334,12 +334,7 @@ export class ChatScreen {
     text.addEventListener('blur', () => setTyping(false));
 
     let historyOffset = 0;
-    let latestResync: CoalescedResync;
     const refresh = async (older = false): Promise<void> => {
-      if (!older && latestResync?.isRunning) {
-        await latestResync.request();
-        return;
-      }
       try {
         const nextOffset = older ? historyOffset + 1 : 0;
         const result = await this.handlers.onLoadMessages!(conversationId, nextOffset);
@@ -372,7 +367,7 @@ export class ChatScreen {
         if (!older) thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
       }
     };
-    latestResync = new CoalescedResync(() => refresh(false));
+    const latestResync = new CoalescedResync(() => refresh(false));
 
     const stopRealtime = this.handlers.onOpenConversation?.(conversation, {
       refresh: () => latestResync.request(),
