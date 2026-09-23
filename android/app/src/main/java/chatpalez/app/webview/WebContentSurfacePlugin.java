@@ -8,11 +8,13 @@ import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.content.Intent;
 import android.widget.FrameLayout;
 
 import com.getcapacitor.JSObject;
+import org.json.JSONObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -52,6 +54,13 @@ public class WebContentSurfacePlugin extends Plugin {
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
         cookies.setAcceptThirdPartyCookies(contentWebView, true);
+
+        contentWebView.addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public void postMessage(String raw) {
+                getActivity().runOnUiThread(() -> emitCommand(raw));
+            }
+        }, "ChatPalezNativeSurface");
 
         contentWebView.setWebViewClient(new WebViewClient() {
             @Override
@@ -163,6 +172,27 @@ public class WebContentSurfacePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void postMessage(PluginCall call) {
+        JSObject message = call.getObject("message");
+        if (message == null) {
+            call.reject("Missing web surface message.");
+            return;
+        }
+        getActivity().runOnUiThread(() -> {
+            if (contentWebView == null) {
+                call.reject("ChatPalez web content surface is not open.");
+                return;
+            }
+            String json = JSONObject.quote(message.toString());
+            contentWebView.evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('chatpalez:native-surface-message',{detail:JSON.parse(" + json + ")}));",
+                    null
+            );
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
     public void reload(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             if (contentWebView != null) contentWebView.reload();
@@ -183,6 +213,18 @@ public class WebContentSurfacePlugin extends Plugin {
         contentWebView.setLayoutParams(params);
     }
 
+
+
+    private void emitCommand(String raw) {
+        try {
+            JSObject data = JSObject.fromJSONObject(new JSONObject(raw));
+            String type = data.getString("type");
+            if (!"share".equals(type) && !"pick-media".equals(type)
+                    && !"open-native".equals(type) && !"open-external".equals(type)) return;
+            notifyListeners("command", data);
+        } catch (Exception ignored) {
+        }
+    }
 
     private boolean isAllowed(Uri uri) {
         if (uri == null || allowedOrigin == null) return false;
