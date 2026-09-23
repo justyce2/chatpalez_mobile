@@ -435,6 +435,12 @@ const shell = createAppShell(root, {
         logInfo('Message sent through realtime chat', { conversationId });
         return;
       } catch (error) {
+        if (!chatRealtime.isConnected()) {
+          logWarn('Realtime disconnected before delivery confirmation; suppressing automatic HTTP retry', {
+            conversationId
+          });
+          throw new RealtimeDeliveryUncertainError();
+        }
         if (error instanceof RealtimeDeliveryUncertainError) {
           /*
            * A timeout can happen after the server persisted the message but
