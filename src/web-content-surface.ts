@@ -31,6 +31,7 @@ interface WebContentSurfaceNativePlugin {
   goBack(): Promise<void>;
   reload(): Promise<void>;
   postMessage(options: { message: unknown }): Promise<void>;
+  showCreateActions(): Promise<{ action?: string }>;
   addListener(eventName: 'routeChanged', listener: (event: { url: string }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: 'command', listener: (event: WebSurfaceCommand) => void): Promise<{ remove: () => Promise<void> }>;
 }
@@ -127,6 +128,12 @@ export class WebContentSurface {
   async reload(): Promise<void> {
     if (!this.isSupported() || !this.visible) return;
     await NativeSurface.reload();
+  }
+
+  async showCreateActions(): Promise<string | null> {
+    if (!this.isSupported()) return null;
+    const result = await NativeSurface.showCreateActions();
+    return result.action ?? null;
   }
 
   async postMessage(message: unknown): Promise<void> {
