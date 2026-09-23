@@ -31,6 +31,9 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         configuration.mediaTypesRequiringUserActionForPlayback = []
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
+        // The dedicated WKWebView is outside Capacitor's primary web view, so
+        // explicitly mirror the app UA marker required by mobile-session.php.
+        webView.customUserAgent = "\(WKWebView().value(forKey: \"userAgent\") as? String ?? \"\") ChatPalezMobile/1.0"
         webView.backgroundColor = .white
         webView.isOpaque = true
         webView.isHidden = true
