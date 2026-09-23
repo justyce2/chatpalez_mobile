@@ -97,8 +97,21 @@ public class WebContentSurfacePlugin extends Plugin {
             }
 
             @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                JSObject data = new JSObject();
+                data.put("url", url);
+                notifyListeners("loadStarted", data);
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 emitRouteChanged(url);
+                Uri uri = Uri.parse(url);
+                if (isAllowed(uri)) {
+                    JSObject data = new JSObject();
+                    data.put("url", url);
+                    notifyListeners("loadFinished", data);
+                }
             }
         });
         host.addView(contentWebView, new FrameLayout.LayoutParams(1, 1));
