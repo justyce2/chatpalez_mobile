@@ -3,7 +3,7 @@ import WebKit
 import Capacitor
 
 @objc(WebContentSurfacePlugin)
-public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin {
+public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationDelegate {
     public let identifier = "WebContentSurfacePlugin"
     public let jsName = "WebContentSurface"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -17,6 +17,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private var contentWebView: WKWebView?
+    private var allowedOrigin: URL?
 
     private func ensureWebView() -> WKWebView? {
         if let contentWebView { return contentWebView }
@@ -32,6 +33,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin {
         webView.isOpaque = true
         webView.isHidden = true
         webView.autoresizingMask = []
+        webView.navigationDelegate = self
         host.addSubview(webView)
         host.bringSubviewToFront(webView)
         contentWebView = webView
@@ -42,8 +44,12 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin {
         guard let action = call.getString("action"),
               let token = call.getString("token"),
               let path = call.getString("path"),
+              let requestedOrigin = call.getString("allowedOrigin"),
               let url = URL(string: action),
-              url.scheme?.lowercased() == "https" else {
+              let origin = URL(string: requestedOrigin),
+              url.scheme?.lowercased() == "https",
+              origin.scheme?.lowercased() == "https",
+              url.host?.lowercased() == origin.host?.lowercased() else {
             call.reject("Missing or invalid authenticated web transition.")
             return
         }
@@ -54,6 +60,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
 
+            self.allowedOrigin = origin
             self.applyFrame(call, to: webView)
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
@@ -114,6 +121,25 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin {
             self.contentWebView?.reload()
             call.resolve()
         }
+    }
+
+
+    public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+        decisionHandler(isAllowed(url) ? .allow : .cancel)
+    }
+
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard let url = webView.url, isAllowed(url) else { return }
+        notifyListeners("routeChanged", data: ["url": url.absoluteString])
+    }
+
+    private func isAllowed(_ url: URL) -> Bool {
+        guard let trusted = allowedOrigin else { return false }
+        return url.scheme?.lowercased() == "https" && url.host?.lowercased() == trusted.host?.lowercased()
     }
 
     private func applyFrame(_ call: CAPPluginCall, to webView: WKWebView) {
