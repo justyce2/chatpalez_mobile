@@ -634,7 +634,20 @@ void Network.addListener('networkStatusChange', (status) => {
 
   if (!status.connected) {
     logWarn('Device went offline while app was active');
+    chatRealtime.pause();
+    return;
   }
+
+  if (getAuthToken()) chatRealtime.resume();
+});
+
+window.addEventListener('chatpalez:app-state', (event) => {
+  const detail = (event as CustomEvent<{ isActive?: boolean }>).detail;
+  if (detail?.isActive) {
+    if (getAuthToken()) chatRealtime.resume();
+    return;
+  }
+  chatRealtime.pause();
 });
 
 window.addEventListener('error', (event) => {
