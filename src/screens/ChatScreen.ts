@@ -24,6 +24,7 @@ export type ChatScreenHandlers = {
     conversation: Conversation,
     events: {
       refresh: () => Promise<void>;
+      markConversationSeen: () => void;
       setTyping: (typingNameList: string) => void;
       setSeen: (seenNameList: string) => void;
       setPresence: (online: boolean, lastSeen?: string) => void;
@@ -374,11 +375,13 @@ export class ChatScreen {
         const ids = messages.map((message) => message.message_id)
           .filter((id): id is number | string => id !== undefined && id !== null);
         if (ids.length && this.handlers.onMarkSeen) void this.handlers.onMarkSeen(ids).catch(() => undefined);
+        if (!older) realtimeEvents?.markConversationSeen();
       } catch (error) {
         if (!older) thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
       }
     };
     const latestResync = new CoalescedResync(() => refresh(false));
+    let realtimeEvents: { markConversationSeen: () => void } | null = null;
 
     let threadClosed = false;
     const closeThread = (reason?: string): void => {
@@ -387,8 +390,9 @@ export class ChatScreen {
       if (reason) window.alert(reason);
       void this.render();
     };
-    const stopRealtime = this.handlers.onOpenConversation?.(conversation, {
+    const realtimeHandlers = {
       refresh: () => latestResync.request(),
+      markConversationSeen: () => undefined,
       setTyping: (typingNameList) => {
         presence.textContent = typingNameList ? `${typingNameList} typing…` : presence.textContent;
       },
@@ -400,7 +404,9 @@ export class ChatScreen {
         presence.textContent = online ? 'Online' : lastSeen ? `Last seen ${lastSeen}` : '';
       },
       close: closeThread
-    });
+    };
+    const stopRealtime = this.handlers.onOpenConversation?.(conversation, realtimeHandlers);
+    realtimeEvents = realtimeHandlers;
 
     const leaveThread = (): void => {
       if (typingTimer) window.clearTimeout(typingTimer);
