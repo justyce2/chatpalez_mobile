@@ -3,7 +3,7 @@ import WebKit
 import Capacitor
 
 @objc(WebContentSurfacePlugin)
-public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationDelegate {
+public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationDelegate, WKScriptMessageHandler {
     public let identifier = "WebContentSurfacePlugin"
     public let jsName = "WebContentSurface"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -13,7 +13,8 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         CAPPluginMethod(name: "setFrame", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "canGoBack", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "goBack", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "reload", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "reload", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "postMessage", returnType: CAPPluginReturnPromise)
     ]
 
     private var contentWebView: WKWebView?
@@ -24,6 +25,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         guard let host = bridge?.viewController?.view else { return nil }
 
         let configuration = WKWebViewConfiguration()
+        configuration.userContentController.add(self, name: "ChatPalezNativeSurface")
         configuration.websiteDataStore = .default()
         configuration.allowsInlineMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
@@ -116,6 +118,29 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         }
     }
 
+    @objc func postMessage(_ call: CAPPluginCall) {
+        guard let message = call.getObject("message"),
+              JSONSerialization.isValidJSONObject(message),
+              let data = try? JSONSerialization.data(withJSONObject: message),
+              let json = String(data: data, encoding: .utf8) else {
+            call.reject("Missing or invalid web surface message.")
+            return
+        }
+        DispatchQueue.main.async {
+            guard let webView = self.contentWebView else {
+                call.reject("ChatPalez web content surface is not open.")
+                return
+            }
+            webView.evaluateJavaScript("window.dispatchEvent(new CustomEvent('chatpalez:native-surface-message',{detail:\(json)}));") { _, error in
+                if let error {
+                    call.reject("Unable to deliver web surface message.", nil, error)
+                } else {
+                    call.resolve()
+                }
+            }
+        }
+    }
+
     @objc func reload(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             self.contentWebView?.reload()
@@ -123,6 +148,15 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         }
     }
 
+
+
+    public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "ChatPalezNativeSurface",
+              let body = message.body as? [String: Any],
+              let type = body["type"] as? String,
+              ["share", "pick-media", "open-native", "open-external"].contains(type) else { return }
+        notifyListeners("command", data: body)
+    }
 
     public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else {
