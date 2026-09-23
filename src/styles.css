@@ -1361,3 +1361,53 @@ p { color: #64748b; line-height: 1.55; }
 .shared-action-sheet__cancel {
   margin-top: 10px;
 }
+
+
+/* Two-tier shared header: brand owns its own row above navigation actions. */
+.mobile-topbar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  min-height: calc(104px + env(safe-area-inset-top, 0px));
+  padding: calc(env(safe-area-inset-top, 0px) + 7px) 10px 5px;
+}
+.mobile-topbar__brand-row {
+  min-height: 45px;
+  display: flex;
+  align-items: center;
+  padding: 0 4px 5px;
+}
+.mobile-topbar__brand-row .topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #0066B2;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -.2px;
+}
+.mobile-topbar__brand-row .topbar-brand .brand-mark {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+}
+.mobile-topbar__action-row {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-top: 1px solid rgba(226,232,240,.72);
+}
+.mobile-topbar__action-row .native-topbar-actions {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  min-width: 0;
+}
+.mobile-topbar__action-row .app-back-button {
+  flex: 0 0 44px;
+}
