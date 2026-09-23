@@ -323,6 +323,23 @@ public class WebContentSurfacePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void resetSession(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (contentWebView != null) {
+                contentWebView.stopLoading();
+                contentWebView.loadUrl("about:blank");
+                contentWebView.clearHistory();
+                contentWebView.clearCache(false);
+                contentWebView.setVisibility(View.GONE);
+            }
+            CookieManager cookies = CookieManager.getInstance();
+            cookies.removeAllCookies(value -> cookies.flush());
+            allowedOrigin = null;
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
     public void reload(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             if (contentWebView != null) contentWebView.reload();
