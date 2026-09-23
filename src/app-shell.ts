@@ -364,11 +364,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.classList.remove('mobile-content--retained', 'mobile-content--web-surface');
       content.replaceChildren();
       if (tab === 'home') {
-        showRetainedModule('/', 'Home', 'home');
+        showRetainedModule('/', 'Home', 'home', record);
         return;
       }
       if (tab === 'reels') {
-        showRetainedModule('/reels', 'Reels', 'reels');
+        showRetainedModule('/reels', 'Reels', 'reels', record);
         return;
       }
 
@@ -1046,7 +1046,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   const setRetryAction = (action: () => void): void => {
     retryAction = action;
   };
-  return { showStartup, showLogin, showAuthenticated, setBusy, setRetryAction };
+  return { showStartup, showLogin, showAuthenticated, navigateBack: async () => activeBackHandler ? activeBackHandler() : false, setBusy, setRetryAction };
 }
 
 function conversationList(conversations: Conversation[], onOpen: (conversation: Conversation) => void): HTMLDivElement {
