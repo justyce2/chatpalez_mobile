@@ -59,6 +59,7 @@ export class WebContentSurface {
   private visible = false;
   private opened = false;
   private currentPath: string | null = null;
+  private routeChangedListeners = new Set<(url: string) => void>();
 
   isSupported(): boolean {
     return Capacitor.isNativePlatform();
@@ -149,7 +150,10 @@ export class WebContentSurface {
 
   async onRouteChanged(listener: (url: string) => void): Promise<() => Promise<void>> {
     if (!this.isSupported()) return async () => undefined;
-    const handle = await NativeSurface.addListener('routeChanged', ({ url }) => listener(url));
+    const handle = await NativeSurface.addListener('routeChanged', ({ url }) => {
+      this.currentPath = new URL(url).pathname + new URL(url).search;
+      listener(url);
+    });
     return () => handle.remove();
   }
 
