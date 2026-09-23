@@ -1421,19 +1421,19 @@ p { color: #64748b; line-height: 1.55; }
 
 
 /* Active conversation focus mode: only the open thread hides global footer chrome. */
-.app-layout.is-active-conversation .bottom-tabs {
+.mobile-layout.is-active-conversation .bottom-tabs {
   display: none;
 }
-.app-layout.is-active-conversation .mobile-content {
+.mobile-layout.is-active-conversation .mobile-content {
   padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
 }
-.app-layout.is-active-conversation .message-thread {
+.mobile-layout.is-active-conversation .message-thread {
   max-height: calc(100dvh - 255px);
   padding-bottom: 92px;
 }
 
 /* Messaging composer: fixed, tactile chat bar inspired by native messengers. */
-.app-layout.is-active-conversation .message-composer {
+.mobile-layout.is-active-conversation .message-composer {
   position: fixed;
   z-index: 35;
   left: 0;
@@ -1454,7 +1454,7 @@ p { color: #64748b; line-height: 1.55; }
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
-.app-layout.is-active-conversation .message-composer textarea {
+.mobile-layout.is-active-conversation .message-composer textarea {
   width: 100%;
   min-width: 0;
   min-height: 44px;
@@ -1470,11 +1470,11 @@ p { color: #64748b; line-height: 1.55; }
   outline: none;
   box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
 }
-.app-layout.is-active-conversation .message-composer textarea:focus {
+.mobile-layout.is-active-conversation .message-composer textarea:focus {
   border-color: rgba(0, 102, 178, .52);
   box-shadow: 0 0 0 3px rgba(0, 102, 178, .09);
 }
-.app-layout.is-active-conversation .attach-button {
+.mobile-layout.is-active-conversation .attach-button {
   width: 44px;
   min-width: 44px;
   height: 44px;
@@ -1489,7 +1489,7 @@ p { color: #64748b; line-height: 1.55; }
   font-size: 0;
   box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
 }
-.app-layout.is-active-conversation .attach-button::before {
+.mobile-layout.is-active-conversation .attach-button::before {
   content: "";
   width: 17px;
   height: 21px;
@@ -1499,7 +1499,7 @@ p { color: #64748b; line-height: 1.55; }
   border-radius: 9px;
   transform: rotate(42deg);
 }
-.app-layout.is-active-conversation .message-send-button {
+.mobile-layout.is-active-conversation .message-send-button {
   width: 46px;
   min-width: 46px;
   height: 46px;
@@ -1522,14 +1522,14 @@ p { color: #64748b; line-height: 1.55; }
   border-left: 15px solid currentColor;
   transform: translateX(2px);
 }
-.app-layout.is-active-conversation .message-send-button:active {
+.mobile-layout.is-active-conversation .message-send-button:active {
   transform: scale(.96);
 }
-.app-layout.is-active-conversation .message-send-button:disabled {
+.mobile-layout.is-active-conversation .message-send-button:disabled {
   opacity: .55;
   box-shadow: none;
 }
-.app-layout.is-active-conversation .message-send-button.is-sending .message-send-button__icon {
+.mobile-layout.is-active-conversation .message-send-button.is-sending .message-send-button__icon {
   width: 17px;
   height: 17px;
   border: 2px solid rgba(255,255,255,.45);
