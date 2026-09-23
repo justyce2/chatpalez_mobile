@@ -1411,3 +1411,10 @@ p { color: #64748b; line-height: 1.55; }
 .mobile-topbar__action-row .app-back-button {
   flex: 0 0 44px;
 }
+
+/* Back remains structurally present in the two-tier header at app root. */
+.mobile-topbar__action-row .app-back-button:disabled {
+  opacity: .32;
+  cursor: default;
+  pointer-events: none;
+}
