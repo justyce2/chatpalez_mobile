@@ -1213,10 +1213,10 @@ p { color: #64748b; line-height: 1.55; }
 }
 .native-top-action,
 .avatar-button {
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
-  min-height: 38px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   display: grid;
   place-items: center;
   border: 0;
@@ -1327,39 +1327,7 @@ p { color: #64748b; line-height: 1.55; }
   display: none;
 }
 
-@media (max-width: 360px) {
-  .mobile-topbar {
-    padding-left: 4px;
-    padding-right: 4px;
-  }
-  .native-topbar-actions {
-    gap: 0;
-  }
-  .native-top-action,
-  .avatar-button {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    min-height: 36px;
-  }
-}
 
-/* Shared cross-platform create chooser. */
-.shared-action-sheet {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-.shared-action-sheet__backdrop {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  border: 0;
-  background: rgba(15,23,42,.44);
-}
 .shared-action-sheet__panel {
   position: relative;
   width: min(100%, 520px);
