@@ -12,6 +12,7 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.content.Intent;
 import android.widget.FrameLayout;
+import androidx.appcompat.app.AlertDialog;
 
 import com.getcapacitor.JSObject;
 import org.json.JSONObject;
@@ -176,6 +177,33 @@ public class WebContentSurfacePlugin extends Plugin {
         getActivity().runOnUiThread(() -> {
             if (contentWebView != null && contentWebView.canGoBack()) contentWebView.goBack();
             call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void showCreateActions(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            final String[] labels = { "Create post", "Upload photos", "Create story", "Create reel" };
+            final String[] actions = { "post", "photos", "story", "reel" };
+            AlertDialog dialog = new AlertDialog.Builder(getActivity())
+                    .setTitle("Create")
+                    .setItems(labels, (ignored, which) -> {
+                        JSObject result = new JSObject();
+                        result.put("action", actions[which]);
+                        call.resolve(result);
+                    })
+                    .setNegativeButton("Cancel", (ignored, which) -> {
+                        JSObject result = new JSObject();
+                        result.put("action", JSONObject.NULL);
+                        call.resolve(result);
+                    })
+                    .setOnCancelListener(ignored -> {
+                        JSObject result = new JSObject();
+                        result.put("action", JSONObject.NULL);
+                        call.resolve(result);
+                    })
+                    .create();
+            dialog.show();
         });
     }
 
