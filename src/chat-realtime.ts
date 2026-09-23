@@ -38,6 +38,15 @@ export type ChatRealtimeHandlers = {
 
 type Ack = { ok?: boolean; error?: string };
 
+export class RealtimeDeliveryUncertainError extends Error {
+  readonly deliveryUncertain = true;
+
+  constructor(message = 'Realtime delivery could not be confirmed. Refresh the conversation before retrying.') {
+    super(message);
+    this.name = 'RealtimeDeliveryUncertainError';
+  }
+}
+
 export class ChatRealtimeService {
   private socket: Socket | null = null;
   private token: string | null = null;
@@ -168,7 +177,10 @@ export class ChatRealtimeService {
     const socket = this.socket;
     if (!socket?.connected) return Promise.reject(new Error('Realtime chat is not connected.'));
     return new Promise<T>((resolve, reject) => {
-      const timer = window.setTimeout(() => reject(new Error('Realtime chat request timed out.')), 10000);
+      const timer = window.setTimeout(
+        () => reject(new RealtimeDeliveryUncertainError()),
+        10000
+      );
       socket.emit(event, payload, (raw: string | Ack) => {
         window.clearTimeout(timer);
         try {
