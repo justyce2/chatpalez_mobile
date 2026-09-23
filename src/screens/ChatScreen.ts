@@ -18,7 +18,14 @@ export type ChatScreenHandlers = {
   onReactToMessage?: (messageId: number | string, reaction: string) => Promise<void>;
   onDeleteMessage?: (messageId: number | string) => Promise<void>;
   onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
-  onOpenConversation?: (conversationId: number | string, refresh: () => Promise<void>) => (() => void) | void;
+  onOpenConversation?: (
+    conversationId: number | string,
+    events: {
+      refresh: () => Promise<void>;
+      setTyping: (typingNameList: string) => void;
+      setPresence: (online: boolean, lastSeen?: string) => void;
+    }
+  ) => (() => void) | void;
 };
 
 export class ChatScreen {
@@ -378,7 +385,16 @@ export class ChatScreen {
       }
     };
 
-    const stopRealtime = this.handlers.onOpenConversation?.(conversationId, () => refresh(false));
+    const stopRealtime = this.handlers.onOpenConversation?.(conversationId, {
+      refresh: () => refresh(false),
+      setTyping: (typingNameList) => {
+        presence.textContent = typingNameList ? `${typingNameList} typing…` : presence.textContent;
+      },
+      setPresence: (online, lastSeen) => {
+        if (conversation.multiple_recipients) return;
+        presence.textContent = online ? 'Online' : lastSeen ? `Last seen ${lastSeen}` : '';
+      }
+    });
 
     const leaveThread = (): void => {
       if (typingTimer) window.clearTimeout(typingTimer);
