@@ -471,9 +471,13 @@ const shell = createAppShell(root, {
     }
     await chat.markSeen(ids);
   },
-  onOpenConversation: (conversationId, events) => {
+  onOpenConversation: (conversation, events) => {
+    const conversationId = conversation.conversation_id;
     chatRealtime.openConversation(conversationId);
     const currentConversationId = String(conversationId);
+    const participantIds = new Set(
+      (conversation.recipients ?? []).map((recipient) => String(recipient.user_id))
+    );
     const stop = chatRealtime.subscribe({
       onMessage: (event) => {
         if (String(event.conversation?.conversation_id ?? '') === currentConversationId) void events.refresh();
@@ -487,10 +491,12 @@ const shell = createAppShell(root, {
         if (String(event.conversation_id) === currentConversationId) void events.refresh();
       },
       onUserOnline: (event) => {
-        events.setPresence(true);
+        if (!conversation.multiple_recipients && participantIds.has(String(event.user_id))) events.setPresence(true);
       },
       onUserOffline: (event) => {
-        events.setPresence(false, event.user_last_seen ? String(event.user_last_seen) : undefined);
+        if (!conversation.multiple_recipients && participantIds.has(String(event.user_id))) {
+          events.setPresence(false, event.user_last_seen ? String(event.user_last_seen) : undefined);
+        }
       },
       onConnect: () => { void events.refresh(); },
       onError: (message) => logWarn('Realtime chat event failed; HTTP chat remains available', { message })
