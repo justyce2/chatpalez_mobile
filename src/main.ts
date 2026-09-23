@@ -483,10 +483,11 @@ const shell = createAppShell(root, {
     await chat.deleteMessage(messageId);
   },
   onMarkSeen: async (ids) => {
-    if (chatRealtime.isConnected() && ids.length === 1) {
-      chatRealtime.markSeen(ids[0]);
-      return;
-    }
+    /*
+     * ChatScreen passes message IDs here and the HTTP API owns that contract.
+     * The Socket.IO seen event uses a different contract: ids contains exactly
+     * one CONVERSATION ID. Never substitute message IDs into that event.
+     */
     await chat.markSeen(ids);
   },
   onOpenConversation: (conversation, events) => {
