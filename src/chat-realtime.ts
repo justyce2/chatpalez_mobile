@@ -65,9 +65,7 @@ export class ChatRealtimeService {
     this.socket = socket;
 
     socket.on('connect', () => {
-      for (const conversationId of this.activeConversations) {
-        socket.emit('event_client_open_thread', { conversation_id: conversationId });
-      }
+      for (const conversationId of this.activeConversations) this.joinConversation(conversationId);
       this.emit((handler) => handler.onConnect?.());
     });
     socket.on('disconnect', (reason) => this.emit((handler) => handler.onDisconnect?.(reason)));
@@ -113,7 +111,7 @@ export class ChatRealtimeService {
   openConversation(conversationId: number | string): void {
     const id = String(conversationId);
     this.activeConversations.add(id);
-    this.socket?.emit('event_client_open_thread', { conversation_id: id });
+    this.joinConversation(id);
   }
 
   closeConversation(conversationId: number | string): void {
@@ -154,6 +152,16 @@ export class ChatRealtimeService {
 
   resume(): void {
     if (this.socket && this.token && !this.socket.connected) this.socket.connect();
+  }
+
+  private joinConversation(conversationId: string): void {
+    const socket = this.socket;
+    if (!socket?.connected) return;
+    socket.emit('event_client_open_thread', { conversation_id: conversationId }, (ack: Ack & { conversation_id?: number | string }) => {
+      if (ack?.error) {
+        this.emit((handler) => handler.onError?.(String(ack.error)));
+      }
+    });
   }
 
   private emitJsonAck<T>(event: string, payload: unknown): Promise<T> {
