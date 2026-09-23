@@ -1418,3 +1418,126 @@ p { color: #64748b; line-height: 1.55; }
   cursor: default;
   pointer-events: none;
 }
+
+
+/* Active conversation focus mode: only the open thread hides global footer chrome. */
+.app-layout.is-active-conversation .bottom-tabs {
+  display: none;
+}
+.app-layout.is-active-conversation .mobile-content {
+  padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+}
+.app-layout.is-active-conversation .message-thread {
+  max-height: calc(100dvh - 255px);
+  padding-bottom: 92px;
+}
+
+/* Messaging composer: fixed, tactile chat bar inspired by native messengers. */
+.app-layout.is-active-conversation .message-composer {
+  position: fixed;
+  z-index: 35;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  margin: 0;
+  padding: 9px max(10px, env(safe-area-inset-right, 0px))
+           max(9px, env(safe-area-inset-bottom, 0px))
+           max(10px, env(safe-area-inset-left, 0px));
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 46px;
+  gap: 8px;
+  align-items: end;
+  background: rgba(246, 248, 251, .97);
+  border-top: 1px solid #DCE3EA;
+  box-shadow: 0 -8px 28px rgba(15, 23, 42, .08);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.app-layout.is-active-conversation .message-composer textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  max-height: 116px;
+  margin: 0;
+  padding: 11px 14px;
+  resize: none;
+  border: 1px solid #D6DEE7;
+  border-radius: 22px;
+  background: #FFFFFF;
+  color: #111827;
+  line-height: 20px;
+  outline: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .03);
+}
+.app-layout.is-active-conversation .message-composer textarea:focus {
+  border-color: rgba(0, 102, 178, .52);
+  box-shadow: 0 0 0 3px rgba(0, 102, 178, .09);
+}
+.app-layout.is-active-conversation .attach-button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #D6DEE7;
+  border-radius: 50%;
+  background: #FFFFFF;
+  color: #526170;
+  font-size: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+.app-layout.is-active-conversation .attach-button::before {
+  content: "";
+  width: 17px;
+  height: 21px;
+  display: block;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 9px;
+  transform: rotate(42deg);
+}
+.app-layout.is-active-conversation .message-send-button {
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  min-height: 46px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #0066B2;
+  color: #FFFFFF;
+  box-shadow: 0 5px 14px rgba(0, 102, 178, .24);
+}
+.message-send-button__icon {
+  width: 0;
+  height: 0;
+  display: block;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 15px solid currentColor;
+  transform: translateX(2px);
+}
+.app-layout.is-active-conversation .message-send-button:active {
+  transform: scale(.96);
+}
+.app-layout.is-active-conversation .message-send-button:disabled {
+  opacity: .55;
+  box-shadow: none;
+}
+.app-layout.is-active-conversation .message-send-button.is-sending .message-send-button__icon {
+  width: 17px;
+  height: 17px;
+  border: 2px solid rgba(255,255,255,.45);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  transform: none;
+  animation: chat-send-spin .7s linear infinite;
+}
+@keyframes chat-send-spin {
+  to { transform: rotate(360deg); }
+}
