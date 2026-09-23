@@ -471,19 +471,28 @@ const shell = createAppShell(root, {
     }
     await chat.markSeen(ids);
   },
-  onOpenConversation: (conversationId, refresh) => {
+  onOpenConversation: (conversationId, events) => {
     chatRealtime.openConversation(conversationId);
+    const currentConversationId = String(conversationId);
     const stop = chatRealtime.subscribe({
       onMessage: (event) => {
-        if (String(event.conversation?.conversation_id ?? '') === String(conversationId)) void refresh();
+        if (String(event.conversation?.conversation_id ?? '') === currentConversationId) void events.refresh();
       },
       onTyping: (event) => {
-        if (String(event.conversation_id) === String(conversationId)) void refresh();
+        if (String(event.conversation_id) === currentConversationId) {
+          events.setTyping(String(event.typing_name_list ?? ''));
+        }
       },
       onSeen: (event) => {
-        if (String(event.conversation_id) === String(conversationId)) void refresh();
+        if (String(event.conversation_id) === currentConversationId) void events.refresh();
       },
-      onConnect: () => { void refresh(); },
+      onUserOnline: (event) => {
+        events.setPresence(true);
+      },
+      onUserOffline: (event) => {
+        events.setPresence(false, event.user_last_seen ? String(event.user_last_seen) : undefined);
+      },
+      onConnect: () => { void events.refresh(); },
       onError: (message) => logWarn('Realtime chat event failed; HTTP chat remains available', { message })
     });
     return () => {
