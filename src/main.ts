@@ -85,7 +85,7 @@ async function handleSessionExpiry(): Promise<void> {
 }
 
 function renderLogin(error?: string): void {
-  void webContentSurface.hide();
+  void webContentSurface.reset();
   shell.showLogin(error);
   installPasswordRecovery({
     root,
