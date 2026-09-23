@@ -129,12 +129,16 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
                 return
             }
 
-            let sheet = UIAlertController(title: "Create", message: nil, preferredStyle: .actionSheet)
+            let sheet = UIAlertController(
+                title: "Create",
+                message: "What would you like to share?",
+                preferredStyle: .actionSheet
+            )
             let actions: [(String, String)] = [
-                ("Create post", "post"),
-                ("Upload photos", "photos"),
-                ("Create story", "story"),
-                ("Create reel", "reel")
+                ("Create Post", "post"),
+                ("Upload Photos", "photos"),
+                ("Create Story", "story"),
+                ("Create Reel", "reel")
             ]
             for (title, value) in actions {
                 sheet.addAction(UIAlertAction(title: title, style: .default) { _ in
@@ -145,6 +149,9 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
                 call.resolve(["action": NSNull()])
             })
 
+            // Keep the native iPhone action-sheet idiom while matching the
+            // ChatPalez accent and supporting iPad's required popover anchor.
+            sheet.view.tintColor = UIColor(red: 0, green: 102.0 / 255.0, blue: 178.0 / 255.0, alpha: 1)
             if let popover = sheet.popoverPresentationController {
                 popover.sourceView = presenter.view
                 popover.sourceRect = CGRect(
