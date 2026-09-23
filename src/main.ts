@@ -325,6 +325,7 @@ const shell = createAppShell(root, {
   onHideWebModule: () => { void webContentSurface.hide(); },
   onCanGoBackWebModule: () => webContentSurface.canGoBack(),
   onGoBackWebModule: () => webContentSurface.goBack(),
+  onShowCreateActions: webContentSurface.isSupported() ? () => webContentSurface.showCreateActions() : undefined,
   onOpenPublicPage: openPublicModule,
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
   onLoadProfile: async () => {
