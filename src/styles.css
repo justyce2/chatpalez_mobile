@@ -1267,16 +1267,10 @@ p { color: #64748b; line-height: 1.55; }
   height: 30px !important;
   min-width: 30px !important;
   min-height: 30px !important;
-  display: grid;
-  place-items: center;
-  padding: 0;
+  padding: 5px;
   border-radius: 50%;
   background: #0066B2;
-  color: #fff;
-  font-size: 26px;
-  font-weight: 400;
-  line-height: 1;
-  filter: none;
+  filter: brightness(0) invert(1);
 }
 
 /* Shared cross-platform create chooser. */

@@ -59,7 +59,7 @@ describe('hybrid web bridge', () => {
 
   it('binds web share events to the native bridge', async () => {
     const bridge = installMobileBridge(config);
-    bindWebBridgeEvents(bridge, config);
+    bindWebBridgeEvents(bridge);
 
     window.dispatchEvent(new CustomEvent('chatpalez:share', {
       detail: { title: 'ChatPalez', url: 'https://chatpalez.com/posts/1' }

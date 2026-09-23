@@ -179,14 +179,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       button.type = 'button';
       button.className = 'tab-button';
       button.dataset.tab = tab.id;
-      const icon = tab.id === 'create'
-        ? elementWithText('span', '+')
-        : document.createElement('img');
+      const icon = document.createElement('img');
       icon.className = 'tab-button__icon';
-      if (icon instanceof HTMLImageElement) {
-        icon.src = tabIcons[tab.id];
-        icon.alt = '';
-      }
+      icon.src = tabIcons[tab.id];
+      icon.alt = '';
       icon.setAttribute('aria-hidden', 'true');
       const label = elementWithText('span', tab.label);
       label.className = 'tab-button__label';
