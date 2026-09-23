@@ -390,14 +390,16 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         return;
       }
 
-      // Local/API-driven screens and the shared create sheet must sit above the
-      // local Capacitor document, so hide only the native web-content surface.
-      handlers.onHideWebModule?.();
-
+      // Create is an overlay over the current destination. Keep the native
+      // web surface visible so the feed/page remains behind the sheet.
       if (tab === 'create') {
         showCreateSheet();
         return;
       }
+
+      // API-driven screens replace the middle content region, so hide only the
+      // native web-content surface when switching to those screens.
+      handlers.onHideWebModule?.();
       if (tab === 'messages') {
         if (record) recordDestination({ kind: 'local', tab: 'messages' });
         await chatScreen.render();
