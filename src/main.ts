@@ -6,7 +6,7 @@ import { createAppShell } from './app-shell';
 import { ChatPalezApiClient, ApiError } from './api/client';
 import { AuthService, type TwoFactorChallenge } from './api/auth';
 import { ChatService } from './api/chat';
-import { ChatRealtimeService } from './chat-realtime';
+import { ChatRealtimeService, RealtimeDeliveryUncertainError } from './chat-realtime';
 import { NotificationsService } from './api/notifications';
 import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
@@ -435,7 +435,19 @@ const shell = createAppShell(root, {
         logInfo('Message sent through realtime chat', { conversationId });
         return;
       } catch (error) {
-        logWarn('Realtime message send failed; falling back to HTTP', {
+        if (error instanceof RealtimeDeliveryUncertainError) {
+          /*
+           * A timeout can happen after the server persisted the message but
+           * before the acknowledgement reached this device. Retrying over HTTP
+           * here could duplicate the message, so surface an uncertain result
+           * and let ChatScreen resync before the user chooses to retry.
+           */
+          logWarn('Realtime message acknowledgement was lost; suppressing automatic HTTP retry', {
+            conversationId
+          });
+          throw error;
+        }
+        logWarn('Realtime message send failed before delivery confirmation; falling back to HTTP', {
           conversationId,
           detail: error instanceof Error ? error.message : String(error ?? '')
         });
