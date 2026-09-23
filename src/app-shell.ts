@@ -54,6 +54,7 @@ export type AppShellHandlers = {
 export type AppShell = {
   showStartup: (title: string, message: string, canRetry?: boolean) => void;
   showLogin: (error?: string) => void;
+  showPublicPage: (title: string, onBack: () => void) => HTMLElement;
   showAuthenticated: (session: AuthSession, initialTab?: 'home' | 'messages' | 'notifications' | 'profile') => void;
   navigateBack: () => Promise<boolean>;
   navigateToNative: (screen: 'messages' | 'notifications' | 'profile') => Promise<boolean>;
@@ -116,6 +117,35 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     });
     wrap.append(header, form);
     root.append(wrap);
+  };
+
+  const showPublicPage = (title: string, onBack: () => void): HTMLElement => {
+    root.replaceChildren();
+    const layout = element('section', 'public-page-layout');
+    const topbar = element('header', 'public-page-header');
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'app-back-button';
+    back.setAttribute('aria-label', 'Back to sign in');
+    const glyph = element('span', 'app-back-button__glyph');
+    glyph.setAttribute('aria-hidden', 'true');
+    back.append(glyph);
+    back.addEventListener('click', onBack);
+    const logo = brandMark('small');
+    const headingText = elementWithText('strong', title);
+    topbar.append(back, logo, headingText);
+    const content = element('main', 'public-page-content');
+    const frame = document.createElement('iframe');
+    frame.className = 'public-page-frame';
+    frame.title = title;
+    content.append(frame);
+    layout.append(topbar, content);
+    root.append(layout);
+    authBackHandler = () => {
+      onBack();
+      return true;
+    };
+    return frame;
   };
 
   const showAuthenticated = (session: AuthSession, initialTab: 'home' | 'messages' | 'notifications' | 'profile' = 'home'): void => {
@@ -1117,6 +1147,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
   return {
     showStartup,
     showLogin,
+    showPublicPage,
     showAuthenticated,
     navigateBack: async () => {
       if (authBackHandler?.()) return true;
