@@ -45,6 +45,14 @@ public class WebContentSurfacePlugin extends Plugin {
 
         WebSettings settings = contentWebView.getSettings();
         settings.setJavaScriptEnabled(true);
+        // This secondary WebView does not inherit Capacitor's appendUserAgent.
+        // Keep the backend's existing first-party mobile-session guard intact
+        // by applying the same app marker used by the primary Capacitor WebView.
+        String userAgent = settings.getUserAgentString();
+        if (userAgent == null) userAgent = "";
+        if (!userAgent.contains("ChatPalezMobile/1.0")) {
+            settings.setUserAgentString(userAgent + " ChatPalezMobile/1.0");
+        }
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
