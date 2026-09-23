@@ -1541,3 +1541,31 @@ p { color: #64748b; line-height: 1.55; }
 @keyframes chat-send-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Auth selects share the same field treatment as text controls. */
+.field select {
+  width: 100%;
+  min-height: 50px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #CBD5E1;
+  border-radius: 14px;
+  padding: 13px 44px 13px 15px;
+  background-color: #FFFFFF;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #64748B 50%),
+    linear-gradient(135deg, #64748B 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 21px,
+    calc(100% - 15px) 21px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  color: #0F172A;
+  font: inherit;
+  font-weight: 500;
+  outline: none;
+}
+.field select:focus {
+  border-color: #0066B2;
+  box-shadow: 0 0 0 3px rgba(0, 102, 178, .16);
+}
