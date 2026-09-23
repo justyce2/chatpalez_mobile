@@ -490,6 +490,12 @@ const shell = createAppShell(root, {
       onSeen: (event) => {
         if (String(event.conversation_id) === currentConversationId) void events.refresh();
       },
+      onConversationDeleted: (event) => {
+        if (String(event.conversation_id) === currentConversationId) events.close('This conversation is no longer available.');
+      },
+      onConversationLeft: (event) => {
+        if (String(event.conversation_id) === currentConversationId) events.close('You are no longer a participant in this conversation.');
+      },
       onUserOnline: (event) => {
         if (!conversation.multiple_recipients && participantIds.has(String(event.user_id))) events.setPresence(true);
       },
