@@ -4,6 +4,7 @@ import type { AuthSession } from '../auth/session';
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
 
 export type ChatScreenHandlers = {
+  onConversationModeChange?: (active: boolean) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onLoadConversations?: (offset: number) => Promise<ChatPageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<ChatPageResult<ChatContact>>;
@@ -27,6 +28,7 @@ export class ChatScreen {
   ) {}
 
   async render(): Promise<void> {
+    this.handlers.onConversationModeChange?.(false);
     this.content.replaceChildren();
     const heading = element('div', 'section-heading-row chat-screen-heading');
     heading.append(title('Chat'));
@@ -98,6 +100,7 @@ export class ChatScreen {
   }
 
   private async renderNewChat(): Promise<void> {
+    this.handlers.onConversationModeChange?.(false);
     this.content.replaceChildren();
     const header = element('div', 'conversation-header');
     const back = secondaryButton('Back');
@@ -239,6 +242,7 @@ export class ChatScreen {
   }
 
   private async renderConversation(conversation: Conversation): Promise<void> {
+    this.handlers.onConversationModeChange?.(true);
     const conversationId = conversation.conversation_id;
     const name = String(conversation.name || conversation.name_list || 'Chat');
     this.content.replaceChildren();
@@ -298,8 +302,11 @@ export class ChatScreen {
     const text = document.createElement('textarea');
     text.rows = 2;
     text.placeholder = 'Write a message…';
-    const send = primaryButton('Send');
+    const send = primaryButton('');
     send.type = 'submit';
+    send.classList.add('message-send-button');
+    send.setAttribute('aria-label', 'Send message');
+    send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
     composer.append(attach, text, photo, send);
     this.content.append(composer);
 
@@ -356,7 +363,8 @@ export class ChatScreen {
       const selectedPhoto = photo.files?.[0];
       if ((!message && !selectedPhoto) || !this.handlers.onSendMessage) return;
       send.disabled = true;
-      send.textContent = 'Sending…';
+      send.classList.add('is-sending');
+      send.setAttribute('aria-label', 'Sending message');
       setTyping(false);
       void this.handlers.onSendMessage(conversationId, message, selectedPhoto)
         .then(async () => {
@@ -365,7 +373,12 @@ export class ChatScreen {
           await refresh();
         })
         .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to send message.'))
-        .finally(() => { send.disabled = false; send.textContent = 'Send'; });
+        .finally(() => {
+          send.disabled = false;
+          send.classList.remove('is-sending');
+          send.setAttribute('aria-label', 'Send message');
+          send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
+        });
     });
 
     await refresh();
