@@ -31,6 +31,8 @@ export type ChatScreenHandlers = {
 };
 
 export class ChatScreen {
+  private activeThreadCleanup: (() => void) | null = null;
+
   constructor(
     private readonly content: HTMLElement,
     private readonly session: AuthSession,
@@ -38,6 +40,7 @@ export class ChatScreen {
   ) {}
 
   async render(): Promise<void> {
+    this.cleanupActiveThread();
     this.handlers.onConversationModeChange?.(false);
     this.content.replaceChildren();
     const heading = element('div', 'section-heading-row chat-screen-heading');
@@ -110,6 +113,7 @@ export class ChatScreen {
   }
 
   private async renderNewChat(): Promise<void> {
+    this.cleanupActiveThread();
     this.handlers.onConversationModeChange?.(false);
     this.content.replaceChildren();
     const header = element('div', 'conversation-header');
@@ -252,6 +256,7 @@ export class ChatScreen {
   }
 
   private async renderConversation(conversation: Conversation): Promise<void> {
+    this.cleanupActiveThread();
     this.handlers.onConversationModeChange?.(true);
     const conversationId = conversation.conversation_id;
     const name = String(conversation.name || conversation.name_list || 'Chat');
@@ -394,6 +399,7 @@ export class ChatScreen {
       setTyping(false);
       stopRealtime?.();
     };
+    this.activeThreadCleanup = leaveThread;
     back.addEventListener('click', leaveThread, { once: true });
 
     loadOlder.addEventListener('click', () => void refresh(true));
@@ -422,6 +428,18 @@ export class ChatScreen {
     });
 
     await refresh();
+  }
+
+
+  deactivate(): void {
+    this.cleanupActiveThread();
+    this.handlers.onConversationModeChange?.(false);
+  }
+
+  private cleanupActiveThread(): void {
+    const cleanup = this.activeThreadCleanup;
+    this.activeThreadCleanup = null;
+    cleanup?.();
   }
 
   private messageBubble(message: Message, refresh: () => Promise<void>): HTMLDivElement {
