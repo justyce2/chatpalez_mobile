@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core';
+import { deviceInfo } from './device-info';
 import type { ChatPalezApiClient } from './client';
 import type { AuthSession, ChatPalezUser } from '../auth/session';
 
@@ -123,13 +123,4 @@ export class RegistrationService {
   async finishGettingStarted(): Promise<void> {
     await this.api.post<unknown>('auth/getting_started_finish', {});
   }
-}
-
-function deviceInfo(): Record<string, string> {
-  const platform = Capacitor.getPlatform();
-  return {
-    device_type: platform === 'android' ? 'A' : 'I',
-    device_os_version: navigator.userAgent,
-    device_name: `${platform || 'web'} ChatPalez`
-  };
 }
