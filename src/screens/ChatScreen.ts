@@ -11,7 +11,7 @@ export type ChatScreenHandlers = {
   onOpenThreadRoute?: (conversation: Conversation) => void;
   onOpenComposeRoute?: () => void;
   onRequestBack?: () => void;
-  onThreadPresenceChange?: (presence: string) => void;
+  onThreadPresenceChange?: (conversationId: number | string, presence: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onLoadConversations?: (offset: number) => Promise<ChatPageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<ChatPageResult<ChatContact>>;
@@ -42,6 +42,7 @@ export class ChatScreen {
   private activeThreadCleanup: (() => void) | null = null;
   private activeMessageActionsCleanup: (() => void) | null = null;
   private activeConversation: Conversation | null = null;
+  private viewVersion = 0;
 
   constructor(
     private readonly content: HTMLElement,
@@ -50,6 +51,7 @@ export class ChatScreen {
   ) {}
 
   async render(): Promise<void> {
+    ++this.viewVersion;
     this.cleanupActiveThread();
     this.activeConversation = null;
     this.handlers.onConversationModeChange?.(false);
@@ -136,17 +138,19 @@ export class ChatScreen {
   openConversationActions(): void {
     const conversation = this.activeConversation;
     if (!conversation) return;
+    const version = this.viewVersion;
     const choice = window.prompt('Type LEAVE to leave this chat, or DELETE to remove it from your inbox.');
     const action = choice?.trim().toLowerCase();
     const operation = action === 'delete' ? this.handlers.onDeleteConversation
       : action === 'leave' ? this.handlers.onLeaveConversation : undefined;
     if (!operation) return;
     void operation(conversation.conversation_id)
-      .then(() => this.handlers.onRequestBack?.())
+      .then(() => { if (version === this.viewVersion) this.handlers.onRequestBack?.(); })
       .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update chat.'));
   }
 
   private async renderNewChat(): Promise<void> {
+    ++this.viewVersion;
     this.cleanupActiveThread();
     this.activeConversation = null;
     this.handlers.onConversationModeChange?.(false);
@@ -291,10 +295,14 @@ export class ChatScreen {
   }
 
   private async renderConversation(conversation: Conversation): Promise<void> {
+    const version = ++this.viewVersion;
     this.cleanupActiveThread();
     this.activeConversation = conversation;
     this.handlers.onConversationModeChange?.(true);
     const conversationId = conversation.conversation_id;
+    const updateHeaderPresence = (presence: string): void => {
+      if (version === this.viewVersion) this.handlers.onThreadPresenceChange?.(conversationId, presence);
+    };
     this.content.replaceChildren();
 
     const presence = element('p', 'conversation-presence');
@@ -302,7 +310,8 @@ export class ChatScreen {
     presence.textContent = conversation.multiple_recipients
       ? `${conversation.recipients?.length ?? 0} participants`
       : conversation.user_is_online ? 'Online' : conversation.user_last_seen ? `Last seen ${conversation.user_last_seen}` : '';
-    this.handlers.onThreadPresenceChange?.(presence.textContent);
+    let normalPresence = presence.textContent;
+    updateHeaderPresence(presence.textContent);
     const seenState = element('p', 'conversation-seen-state');
     seenState.textContent = '';
     const realtimeStatus = element('p', 'conversation-realtime-status');
@@ -363,13 +372,14 @@ export class ChatScreen {
       try {
         const nextOffset = older ? historyOffset + 1 : 0;
         const result = await this.handlers.onLoadMessages!(conversationId, nextOffset);
+        if (version !== this.viewVersion) return;
         const messages = result.messages ?? [];
-        presence.textContent = result.typing_name_list
-          ? `${result.typing_name_list} typing…`
+        normalPresence = conversation.multiple_recipients
+          ? `${conversation.recipients?.length ?? 0} participants`
           : result.user_is_online ? 'Online'
-          : result.user_last_seen ? `Last seen ${String(result.user_last_seen)}`
-          : presence.textContent;
-        this.handlers.onThreadPresenceChange?.(presence.textContent);
+          : result.user_last_seen ? `Last seen ${String(result.user_last_seen)}` : normalPresence;
+        presence.textContent = result.typing_name_list ? `${result.typing_name_list} typing…` : normalPresence;
+        updateHeaderPresence(presence.textContent);
         seenState.textContent = result.seen_name_list ? `Seen by ${String(result.seen_name_list)}` : '';
         loadOlder.hidden = !result.has_more;
         if (!older) thread.replaceChildren();
@@ -404,7 +414,7 @@ export class ChatScreen {
 
     let threadClosed = false;
     const closeThread = (reason?: string): void => {
-      if (threadClosed) return;
+      if (threadClosed || version !== this.viewVersion) return;
       threadClosed = true;
       if (reason) window.alert(reason);
       this.handlers.onRequestBack?.();
@@ -412,18 +422,23 @@ export class ChatScreen {
     const realtimeHandlers: Parameters<NonNullable<ChatScreenHandlers['onOpenConversation']>>[1] = {
       refresh: () => latestResync.request(),
       setTyping: (typingNameList) => {
-        presence.textContent = typingNameList ? `${typingNameList} typing…` : presence.textContent;
-        this.handlers.onThreadPresenceChange?.(presence.textContent);
+        if (version !== this.viewVersion) return;
+        presence.textContent = typingNameList ? `${typingNameList} typing…` : normalPresence;
+        updateHeaderPresence(presence.textContent);
       },
       setSeen: (seenNameList) => {
+        if (version !== this.viewVersion) return;
         seenState.textContent = seenNameList ? `Seen by ${seenNameList}` : '';
       },
       setPresence: (online, lastSeen) => {
+        if (version !== this.viewVersion) return;
         if (conversation.multiple_recipients) return;
-        presence.textContent = online ? 'Online' : lastSeen ? `Last seen ${lastSeen}` : '';
-        this.handlers.onThreadPresenceChange?.(presence.textContent);
+        normalPresence = online ? 'Online' : lastSeen ? `Last seen ${lastSeen}` : '';
+        presence.textContent = normalPresence;
+        updateHeaderPresence(presence.textContent);
       },
       setRealtimeStatus: (connected) => {
+        if (version !== this.viewVersion) return;
         realtimeStatus.textContent = connected ? 'Live chat connected' : 'Standard delivery';
         realtimeStatus.classList.toggle('is-live', connected);
       },
@@ -487,6 +502,7 @@ export class ChatScreen {
 
 
   deactivate(): void {
+    ++this.viewVersion;
     this.cleanupActiveThread();
     this.activeConversation = null;
     this.handlers.onConversationModeChange?.(false);

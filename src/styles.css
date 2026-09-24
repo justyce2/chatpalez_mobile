@@ -1463,6 +1463,7 @@ p { color: #64748b; line-height: 1.55; }
 .thread-topbar-identity__presence { color: #64748B; font-size: 12px; }
 .thread-topbar-more {
   margin-left: auto;
+  min-height: 44px;
   border: 0;
   background: transparent;
   color: #0066B2;

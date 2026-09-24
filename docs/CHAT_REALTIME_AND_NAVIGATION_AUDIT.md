@@ -8,6 +8,10 @@ The navigation and header changes described below are implemented in the mobile 
 
 The shell now records ChatList, NewChat, and ChatThread as distinct destinations. Top Back and Android Back use the same destination stack; the new-chat Back delegates to it. Entering a web destination clears thread mode and restores the footer before the native web frame is measured. Native web open/hide calls are queued to prevent a late open from covering a local screen. A thread displays its participant identity and presence in the shared top header and its More action there.
 
+### UI regression review
+
+The follow-up source audit found and corrected four transition risks: overlapping tab requests could render an obsolete local page; delayed Profile/Notifications API responses could repaint a screen after navigation; an old chat room event could overwrite the current header; and the Chat tab from NewChat could leave a duplicate NewChat entry in Back history. The thread now keeps group participant status when message history refreshes, and the header More action has a 44px touch target. These are source-level checks; visual layout, keyboard behavior, native WebView frame sizing, and hardware Back still require an installed Android or iOS build. No browser engine or emulator was available in the audit workspace.
+
 `npm run build`, 74 unit tests, `npm run verify:native` (24 checks), and `npx cap sync android` passed in the implementation workspace. APK assembly and device navigation remain to be checked on a machine with the Gradle distribution and Android SDK available. The `scripts/verify-chat-delivery.mjs` gate requires two disposable JWTs and a disposable conversation; no credentials were available during implementation. It verifies both directions through authenticated socket connects, room acknowledgements, sender acknowledgements, recipient events, and matching message IDs in both users' HTTP histories. A database row count and installed APK behavior still require separate verification.
 
 ## Evidence and limits

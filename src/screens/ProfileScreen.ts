@@ -25,6 +25,7 @@ export type ProfileScreenHandlers = {
 
 export class ProfileScreen {
   private account: MobileAccount | null = null;
+  private renderVersion = 0;
 
   constructor(
     private readonly content: HTMLElement,
@@ -33,6 +34,7 @@ export class ProfileScreen {
   ) {}
 
   async render(): Promise<void> {
+    const version = ++this.renderVersion;
     const user = this.session.user;
     const fallbackName = String(user.user_fullname || user.user_firstname || user.user_name || 'ChatPalez');
     this.content.replaceChildren(title('Profile'), paragraph('Loading profile…'));
@@ -48,6 +50,7 @@ export class ProfileScreen {
     if (this.handlers.onLoadProfile) {
       try { profile = await this.handlers.onLoadProfile(); } catch { /* render session fallback */ }
     }
+    if (version !== this.renderVersion) return;
 
     const name = String(profile.user_fullname || profile.user_firstname || profile.user_name || fallbackName);
     this.content.replaceChildren(title('Profile'));
@@ -132,6 +135,10 @@ export class ProfileScreen {
     this.content.append(logout);
   }
 
+  deactivate(): void {
+    ++this.renderVersion;
+  }
+
   private async loadAccount(): Promise<MobileAccount | null> {
     if (this.account) return this.account;
     if (!this.handlers.onLoadAccount) return null;
@@ -140,6 +147,7 @@ export class ProfileScreen {
   }
 
   private async renderSettings(): Promise<void> {
+    const version = ++this.renderVersion;
     this.content.replaceChildren();
     this.content.append(backHeader('Account & settings', () => void this.render()));
     const status = paragraph('Loading account controls…');
@@ -149,9 +157,11 @@ export class ProfileScreen {
     try {
       account = await this.loadAccount();
     } catch {
+      if (version !== this.renderVersion) return;
       status.textContent = 'Account controls are temporarily unavailable. Your notification, privacy-safety and account deletion controls remain available below.';
       status.className = 'settings-inline-notice';
     }
+    if (version !== this.renderVersion) return;
     if (account) {
       status.remove();
       const card = element('section', 'settings-card');
@@ -178,10 +188,10 @@ export class ProfileScreen {
       this.content.append(card);
     }
 
-    await this.renderNotificationAndSafetyControls();
+    await this.renderNotificationAndSafetyControls(version);
   }
 
-  private async renderNotificationAndSafetyControls(): Promise<void> {
+  private async renderNotificationAndSafetyControls(version: number): Promise<void> {
     const push = element('section', 'settings-card');
     push.append(elementWithText('h3', 'Push notifications'));
     const pushStatus = paragraph('Manage messages and account activity notifications for this device.');
@@ -214,6 +224,7 @@ export class ProfileScreen {
         body.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load blocked users.'));
       }
     }
+    if (version !== this.renderVersion) return;
 
     const danger = element('section', 'settings-card danger-card');
     danger.append(elementWithText('h3', 'Delete account'), paragraph('Deleting your account is permanent and is available directly inside the app.'));

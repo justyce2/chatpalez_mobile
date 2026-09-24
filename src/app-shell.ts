@@ -318,7 +318,12 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       },
       onOpenComposeRoute: () => { if (!restoringDestination) recordDestination({ kind: 'chat-compose' }); },
       onRequestBack: () => { void navigateBack(); },
-      onThreadPresenceChange: (presence) => { threadPresence.textContent = presence; },
+      onThreadPresenceChange: (conversationId, presence) => {
+        if (currentDestination?.kind === 'chat-thread'
+          && String(currentDestination.conversation.conversation_id) === String(conversationId)) {
+          threadPresence.textContent = presence;
+        }
+      },
       resolveChatPhotoUrl: handlers.resolveChatPhotoUrl,
       onLoadConversations: handlers.onLoadConversations,
       onLoadContacts: handlers.onLoadContacts,
@@ -344,6 +349,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     let currentDestination: ShellDestination | null = null;
     let restoringDestination = false;
     let backInProgress = false;
+    let transitionVersion = 0;
     let webCanGoBack = false;
 
     const destinationKey = (destination: ShellDestination): string => {
@@ -381,9 +387,13 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         await selectTab(destination.tab, record);
         return;
       }
+      const version = ++transitionVersion;
+      chatScreen.deactivate();
+      profileScreen.deactivate();
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === 'messages');
-      content.classList.remove('mobile-content--web-surface');
       await handlers.onHideWebModule?.();
+      if (version !== transitionVersion) return;
+      content.classList.remove('mobile-content--web-surface');
       restoringDestination = true;
       try {
         if (destination.kind === 'chat-compose') await chatScreen.openCompose();
@@ -413,18 +423,16 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
       const previous = navigationStack.pop();
       if (previous) {
-        currentDestination = null;
-        await renderDestination(previous, false);
         currentDestination = previous;
+        await renderDestination(previous, false);
         updateBackButton();
         return true;
       }
 
       if (!currentDestination || destinationKey(currentDestination) !== 'web:/') {
         const home: ShellDestination = { kind: 'web', path: '/', title: 'Home', activeTab: 'home' };
-        currentDestination = null;
-        await renderDestination(home, false);
         currentDestination = home;
+        await renderDestination(home, false);
         updateBackButton();
         return true;
       }
@@ -448,7 +456,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
 
     function showRetainedModule(path: string, _titleText: string, activeTab: string, record = true): void {
+      ++transitionVersion;
       chatScreen.deactivate();
+      profileScreen.deactivate();
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === activeTab);
       content.classList.add('mobile-content--web-surface');
       content.replaceChildren();
@@ -531,10 +541,6 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         return;
       }
 
-      if (tab !== 'messages') chatScreen.deactivate();
-      for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
-      content.classList.remove('mobile-content--retained', 'mobile-content--web-surface');
-      content.replaceChildren();
       if (tab === 'home') {
         showRetainedModule('/', 'Home', 'home', record);
         return;
@@ -544,20 +550,34 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         return;
       }
 
+      const version = ++transitionVersion;
+      chatScreen.deactivate();
+      if (tab !== 'profile') profileScreen.deactivate();
+      for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
+      if (record) {
+        if (tab === 'messages' && currentDestination?.kind === 'chat-compose') {
+          if (navigationStack.at(-1)?.kind === 'local' && destinationKey(navigationStack.at(-1)!) === 'local:messages') navigationStack.pop();
+          currentDestination = { kind: 'local', tab: 'messages' };
+          updateBackButton();
+        } else {
+          recordDestination({ kind: 'local', tab: tab === 'messages' || tab === 'notifications' ? tab : 'profile' });
+        }
+      }
+      content.classList.remove('mobile-content--retained', 'mobile-content--web-surface');
+      content.replaceChildren(paragraph('Loading…'));
       // API-driven screens replace the middle content region, so hide only the
       // native web-content surface when switching to those screens.
       await handlers.onHideWebModule?.();
+      if (version !== transitionVersion) return;
+      content.replaceChildren();
       if (tab === 'messages') {
-        if (record) recordDestination({ kind: 'local', tab: 'messages' });
         await chatScreen.render();
         return;
       }
       if (tab === 'notifications') {
-        if (record) recordDestination({ kind: 'local', tab: 'notifications' });
         await showNotifications();
         return;
       }
-      if (record) recordDestination({ kind: 'local', tab: 'profile' });
       await profileScreen.render();
     }
 
@@ -806,6 +826,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     }
 
     async function showNotifications(): Promise<void> {
+      const version = transitionVersion;
       content.replaceChildren(screenTitle('Notifications'));
       if (!handlers.onLoadNotifications) {
         content.append(paragraph('Notifications are not wired yet.'));
@@ -814,6 +835,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.append(paragraph('Loading notifications…'));
       try {
         const items = await handlers.onLoadNotifications();
+        if (version !== transitionVersion) return;
         content.replaceChildren(screenTitle('Notifications'));
         if (items.length === 0) {
           content.append(paragraph('No notifications yet.'));
@@ -830,7 +852,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
             button.addEventListener('click', () => {
               const url = new URL(String(item.url), window.location.origin);
               const path = `${url.pathname}${url.search}${url.hash}`;
-              handlers.onOpenWebModule(path);
+              showRetainedModule(path, 'Notification', '');
             });
           } else {
             button.disabled = true;
@@ -839,6 +861,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         }
         content.append(list);
       } catch (error) {
+        if (version !== transitionVersion) return;
         content.replaceChildren(screenTitle('Notifications'));
         content.append(paragraph(error instanceof Error ? error.message : 'Unable to load notifications.'));
         const retry = secondaryButton('Try again');
