@@ -27,6 +27,7 @@ export type ChatScreenHandlers = {
       setTyping: (typingNameList: string) => void;
       setSeen: (seenNameList: string) => void;
       setPresence: (online: boolean, lastSeen?: string) => void;
+      setRealtimeStatus: (connected: boolean) => void;
       close: (reason?: string) => void;
     }
   ) => (() => void) | void;
@@ -34,6 +35,7 @@ export type ChatScreenHandlers = {
 
 export class ChatScreen {
   private activeThreadCleanup: (() => void) | null = null;
+  private activeMessageActionsCleanup: (() => void) | null = null;
 
   constructor(
     private readonly content: HTMLElement,
@@ -295,7 +297,9 @@ export class ChatScreen {
       : conversation.user_is_online ? 'Online' : '';
     const seenState = element('p', 'conversation-seen-state');
     seenState.textContent = '';
-    this.content.append(presence, seenState);
+    const realtimeStatus = element('p', 'conversation-realtime-status');
+    realtimeStatus.textContent = 'Connecting to live chat…';
+    this.content.append(presence, seenState, realtimeStatus);
 
     const loadOlder = secondaryButton('Load older messages');
     loadOlder.hidden = true;
@@ -344,6 +348,7 @@ export class ChatScreen {
     text.addEventListener('blur', () => setTyping(false));
 
     let historyOffset = 0;
+    let pendingBubble: HTMLDivElement | null = null;
     const refresh = async (older = false): Promise<void> => {
       try {
         const nextOffset = older ? historyOffset + 1 : 0;
@@ -367,6 +372,7 @@ export class ChatScreen {
           thread.scrollTop = thread.scrollHeight - beforeHeight + beforeTop;
         } else {
           thread.append(...bubbles);
+          if (pendingBubble) thread.append(pendingBubble);
           thread.scrollTop = thread.scrollHeight;
         }
         historyOffset = nextOffset;
@@ -376,7 +382,10 @@ export class ChatScreen {
         if (ids.length && this.handlers.onMarkSeen) void this.handlers.onMarkSeen(ids).catch(() => undefined);
 
       } catch (error) {
-        if (!older) thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
+        if (!older) {
+          thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
+          if (pendingBubble) thread.append(pendingBubble);
+        }
       }
     };
     const latestResync = new CoalescedResync(() => refresh(false));
@@ -401,6 +410,10 @@ export class ChatScreen {
         if (conversation.multiple_recipients) return;
         presence.textContent = online ? 'Online' : lastSeen ? `Last seen ${lastSeen}` : '';
       },
+      setRealtimeStatus: (connected) => {
+        realtimeStatus.textContent = connected ? 'Live chat connected' : 'Standard delivery';
+        realtimeStatus.classList.toggle('is-live', connected);
+      },
       close: closeThread
     };
     const stopRealtime = this.handlers.onOpenConversation?.(conversation, realtimeHandlers);
@@ -419,17 +432,26 @@ export class ChatScreen {
       const message = text.value.trim();
       const selectedPhoto = photo.files?.[0];
       if ((!message && !selectedPhoto) || !this.handlers.onSendMessage) return;
+      pendingBubble = element('div', 'message-bubble is-mine is-pending');
+      pendingBubble.append(elementWithText('div', message || 'Photo'));
+      pendingBubble.append(elementWithText('small', 'Sending…'));
+      thread.append(pendingBubble);
+      thread.scrollTop = thread.scrollHeight;
       send.disabled = true;
       send.classList.add('is-sending');
       send.setAttribute('aria-label', 'Sending message');
       setTyping(false);
       void this.handlers.onSendMessage(conversationId, message, selectedPhoto)
         .then(async () => {
+          pendingBubble?.remove();
+          pendingBubble = null;
           text.value = '';
           photo.value = '';
           await refresh();
         })
         .catch(async (error: unknown) => {
+          pendingBubble?.remove();
+          pendingBubble = null;
           if (error instanceof RealtimeDeliveryUncertainError) {
             await latestResync.request().catch(() => undefined);
             window.alert('Delivery could not be confirmed. The conversation was refreshed; check whether your message appears before retrying.');
@@ -455,6 +477,8 @@ export class ChatScreen {
   }
 
   private cleanupActiveThread(): void {
+    this.activeMessageActionsCleanup?.();
+    this.activeMessageActionsCleanup = null;
     const cleanup = this.activeThreadCleanup;
     this.activeThreadCleanup = null;
     cleanup?.();
@@ -480,34 +504,107 @@ export class ChatScreen {
     if (!body && !photoUrl) bubble.append(elementWithText('div', 'Attachment'));
     if (message.time) bubble.append(elementWithText('small', String(message.time)));
 
-    if (message.message_id && this.handlers.onReactToMessage) {
-      const like = secondaryButton('Like');
-      like.classList.add('compact-button');
-      like.addEventListener('click', () => {
-        like.disabled = true;
-        void this.handlers.onReactToMessage!(message.message_id!, 'like')
-          .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to react.'))
-          .finally(() => { like.disabled = false; });
-      });
-      bubble.append(like);
+    if (message.i_reaction) {
+      const emoji = reactionChoices.find((choice) => choice.value === message.i_reaction)?.emoji;
+      if (emoji) bubble.append(elementWithText('small', `${emoji} Your reaction`));
     }
-
-    if (message.message_id && mine && this.handlers.onDeleteMessage) {
-      const remove = secondaryButton('Delete');
-      remove.classList.add('compact-button');
-      remove.addEventListener('click', () => {
-        if (!window.confirm('Delete this message?')) return;
-        remove.disabled = true;
-        void this.handlers.onDeleteMessage!(message.message_id!)
-          .then(() => refresh())
-          .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to delete message.'))
-          .finally(() => { remove.disabled = false; });
-      });
-      bubble.append(remove);
+    if (message.message_id && (this.handlers.onReactToMessage || (mine && this.handlers.onDeleteMessage))) {
+      this.installMessageActions(bubble, message.message_id, Boolean(mine), refresh);
     }
     return bubble;
   }
+
+  private installMessageActions(
+    bubble: HTMLDivElement,
+    messageId: number | string,
+    mine: boolean,
+    refresh: () => Promise<void>
+  ): void {
+    bubble.tabIndex = 0;
+    bubble.setAttribute('aria-label', 'Message. Long press for actions.');
+    let timer: number | undefined;
+    let startX = 0;
+    let startY = 0;
+    const cancel = (): void => { if (timer) window.clearTimeout(timer); timer = undefined; };
+    const show = (): void => {
+      cancel();
+      this.activeMessageActionsCleanup?.();
+      const backdrop = element('div', 'message-actions-backdrop');
+      const menu = element('div', 'message-actions-menu');
+      menu.setAttribute('role', 'dialog');
+      menu.setAttribute('aria-label', 'Message actions');
+      const close = (): void => {
+        backdrop.remove();
+        menu.remove();
+        document.removeEventListener('keydown', onEscape);
+        if (this.activeMessageActionsCleanup === close) this.activeMessageActionsCleanup = null;
+      };
+      const onEscape = (event: KeyboardEvent): void => { if (event.key === 'Escape') close(); };
+      backdrop.addEventListener('click', close);
+      document.addEventListener('keydown', onEscape);
+      for (const choice of reactionChoices) {
+        if (!this.handlers.onReactToMessage) break;
+        const button = secondaryButton(`${choice.emoji} ${choice.label}`);
+        button.classList.add('message-actions-menu__reaction');
+        button.addEventListener('click', () => {
+          close();
+          void this.handlers.onReactToMessage!(messageId, choice.value)
+            .then(() => refresh())
+            .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to react.'));
+        });
+        menu.append(button);
+      }
+      if (mine && this.handlers.onDeleteMessage) {
+        const remove = secondaryButton('Delete message');
+        remove.classList.add('message-actions-menu__delete');
+        remove.addEventListener('click', () => {
+          close();
+          if (!window.confirm('Delete this message?')) return;
+          void this.handlers.onDeleteMessage!(messageId)
+            .then(() => refresh())
+            .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to delete message.'));
+        });
+        menu.append(remove);
+      }
+      document.body.append(backdrop, menu);
+      this.activeMessageActionsCleanup = close;
+      const rect = bubble.getBoundingClientRect();
+      menu.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 12))}px`;
+      menu.style.top = `${Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - menu.offsetHeight - 12))}px`;
+      menu.querySelector<HTMLButtonElement>('button')?.focus();
+    };
+    bubble.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      cancel();
+      startX = event.clientX;
+      startY = event.clientY;
+      timer = window.setTimeout(show, 500);
+    });
+    bubble.addEventListener('pointermove', (event) => {
+      if (Math.hypot(event.clientX - startX, event.clientY - startY) > 10) cancel();
+    });
+    bubble.addEventListener('pointerup', cancel);
+    bubble.addEventListener('pointercancel', cancel);
+    bubble.addEventListener('pointerleave', cancel);
+    bubble.addEventListener('contextmenu', (event) => { event.preventDefault(); show(); });
+    bubble.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ' || (event.shiftKey && event.key === 'F10')) {
+        event.preventDefault();
+        show();
+      }
+    });
+  }
 }
+
+const reactionChoices = [
+  { value: 'like', label: 'Like', emoji: '👍' },
+  { value: 'love', label: 'Love', emoji: '❤️' },
+  { value: 'haha', label: 'Haha', emoji: '😆' },
+  { value: 'yay', label: 'Yay', emoji: '🙌' },
+  { value: 'wow', label: 'Wow', emoji: '😮' },
+  { value: 'sad', label: 'Sad', emoji: '😢' },
+  { value: 'angry', label: 'Angry', emoji: '😠' }
+] as const;
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);

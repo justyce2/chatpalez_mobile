@@ -45,7 +45,7 @@ describe('ChatService', () => {
       photo: '',
       video: '',
       voice_note: '',
-      recipients: JSON.stringify([42])
+      recipients: JSON.stringify(['42'])
     });
   });
 

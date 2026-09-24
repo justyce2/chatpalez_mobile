@@ -493,6 +493,7 @@ const shell = createAppShell(root, {
   onOpenConversation: (conversation, events) => {
     const conversationId = conversation.conversation_id;
     chatRealtime.openConversation(conversationId);
+    events.setRealtimeStatus(chatRealtime.isConnected());
     const currentConversationId = String(conversationId);
     const participantIds = new Set(
       (conversation.recipients ?? []).map((recipient) => String(recipient.user_id))
@@ -525,7 +526,11 @@ const shell = createAppShell(root, {
           events.setPresence(false, event.user_last_seen ? String(event.user_last_seen) : undefined);
         }
       },
-      onConnect: () => { void events.refresh(); },
+      onConnect: () => {
+        events.setRealtimeStatus(true);
+        void events.refresh();
+      },
+      onDisconnect: () => events.setRealtimeStatus(false),
       onError: (message) => logWarn('Realtime chat event failed; HTTP chat remains available', { message })
     });
     return () => {

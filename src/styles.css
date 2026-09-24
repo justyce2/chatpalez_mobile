@@ -82,6 +82,19 @@ p { color: #64748b; line-height: 1.55; }
 .primary-button:disabled { opacity: .65; cursor: wait; }
 .secondary-button { background: #e2e8f0; color: #0f172a; margin-top: 12px; }
 .compact-button { margin-top: 0; padding: 9px 12px; }
+.conversation-realtime-status { margin: 0 0 8px; color: #64748b; font-size: .75rem; }
+.conversation-realtime-status.is-live { color: #087a58; }
+.message-bubble.is-pending { opacity: .65; }
+.message-bubble.is-pending small { display: block; margin-top: 5px; }
+.message-actions-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, .22); }
+.message-actions-menu {
+  position: fixed; z-index: 101; display: flex; flex-wrap: wrap; gap: 6px;
+  max-width: min(340px, calc(100vw - 24px)); padding: 10px; border-radius: 16px;
+  background: #fff; box-shadow: 0 14px 40px rgba(15, 23, 42, .25);
+}
+.message-actions-menu button { margin: 0; padding: 8px 10px; font-size: .85rem; }
+.message-actions-menu__delete { width: 100%; color: #b91c1c; }
+.message-bubble[tabindex] { touch-action: pan-y; }
 .form-error { margin: 0; padding: 11px 12px; border-radius: 12px; background: #fef2f2; color: #b91c1c; font-size: .9rem; }
 
 .mobile-layout {
