@@ -8,6 +8,10 @@ export type ChatDeliveryTransport = 'realtime' | 'http';
 
 export type ChatScreenHandlers = {
   onConversationModeChange?: (active: boolean) => void;
+  onOpenThreadRoute?: (conversation: Conversation) => void;
+  onOpenComposeRoute?: () => void;
+  onRequestBack?: () => void;
+  onThreadPresenceChange?: (presence: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onLoadConversations?: (offset: number) => Promise<ChatPageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<ChatPageResult<ChatContact>>;
@@ -37,6 +41,7 @@ export type ChatScreenHandlers = {
 export class ChatScreen {
   private activeThreadCleanup: (() => void) | null = null;
   private activeMessageActionsCleanup: (() => void) | null = null;
+  private activeConversation: Conversation | null = null;
 
   constructor(
     private readonly content: HTMLElement,
@@ -46,6 +51,7 @@ export class ChatScreen {
 
   async render(): Promise<void> {
     this.cleanupActiveThread();
+    this.activeConversation = null;
     this.handlers.onConversationModeChange?.(false);
     this.content.replaceChildren();
     const heading = element('div', 'section-heading-row chat-screen-heading');
@@ -53,7 +59,7 @@ export class ChatScreen {
     if (this.handlers.onLoadContacts && this.handlers.onStartConversation) {
       const compose = secondaryButton('New chat');
       compose.classList.add('compact-button');
-      compose.addEventListener('click', () => void this.renderNewChat());
+      compose.addEventListener('click', () => void this.openCompose());
       heading.append(compose);
     }
     this.content.append(heading);
@@ -113,18 +119,42 @@ export class ChatScreen {
       : conversation.user_is_online ? 'Online' : 'Open chat');
     copy.append(elementWithText('span', secondary));
     row.append(avatar, copy);
-    row.addEventListener('click', () => void this.renderConversation(conversation));
+    row.addEventListener('click', () => void this.openConversation(conversation));
     return row;
+  }
+
+  openCompose(): Promise<void> {
+    this.handlers.onOpenComposeRoute?.();
+    return this.renderNewChat();
+  }
+
+  openConversation(conversation: Conversation): Promise<void> {
+    this.handlers.onOpenThreadRoute?.(conversation);
+    return this.renderConversation(conversation);
+  }
+
+  openConversationActions(): void {
+    const conversation = this.activeConversation;
+    if (!conversation) return;
+    const choice = window.prompt('Type LEAVE to leave this chat, or DELETE to remove it from your inbox.');
+    const action = choice?.trim().toLowerCase();
+    const operation = action === 'delete' ? this.handlers.onDeleteConversation
+      : action === 'leave' ? this.handlers.onLeaveConversation : undefined;
+    if (!operation) return;
+    void operation(conversation.conversation_id)
+      .then(() => this.handlers.onRequestBack?.())
+      .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update chat.'));
   }
 
   private async renderNewChat(): Promise<void> {
     this.cleanupActiveThread();
+    this.activeConversation = null;
     this.handlers.onConversationModeChange?.(false);
     this.content.replaceChildren();
     const header = element('div', 'conversation-header');
     const back = secondaryButton('Back');
     back.classList.add('compact-button');
-    back.addEventListener('click', () => void this.render());
+    back.addEventListener('click', () => this.handlers.onRequestBack?.());
     header.append(back, title('New chat'));
     this.content.append(header, paragraph('Select one person for a direct chat, or multiple people for a group chat.'));
 
@@ -252,7 +282,7 @@ export class ChatScreen {
       send.disabled = true;
       send.textContent = 'Starting…';
       void operation
-        .then((conversation) => this.renderConversation(conversation))
+        .then((conversation) => this.openConversation(conversation))
         .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to start chat.'))
         .finally(() => { send.disabled = false; refreshSelected(); });
     });
@@ -262,40 +292,17 @@ export class ChatScreen {
 
   private async renderConversation(conversation: Conversation): Promise<void> {
     this.cleanupActiveThread();
+    this.activeConversation = conversation;
     this.handlers.onConversationModeChange?.(true);
     const conversationId = conversation.conversation_id;
-    const name = String(conversation.name || conversation.name_list || 'Chat');
     this.content.replaceChildren();
 
-    const header = element('div', 'conversation-header chat-thread-header');
-    const back = secondaryButton('Back');
-    back.classList.add('compact-button');
-    back.addEventListener('click', () => void this.render());
-    header.append(back, title(name));
-
-    if (this.handlers.onLeaveConversation || this.handlers.onDeleteConversation) {
-      const more = secondaryButton('More');
-      more.classList.add('compact-button');
-      more.addEventListener('click', () => {
-        const choice = window.prompt('Type LEAVE to leave this chat, or DELETE to remove it from your inbox.');
-        const action = choice?.trim().toLowerCase();
-        const operation = action === 'delete' ? this.handlers.onDeleteConversation
-          : action === 'leave' ? this.handlers.onLeaveConversation : undefined;
-        if (!operation) return;
-        more.disabled = true;
-        void operation(conversationId)
-          .then(() => this.render())
-          .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update chat.'))
-          .finally(() => { more.disabled = false; });
-      });
-      header.append(more);
-    }
-    this.content.append(header);
-
     const presence = element('p', 'conversation-presence');
+    presence.hidden = true;
     presence.textContent = conversation.multiple_recipients
       ? `${conversation.recipients?.length ?? 0} participants`
-      : conversation.user_is_online ? 'Online' : '';
+      : conversation.user_is_online ? 'Online' : conversation.user_last_seen ? `Last seen ${conversation.user_last_seen}` : '';
+    this.handlers.onThreadPresenceChange?.(presence.textContent);
     const seenState = element('p', 'conversation-seen-state');
     seenState.textContent = '';
     const realtimeStatus = element('p', 'conversation-realtime-status');
@@ -362,6 +369,7 @@ export class ChatScreen {
           : result.user_is_online ? 'Online'
           : result.user_last_seen ? `Last seen ${String(result.user_last_seen)}`
           : presence.textContent;
+        this.handlers.onThreadPresenceChange?.(presence.textContent);
         seenState.textContent = result.seen_name_list ? `Seen by ${String(result.seen_name_list)}` : '';
         loadOlder.hidden = !result.has_more;
         if (!older) thread.replaceChildren();
@@ -399,12 +407,13 @@ export class ChatScreen {
       if (threadClosed) return;
       threadClosed = true;
       if (reason) window.alert(reason);
-      void this.render();
+      this.handlers.onRequestBack?.();
     };
     const realtimeHandlers: Parameters<NonNullable<ChatScreenHandlers['onOpenConversation']>>[1] = {
       refresh: () => latestResync.request(),
       setTyping: (typingNameList) => {
         presence.textContent = typingNameList ? `${typingNameList} typing…` : presence.textContent;
+        this.handlers.onThreadPresenceChange?.(presence.textContent);
       },
       setSeen: (seenNameList) => {
         seenState.textContent = seenNameList ? `Seen by ${seenNameList}` : '';
@@ -412,6 +421,7 @@ export class ChatScreen {
       setPresence: (online, lastSeen) => {
         if (conversation.multiple_recipients) return;
         presence.textContent = online ? 'Online' : lastSeen ? `Last seen ${lastSeen}` : '';
+        this.handlers.onThreadPresenceChange?.(presence.textContent);
       },
       setRealtimeStatus: (connected) => {
         realtimeStatus.textContent = connected ? 'Live chat connected' : 'Standard delivery';
@@ -427,7 +437,6 @@ export class ChatScreen {
       stopRealtime?.();
     };
     this.activeThreadCleanup = leaveThread;
-    back.addEventListener('click', leaveThread, { once: true });
 
     loadOlder.addEventListener('click', () => void refresh(true));
     composer.addEventListener('submit', (event) => {
@@ -479,6 +488,7 @@ export class ChatScreen {
 
   deactivate(): void {
     this.cleanupActiveThread();
+    this.activeConversation = null;
     this.handlers.onConversationModeChange?.(false);
   }
 

@@ -1433,6 +1433,43 @@ p { color: #64748b; line-height: 1.55; }
   pointer-events: none;
 }
 
+.mobile-topbar [hidden],
+.bottom-tabs[hidden] {
+  display: none !important;
+}
+.thread-topbar-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+.thread-topbar-identity__avatar {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #E8F3FB;
+  color: #0066B2;
+  font-weight: 700;
+}
+.thread-topbar-identity__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.thread-topbar-identity__copy { display: flex; min-width: 0; flex-direction: column; }
+.thread-topbar-identity__name,
+.thread-topbar-identity__presence { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-topbar-identity__name { color: #172A3A; font-size: 16px; }
+.thread-topbar-identity__presence { color: #64748B; font-size: 12px; }
+.thread-topbar-more {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: #0066B2;
+  font-weight: 700;
+  padding: 10px 14px;
+}
+
 
 /* Active conversation focus mode: only the open thread hides global footer chrome. */
 .mobile-layout.is-active-conversation .bottom-tabs {

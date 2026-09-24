@@ -176,7 +176,19 @@ function openPublicModule(path: string): void {
   }
 }
 
-async function openWebModule(path: string, target?: string): Promise<void> {
+let webSurfaceTransition: Promise<void> = Promise.resolve();
+
+function enqueueWebSurface(operation: () => Promise<void>): Promise<void> {
+  const next = webSurfaceTransition.catch(() => undefined).then(operation);
+  webSurfaceTransition = next;
+  return next;
+}
+
+function openWebModule(path: string, target?: string): Promise<void> {
+  return enqueueWebSurface(() => performOpenWebModule(path, target));
+}
+
+async function performOpenWebModule(path: string, target?: string): Promise<void> {
   const token = getAuthToken();
   if (!token) {
     void clearSession();
@@ -369,7 +381,7 @@ const shell = createAppShell(root, {
     }
   },
   onOpenWebModule: openWebModule,
-  onHideWebModule: () => { void webContentSurface.hide(); },
+  onHideWebModule: () => enqueueWebSurface(() => webContentSurface.hide()),
   onCanGoBackWebModule: () => webContentSurface.canGoBack(),
   onGoBackWebModule: () => webContentSurface.goBack(),
   onShowCreateActions: webContentSurface.isSupported() ? () => webContentSurface.showCreateActions() : undefined,

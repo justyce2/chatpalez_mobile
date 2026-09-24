@@ -2,7 +2,13 @@
 
 ## Decision state
 
-This is an audit and implementation design. The navigation and header changes below have not been applied. Production message delivery has not been marked verified.
+The navigation and header changes described below are implemented in the mobile source. The production two-account message delivery gate remains unverified until disposable credentials and a conversation are available. The findings and target model below are retained as the design record.
+
+## Implementation verification
+
+The shell now records ChatList, NewChat, and ChatThread as distinct destinations. Top Back and Android Back use the same destination stack; the new-chat Back delegates to it. Entering a web destination clears thread mode and restores the footer before the native web frame is measured. Native web open/hide calls are queued to prevent a late open from covering a local screen. A thread displays its participant identity and presence in the shared top header and its More action there.
+
+`npm run build`, 74 unit tests, `npm run verify:native` (24 checks), and `npx cap sync android` passed in the implementation workspace. APK assembly and device navigation remain to be checked on a machine with the Gradle distribution and Android SDK available. The `scripts/verify-chat-delivery.mjs` gate requires two disposable JWTs and a disposable conversation; no credentials were available during implementation. It verifies both directions through authenticated socket connects, room acknowledgements, sender acknowledgements, recipient events, and matching message IDs in both users' HTTP histories. A database row count and installed APK behavior still require separate verification.
 
 ## Evidence and limits
 

@@ -17,7 +17,7 @@ export type AppShellHandlers = {
   onLogin: (credentials: LoginCredentials) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenWebModule: (path: string, target?: string) => void;
-  onHideWebModule?: () => void;
+  onHideWebModule?: () => Promise<void>;
   onCanGoBackWebModule?: () => Promise<boolean>;
   onGoBackWebModule?: () => Promise<void>;
   onShowCreateActions?: () => Promise<string | null>;
@@ -207,9 +207,23 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     avatar.addEventListener('click', () => void selectTab('profile'));
     topActions.append(avatar);
     const brandRow = element('div', 'mobile-topbar__brand-row');
-    brandRow.append(brand);
+    const threadIdentity = element('div', 'thread-topbar-identity');
+    threadIdentity.hidden = true;
+    const threadAvatar = element('span', 'thread-topbar-identity__avatar');
+    const threadCopy = element('span', 'thread-topbar-identity__copy');
+    const threadName = element('strong', 'thread-topbar-identity__name');
+    const threadPresence = element('small', 'thread-topbar-identity__presence');
+    threadCopy.append(threadName, threadPresence);
+    threadIdentity.append(threadAvatar, threadCopy);
+    brandRow.append(brand, threadIdentity);
     const actionRow = element('div', 'mobile-topbar__action-row');
-    actionRow.append(backButton, topActions);
+    const threadMore = element('button', 'thread-topbar-more');
+    threadMore.type = 'button';
+    threadMore.textContent = 'More';
+    threadMore.setAttribute('aria-label', 'Conversation options');
+    threadMore.hidden = true;
+    threadMore.addEventListener('click', () => chatScreen.openConversationActions());
+    actionRow.append(backButton, topActions, threadMore);
     topbar.append(brandRow, actionRow);
 
     const content = element('main', 'mobile-content');
@@ -274,7 +288,37 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onConversationModeChange: (active) => {
         layout.classList.toggle('is-active-conversation', active);
         nav.hidden = active;
+        brand.hidden = active;
+        threadIdentity.hidden = !active;
+        topActions.hidden = active;
+        threadMore.hidden = !active;
       },
+      onOpenThreadRoute: (conversation) => {
+        if (!restoringDestination) {
+          if (currentDestination?.kind === 'chat-compose') {
+            currentDestination = { kind: 'local', tab: 'messages' };
+          }
+          recordDestination({ kind: 'chat-thread', conversation });
+        }
+        const name = String(conversation.name || conversation.name_list || 'Conversation');
+        threadName.textContent = name;
+        threadAvatar.replaceChildren();
+        const picture = conversation.picture && handlers.resolveChatPhotoUrl?.(String(conversation.picture));
+        if (picture) {
+          const img = document.createElement('img');
+          img.src = picture;
+          img.alt = '';
+          threadAvatar.append(img);
+        } else {
+          threadAvatar.textContent = initials(name);
+        }
+        threadPresence.textContent = conversation.multiple_recipients
+          ? `${conversation.recipients?.length ?? 0} participants`
+          : conversation.user_is_online ? 'Online' : conversation.user_last_seen ? `Last seen ${conversation.user_last_seen}` : '';
+      },
+      onOpenComposeRoute: () => { if (!restoringDestination) recordDestination({ kind: 'chat-compose' }); },
+      onRequestBack: () => { void navigateBack(); },
+      onThreadPresenceChange: (presence) => { threadPresence.textContent = presence; },
       resolveChatPhotoUrl: handlers.resolveChatPhotoUrl,
       onLoadConversations: handlers.onLoadConversations,
       onLoadContacts: handlers.onLoadContacts,
@@ -293,13 +337,21 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     type ShellDestination =
       | { kind: 'web'; path: string; title: string; activeTab: string }
-      | { kind: 'local'; tab: 'messages' | 'notifications' | 'profile' };
+      | { kind: 'local'; tab: 'messages' | 'notifications' | 'profile' }
+      | { kind: 'chat-compose' }
+      | { kind: 'chat-thread'; conversation: Conversation };
     const navigationStack: ShellDestination[] = [];
     let currentDestination: ShellDestination | null = null;
+    let restoringDestination = false;
+    let backInProgress = false;
     let webCanGoBack = false;
 
-    const destinationKey = (destination: ShellDestination): string =>
-      destination.kind === 'web' ? `web:${destination.path}` : `local:${destination.tab}`;
+    const destinationKey = (destination: ShellDestination): string => {
+      if (destination.kind === 'web') return `web:${destination.path}`;
+      if (destination.kind === 'local') return `local:${destination.tab}`;
+      if (destination.kind === 'chat-compose') return 'chat:compose';
+      return `chat:thread:${destination.conversation.conversation_id}`;
+    };
 
     function updateBackButton(): void {
       // Keep Back permanently allocated in the navigation row. Disabling it
@@ -325,14 +377,30 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         showRetainedModule(destination.path, destination.title, destination.activeTab, record);
         return;
       }
-      await selectTab(destination.tab, record);
+      if (destination.kind === 'local') {
+        await selectTab(destination.tab, record);
+        return;
+      }
+      for (const [id, button] of buttons) button.classList.toggle('is-active', id === 'messages');
+      content.classList.remove('mobile-content--web-surface');
+      await handlers.onHideWebModule?.();
+      restoringDestination = true;
+      try {
+        if (destination.kind === 'chat-compose') await chatScreen.openCompose();
+        else await chatScreen.openConversation(destination.conversation);
+      } finally {
+        restoringDestination = false;
+      }
     }
 
     async function navigateBack(): Promise<boolean> {
+      if (backInProgress) return true;
+      backInProgress = true;
+      try {
       const sheet = layout.querySelector('.shared-action-sheet');
       if (sheet) {
         sheet.remove();
-        for (const [id, button] of buttons) button.classList.toggle('is-active', id === (currentDestination?.kind === 'local' ? currentDestination.tab : currentDestination?.activeTab));
+        for (const [id, button] of buttons) button.classList.toggle('is-active', id === (currentDestination?.kind === 'local' ? currentDestination.tab : currentDestination?.kind === 'web' ? currentDestination.activeTab : 'messages'));
         return true;
       }
 
@@ -362,6 +430,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       }
 
       return false;
+      } finally {
+        backInProgress = false;
+      }
     }
 
     backButton.addEventListener('click', () => { void navigateBack(); });
@@ -377,6 +448,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
 
     function showRetainedModule(path: string, _titleText: string, activeTab: string, record = true): void {
+      chatScreen.deactivate();
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === activeTab);
       content.classList.add('mobile-content--web-surface');
       content.replaceChildren();
@@ -390,7 +462,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     async function showCreateSheet(): Promise<void> {
       const previousActiveTab = currentDestination?.kind === 'local'
         ? currentDestination.tab
-        : currentDestination?.activeTab;
+        : currentDestination?.kind === 'web' ? currentDestination.activeTab : 'messages';
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === 'create');
 
       if (handlers.onShowCreateActions) {
@@ -474,7 +546,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
       // API-driven screens replace the middle content region, so hide only the
       // native web-content surface when switching to those screens.
-      handlers.onHideWebModule?.();
+      await handlers.onHideWebModule?.();
       if (tab === 'messages') {
         if (record) recordDestination({ kind: 'local', tab: 'messages' });
         await chatScreen.render();
