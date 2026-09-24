@@ -10,7 +10,7 @@
 
 ## Upgrade boundary
 
-No group metadata PHP endpoint or custom table is required for this mobile flow. The earlier `mobile_chat_group_metadata` migration may already have been applied on the VPS; it is additive and can remain unused. The backend commit that added `chat/group/metadata` and changed the engine chat controller/router should be reverted in Git and not installed on the VPS. Do not drop the table without separately checking for data.
+No group metadata PHP endpoint or custom table is required for this mobile flow. The earlier `mobile_chat_group_metadata` migration may already have been applied on the VPS; it is additive and can remain unused. Backend commit `7f905ce3` reverts the custom `chat/group/metadata` endpoints and restores the engine chat controller/router in Git. If the prior files were copied into the VPS document root, restore the pre-extension backups or install the reverted files. Do not drop the table without separately checking for data.
 
 ## Verification
 
