@@ -32,8 +32,19 @@ export type Conversation = {
   user_is_online?: boolean;
   user_last_seen?: string;
   recipients?: ConversationRecipient[];
+  node_id?: number | string | null;
+  node_type?: string | null;
+  mobile_group_customizable?: boolean;
+  mobile_group_picture_source?: string;
   last_message?: Record<string, unknown> | null;
   [key: string]: unknown;
+};
+
+export type ChatFeatures = {
+  photos: boolean;
+  typing: boolean;
+  seen: boolean;
+  realtime: boolean;
 };
 
 export type Message = {
@@ -44,6 +55,7 @@ export type Message = {
   message?: string;
   time?: string;
   photo?: string;
+  image?: string;
   [key: string]: unknown;
 };
 
@@ -58,6 +70,18 @@ export type MessagesResult = {
 
 export class ChatService {
   constructor(private readonly api: ChatPalezApiClient) {}
+
+  async getFeatures(): Promise<ChatFeatures> {
+    const settings = await this.api.get<{ system?: Record<string, unknown> }>('app/settings');
+    const system = settings.system ?? {};
+    const enabled = (value: unknown): boolean => value === true || value === 1 || value === '1';
+    return {
+      photos: enabled(system.chat_photos_enabled),
+      typing: enabled(system.chat_typing_enabled),
+      seen: enabled(system.chat_seen_enabled),
+      realtime: enabled(system.chat_socket_enabled)
+    };
+  }
 
   async getConversations(offset = 0): Promise<Conversation[]> {
     return (await this.getConversationsPage(offset)).data;
@@ -110,6 +134,27 @@ export class ChatService {
       voice_note: '',
       recipients: JSON.stringify(recipients)
     });
+  }
+
+  async canCustomizeGroupChats(): Promise<boolean> {
+    try {
+      const result = await this.api.get<{ customizable: boolean }>('chat/group/capabilities');
+      return result.customizable === true;
+    } catch {
+      return false;
+    }
+  }
+
+  async updateGroupMetadata(conversationId: number | string, title: string, picture?: string): Promise<Conversation> {
+    return this.api.post<Conversation>('chat/group/metadata', {
+      conversation_id: conversationId,
+      title,
+      ...(picture === undefined ? {} : { picture })
+    });
+  }
+
+  async getGroupMetadata(conversationId: number | string): Promise<Conversation> {
+    return this.api.get<Conversation>('chat/group/metadata', { conversation_id: conversationId });
   }
 
   async leaveConversation(conversationId: number | string): Promise<void> {

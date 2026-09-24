@@ -1,7 +1,9 @@
-import type { ChatContact, Conversation, Message, MessagesResult } from '../api/chat';
+import type { ChatContact, ChatFeatures, Conversation, Message, MessagesResult } from '../api/chat';
 import type { AuthSession } from '../auth/session';
 import { CoalescedResync } from '../chat-resync';
 import { RealtimeDeliveryUncertainError } from '../chat-realtime';
+import { isChatSoundEnabled, playSentChatSound, setChatSoundEnabled, unlockChatAudio } from '../chat-sound';
+import type { MobileAccount } from '../api/user';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
 export type ChatDeliveryTransport = 'realtime' | 'http';
@@ -13,10 +15,17 @@ export type ChatScreenHandlers = {
   onRequestBack?: () => void;
   onThreadPresenceChange?: (conversationId: number | string, presence: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
+  onPickChatPhoto?: () => Promise<File | null>;
+  onLoadChatAccount?: () => Promise<MobileAccount>;
+  onSaveChatPrivacy?: (privacy: Record<string, string | boolean>) => Promise<void>;
   onLoadConversations?: (offset: number) => Promise<ChatPageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<ChatPageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
   onStartGroupConversation?: (recipientIds: Array<number | string>, message: string) => Promise<Conversation>;
+  onCanCustomizeGroupChats?: () => Promise<boolean>;
+  onLoadChatFeatures?: () => Promise<ChatFeatures>;
+  onUpdateGroupMetadata?: (conversationId: number | string, title: string, picture?: File) => Promise<Conversation>;
+  onLoadGroupMetadata?: (conversationId: number | string) => Promise<Conversation>;
   onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
@@ -42,6 +51,7 @@ export class ChatScreen {
   private activeThreadCleanup: (() => void) | null = null;
   private activeMessageActionsCleanup: (() => void) | null = null;
   private activeConversation: Conversation | null = null;
+  private attachmentCleanup: (() => void) | null = null;
   private viewVersion = 0;
 
   constructor(
@@ -64,6 +74,10 @@ export class ChatScreen {
       compose.addEventListener('click', () => void this.openCompose());
       heading.append(compose);
     }
+    const settings = secondaryButton('Chat settings');
+    settings.classList.add('compact-button');
+    settings.addEventListener('click', () => void this.openChatSettings());
+    heading.append(settings);
     this.content.append(heading);
 
     if (!this.handlers.onLoadConversations) {
@@ -102,14 +116,16 @@ export class ChatScreen {
     if (!conversation.seen) row.classList.add('is-unread');
 
     const avatar = element('span', 'conversation-avatar');
-    if (conversation.picture) {
+    const picture = this.handlers.resolveChatPhotoUrl?.(conversation.picture || conversation.recipients?.[0]?.user_picture || '');
+    if (picture) {
       const img = document.createElement('img');
-      img.src = String(conversation.picture);
+      img.src = picture;
       img.alt = '';
       img.loading = 'lazy';
+      img.addEventListener('error', () => { avatar.replaceChildren(initials(String(conversation.name || conversation.name_list || 'Chat'))); }, { once: true });
       avatar.append(img);
     } else {
-      avatar.textContent = conversation.multiple_recipients ? 'G' : 'C';
+      avatar.textContent = initials(String(conversation.name || conversation.name_list || 'Chat'));
     }
 
     const copy = element('span', 'conversation-item__copy');
@@ -138,15 +154,187 @@ export class ChatScreen {
   openConversationActions(): void {
     const conversation = this.activeConversation;
     if (!conversation) return;
-    const version = this.viewVersion;
-    const choice = window.prompt('Type LEAVE to leave this chat, or DELETE to remove it from your inbox.');
-    const action = choice?.trim().toLowerCase();
-    const operation = action === 'delete' ? this.handlers.onDeleteConversation
-      : action === 'leave' ? this.handlers.onLeaveConversation : undefined;
-    if (!operation) return;
-    void operation(conversation.conversation_id)
-      .then(() => { if (version === this.viewVersion) this.handlers.onRequestBack?.(); })
-      .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to update chat.'));
+    const { sheet, body, close } = this.createSettingsSheet('Conversation');
+    const settings = secondaryButton('Chat settings');
+    settings.addEventListener('click', () => { close(); void this.openChatSettings(); });
+    body.append(settings);
+    if (conversation.multiple_recipients && !conversation.node_id) {
+      const group = secondaryButton('Group name & image');
+      group.addEventListener('click', () => { close(); this.openGroupSettings(conversation); });
+      body.append(group);
+    }
+    for (const [label, operation] of [
+      ['Leave chat', this.handlers.onLeaveConversation],
+      ['Remove from my inbox', this.handlers.onDeleteConversation]
+    ] as const) {
+      if (!operation) continue;
+      const button = secondaryButton(label);
+      button.addEventListener('click', () => {
+        if (!window.confirm(`${label}?`)) return;
+        const version = this.viewVersion;
+        button.disabled = true;
+        void operation(conversation.conversation_id)
+          .then(() => { close(); if (version === this.viewVersion) this.handlers.onRequestBack?.(); })
+          .catch((error: unknown) => { button.disabled = false; window.alert(error instanceof Error ? error.message : 'Unable to update chat.'); });
+      });
+      body.append(button);
+    }
+    this.content.append(sheet);
+  }
+
+  private createSettingsSheet(heading: string): { sheet: HTMLElement; body: HTMLElement; close: () => void } {
+    this.content.querySelector('.chat-settings-sheet')?.remove();
+    const sheet = element('div', 'chat-settings-sheet');
+    const backdrop = element('button', 'chat-settings-sheet__backdrop');
+    backdrop.type = 'button';
+    backdrop.setAttribute('aria-label', 'Close settings');
+    const panel = element('section', 'chat-settings-sheet__panel');
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', heading);
+    const header = element('div', 'chat-settings-sheet__header');
+    const closeButton = secondaryButton('Close');
+    const close = (): void => sheet.remove();
+    closeButton.addEventListener('click', close);
+    backdrop.addEventListener('click', close);
+    header.append(elementWithText('strong', heading), closeButton);
+    const body = element('div', 'chat-settings-sheet__body');
+    panel.append(header, body);
+    sheet.append(backdrop, panel);
+    return { sheet, body, close };
+  }
+
+  private async openChatSettings(): Promise<void> {
+    const { sheet, body } = this.createSettingsSheet('Chat settings');
+    const soundRow = element('label', 'chat-settings-row');
+    const sound = document.createElement('input');
+    sound.type = 'checkbox';
+    sound.checked = isChatSoundEnabled(this.session.user.user_id);
+    sound.addEventListener('change', () => {
+      setChatSoundEnabled(this.session.user.user_id, sound.checked);
+      if (sound.checked) unlockChatAudio(this.session.user.user_id);
+    });
+    soundRow.append(elementWithText('span', 'Message sounds on this device'), sound);
+    body.append(soundRow);
+    const serverSettings = element('div', 'chat-server-settings');
+    serverSettings.append(paragraph('Loading chat privacy…'));
+    const featuresStatus = element('div', 'chat-feature-status');
+    body.append(serverSettings, featuresStatus);
+    this.content.append(sheet);
+    if (this.handlers.onLoadChatFeatures) {
+      void this.handlers.onLoadChatFeatures().then((features) => {
+        if (!sheet.isConnected) return;
+        featuresStatus.replaceChildren(elementWithText('strong', 'Site chat features'));
+        for (const [label, enabled] of [
+          ['Photo messages', features.photos], ['Typing indicators', features.typing],
+          ['Read receipts', features.seen], ['Live messaging', features.realtime]
+        ] as Array<[string, boolean]>) {
+          featuresStatus.append(paragraph(`${label}: ${enabled ? 'Available' : 'Disabled by site settings'}`));
+        }
+      }).catch(() => { /* Local sound and privacy settings remain usable. */ });
+    }
+    if (!this.handlers.onLoadChatAccount || !this.handlers.onSaveChatPrivacy) {
+      serverSettings.replaceChildren(paragraph('Chat privacy settings are unavailable in this build.'));
+      return;
+    }
+    try {
+      const account = await this.handlers.onLoadChatAccount();
+      if (!sheet.isConnected) return;
+      const privacy = account.privacy ?? {};
+      const enabledRow = element('label', 'chat-settings-row');
+      const enabled = document.createElement('input');
+      enabled.type = 'checkbox';
+      enabled.checked = privacy.user_chat_enabled === true || privacy.user_chat_enabled === '1';
+      enabledRow.append(elementWithText('span', 'Allow people to chat with me'), enabled);
+      const audienceRow = element('label', 'chat-settings-row');
+      audienceRow.append(elementWithText('span', 'Who can chat with me'));
+      const audience = document.createElement('select');
+      for (const [value, label] of [['public', 'Everyone'], ['friends', 'Friends'], ['me', 'Only me']]) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        audience.append(option);
+      }
+      audience.value = String(privacy.user_privacy_chat || 'public');
+      audienceRow.append(audience);
+      const save = primaryButton('Save chat privacy');
+      const status = element('p', 'chat-settings-status');
+      save.addEventListener('click', () => {
+        save.disabled = true;
+        status.textContent = 'Saving…';
+        void this.handlers.onSaveChatPrivacy!({
+          ...privacy, user_chat_enabled: enabled.checked, user_privacy_chat: audience.value
+        }).then(() => { status.textContent = 'Chat privacy saved.'; })
+          .catch((error: unknown) => { status.textContent = error instanceof Error ? error.message : 'Unable to save chat privacy.'; })
+          .finally(() => { save.disabled = false; });
+      });
+      serverSettings.replaceChildren(enabledRow, audienceRow, save, status);
+    } catch (error) {
+      if (sheet.isConnected) serverSettings.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load chat privacy.'));
+    }
+  }
+
+  private openGroupSettings(conversation: Conversation): void {
+    const { sheet, body, close } = this.createSettingsSheet('Group details');
+    if (!conversation.mobile_group_customizable || !this.handlers.onUpdateGroupMetadata) {
+      body.append(paragraph('Group details need the mobile group metadata update on the server. Messaging remains available.'));
+      this.content.append(sheet);
+      return;
+    }
+    const nameLabel = element('label', 'chat-group-field');
+    nameLabel.append(elementWithText('span', 'Group name'));
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.maxLength = 80;
+    name.value = String(conversation.name || '');
+    nameLabel.append(name);
+    const image = secondaryButton('Change group image');
+    const preview = document.createElement('img');
+    preview.className = 'chat-group-image-preview';
+    preview.alt = 'Group image preview';
+    preview.hidden = true;
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.hidden = true;
+    const selected = element('p', 'chat-settings-status');
+    let chosenPhoto: File | undefined;
+    const choose = (file: File | null): void => {
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { selected.textContent = 'Choose an image file.'; return; }
+      chosenPhoto = file;
+      selected.textContent = `Selected: ${file.name}`;
+      const reader = new FileReader();
+      reader.onload = () => { preview.src = String(reader.result); preview.hidden = false; };
+      reader.readAsDataURL(file);
+    };
+    fileInput.addEventListener('change', () => choose(fileInput.files?.[0] ?? null));
+    image.addEventListener('click', () => {
+      if (!this.handlers.onPickChatPhoto) { fileInput.click(); return; }
+      void this.handlers.onPickChatPhoto().then(choose).catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/cancel|OS-PLUG-CAMR-0020/i.test(message)) selected.textContent = message;
+      });
+    });
+    const save = primaryButton('Save group details');
+    save.addEventListener('click', () => {
+      const titleText = name.value.trim();
+      if (!titleText) { selected.textContent = 'Enter a group name.'; return; }
+      const version = this.viewVersion;
+      save.disabled = true;
+      selected.textContent = 'Saving…';
+      void this.handlers.onUpdateGroupMetadata!(conversation.conversation_id, titleText, chosenPhoto)
+        .then((updated) => {
+          if (version !== this.viewVersion) return;
+          this.activeConversation = updated;
+          this.handlers.onOpenThreadRoute?.(updated);
+          close();
+        })
+        .catch((error: unknown) => { selected.textContent = error instanceof Error ? error.message : 'Unable to save group details.'; })
+        .finally(() => { save.disabled = false; });
+    });
+    body.append(nameLabel, image, fileInput, preview, selected, save);
+    this.content.append(sheet);
   }
 
   private async renderNewChat(): Promise<void> {
@@ -188,12 +376,49 @@ export class ChatScreen {
     const composer = document.createElement('form');
     composer.className = 'initial-message-form group-message-form';
     composer.hidden = true;
+    const groupDetails = element('div', 'chat-group-creation');
+    groupDetails.hidden = true;
+    const groupName = document.createElement('input');
+    groupName.type = 'text';
+    groupName.maxLength = 80;
+    groupName.placeholder = 'Group name';
+    groupName.setAttribute('aria-label', 'Group name');
+    const groupImage = secondaryButton('Choose group image');
+    groupImage.type = 'button';
+    const groupPreview = document.createElement('img');
+    groupPreview.className = 'chat-group-image-preview';
+    groupPreview.alt = 'Group image preview';
+    groupPreview.hidden = true;
+    const groupImageInput = document.createElement('input');
+    groupImageInput.type = 'file';
+    groupImageInput.accept = 'image/*';
+    groupImageInput.hidden = true;
+    const groupImageStatus = element('span', 'chat-settings-status');
+    let groupPhoto: File | undefined;
+    const selectGroupImage = (file: File | null): void => {
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { groupImageStatus.textContent = 'Choose an image file.'; return; }
+      groupPhoto = file;
+      groupImageStatus.textContent = `Selected: ${file.name}`;
+      const reader = new FileReader();
+      reader.onload = () => { groupPreview.src = String(reader.result); groupPreview.hidden = false; };
+      reader.readAsDataURL(file);
+    };
+    groupImageInput.addEventListener('change', () => selectGroupImage(groupImageInput.files?.[0] ?? null));
+    groupImage.addEventListener('click', () => {
+      if (!this.handlers.onPickChatPhoto) { groupImageInput.click(); return; }
+      void this.handlers.onPickChatPhoto().then(selectGroupImage).catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!/cancel|OS-PLUG-CAMR-0020/i.test(message)) groupImageStatus.textContent = message;
+      });
+    });
+    groupDetails.append(groupName, groupImage, groupImageInput, groupPreview, groupImageStatus);
     const text = document.createElement('textarea');
     text.rows = 3;
     text.placeholder = 'Write the first message…';
     const send = primaryButton('Start chat');
     send.type = 'submit';
-    composer.append(text, send);
+    composer.append(groupDetails, text, send);
     this.content.append(composer);
 
     let offset = 0;
@@ -206,6 +431,7 @@ export class ChatScreen {
       chips.replaceChildren();
       chips.hidden = selected.size === 0;
       composer.hidden = selected.size === 0;
+      groupDetails.hidden = selected.size < 2;
       for (const [id, contact] of selected) {
         const chip = element('button', 'selected-contact-chip');
         chip.type = 'button';
@@ -236,11 +462,15 @@ export class ChatScreen {
           row.classList.toggle('is-selected', selected.has(id));
 
           const avatar = element('span', 'contact-avatar');
-          if (contact.user_picture) {
+          const contactPicture = this.handlers.resolveChatPhotoUrl?.(contact.user_picture || '');
+          if (contactPicture) {
             const avatarImage = document.createElement('img');
-            avatarImage.src = String(contact.user_picture);
+            avatarImage.src = contactPicture;
             avatarImage.alt = '';
             avatarImage.loading = 'lazy';
+            avatarImage.addEventListener('error', () => {
+              avatar.replaceChildren(initials(String(contact.user_fullname || contact.user_firstname || contact.user_name || 'User')));
+            }, { once: true });
             avatar.append(avatarImage);
           } else {
             const fallbackName = String(contact.user_fullname || contact.user_firstname || contact.user_name || 'User');
@@ -276,16 +506,28 @@ export class ChatScreen {
       const message = text.value.trim();
       const ids = [...selected.values()].map((contact) => contact.user_id);
       if (!message || ids.length === 0) return;
-      const operation = ids.length === 1
-        ? this.handlers.onStartConversation?.(ids[0], message)
-        : this.handlers.onStartGroupConversation?.(ids, message);
-      if (!operation) {
-        window.alert(ids.length > 1 ? 'Group chat is unavailable in this build.' : 'Chat is unavailable in this build.');
-        return;
-      }
+      const group = ids.length > 1;
+      const groupTitle = groupName.value.trim();
+      if (group && !groupTitle) { window.alert('Enter a group name.'); groupName.focus(); return; }
       send.disabled = true;
       send.textContent = 'Starting…';
-      void operation
+      void (async () => {
+        if (group) {
+          if (!this.handlers.onStartGroupConversation || !this.handlers.onUpdateGroupMetadata
+            || !await this.handlers.onCanCustomizeGroupChats?.()) {
+            throw new Error('Group naming needs the mobile group metadata update on the server. No message was sent.');
+          }
+          const conversation = await this.handlers.onStartGroupConversation(ids, message);
+          try {
+            return await this.handlers.onUpdateGroupMetadata(conversation.conversation_id, groupTitle, groupPhoto);
+          } catch (error) {
+            window.alert(`The group message was sent, but its details could not be saved: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return conversation;
+          }
+        }
+        if (!this.handlers.onStartConversation) throw new Error('Chat is unavailable in this build.');
+        return this.handlers.onStartConversation(ids[0], message);
+      })()
         .then((conversation) => this.openConversation(conversation))
         .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to start chat.'))
         .finally(() => { send.disabled = false; refreshSelected(); });
@@ -340,7 +582,47 @@ export class ChatScreen {
     photo.type = 'file';
     photo.accept = 'image/*';
     photo.hidden = true;
-    attach.addEventListener('click', () => photo.click());
+    const attachment = element('div', 'chat-attachment-preview');
+    attachment.hidden = true;
+    const attachmentImage = document.createElement('img');
+    attachmentImage.alt = 'Selected photo';
+    const attachmentName = element('span', 'chat-attachment-preview__name');
+    const removeAttachment = secondaryButton('Remove');
+    removeAttachment.type = 'button';
+    attachment.append(attachmentImage, attachmentName, removeAttachment);
+    let selectedPhoto: File | null = null;
+    let previewUrl: string | null = null;
+    const clearAttachment = (): void => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      previewUrl = null;
+      selectedPhoto = null;
+      photo.value = '';
+      attachment.hidden = true;
+      attachmentImage.removeAttribute('src');
+      send.setAttribute('aria-label', 'Send message');
+    };
+    const showAttachment = (file: File): void => {
+      if (!file.type.startsWith('image/')) { window.alert('Choose an image file to attach.'); return; }
+      clearAttachment();
+      selectedPhoto = file;
+      previewUrl = URL.createObjectURL(file);
+      attachmentImage.src = previewUrl;
+      attachmentName.textContent = file.name;
+      attachment.hidden = false;
+      send.setAttribute('aria-label', 'Send message and photo');
+    };
+    this.attachmentCleanup = clearAttachment;
+    removeAttachment.addEventListener('click', clearAttachment);
+    photo.addEventListener('change', () => { const file = photo.files?.[0]; if (file) showAttachment(file); });
+    attach.addEventListener('click', () => {
+      if (!this.handlers.onPickChatPhoto) { photo.click(); return; }
+      void this.handlers.onPickChatPhoto()
+        .then((file) => { if (file && version === this.viewVersion) showAttachment(file); })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          if (!/cancel|OS-PLUG-CAMR-0020/i.test(message)) window.alert(message || 'Unable to select a photo.');
+        });
+    });
     const text = document.createElement('textarea');
     text.rows = 2;
     text.placeholder = 'Write a message…';
@@ -350,7 +632,7 @@ export class ChatScreen {
     send.setAttribute('aria-label', 'Send message');
     send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
     composer.append(attach, text, photo, send);
-    this.content.append(composer);
+    this.content.append(attachment, composer);
 
     let typingTimer: number | undefined;
     let typingActive = false;
@@ -446,7 +728,28 @@ export class ChatScreen {
     };
     const stopRealtime = this.handlers.onOpenConversation?.(conversation, realtimeHandlers);
 
+    let groupTimer: number | undefined;
+    if (conversation.multiple_recipients && !conversation.node_id && this.handlers.onLoadGroupMetadata) {
+      let currentName = conversation.name;
+      let currentPicture = conversation.picture;
+      const syncGroupDetails = async (): Promise<void> => {
+        try {
+          const updated = await this.handlers.onLoadGroupMetadata!(conversationId);
+          if (version !== this.viewVersion) return;
+          if (updated.name !== currentName || updated.picture !== currentPicture) {
+            currentName = updated.name;
+            currentPicture = updated.picture;
+            this.activeConversation = updated;
+            this.handlers.onOpenThreadRoute?.(updated);
+          }
+        } catch { /* Message delivery remains usable if metadata is unavailable. */ }
+      };
+      void syncGroupDetails();
+      groupTimer = window.setInterval(() => { if (!document.hidden) void syncGroupDetails(); }, 30000);
+    }
+
     const leaveThread = (): void => {
+      if (groupTimer) window.clearInterval(groupTimer);
       if (typingTimer) window.clearTimeout(typingTimer);
       setTyping(false);
       stopRealtime?.();
@@ -457,18 +760,19 @@ export class ChatScreen {
     composer.addEventListener('submit', (event) => {
       event.preventDefault();
       const message = text.value.trim();
-      const selectedPhoto = photo.files?.[0];
       if ((!message && !selectedPhoto) || !this.handlers.onSendMessage) return;
+      unlockChatAudio(this.session.user.user_id);
       pendingBubble = element('div', 'message-bubble is-mine is-pending');
       pendingBubble.append(elementWithText('div', message || 'Photo'));
       pendingBubble.append(elementWithText('small', 'Sending…'));
       thread.append(pendingBubble);
       thread.scrollTop = thread.scrollHeight;
       send.disabled = true;
+      attach.disabled = true;
       send.classList.add('is-sending');
       send.setAttribute('aria-label', 'Sending message');
       setTyping(false);
-      void this.handlers.onSendMessage(conversationId, message, selectedPhoto)
+      void this.handlers.onSendMessage(conversationId, message, selectedPhoto ?? undefined)
         .then(async (transport) => {
           pendingBubble?.remove();
           pendingBubble = null;
@@ -476,7 +780,8 @@ export class ChatScreen {
             ? 'Last message sent via live chat'
             : 'Last message sent via standard delivery';
           text.value = '';
-          photo.value = '';
+          clearAttachment();
+          playSentChatSound(this.session.user.user_id);
           await refresh();
         })
         .catch(async (error: unknown) => {
@@ -491,6 +796,7 @@ export class ChatScreen {
         })
         .finally(() => {
           send.disabled = false;
+          attach.disabled = false;
           send.classList.remove('is-sending');
           send.setAttribute('aria-label', 'Send message');
           send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
@@ -509,6 +815,8 @@ export class ChatScreen {
   }
 
   private cleanupActiveThread(): void {
+    this.attachmentCleanup?.();
+    this.attachmentCleanup = null;
     this.activeMessageActionsCleanup?.();
     this.activeMessageActionsCleanup = null;
     const cleanup = this.activeThreadCleanup;
@@ -524,7 +832,7 @@ export class ChatScreen {
 
     const body = String(message.message ?? '');
     if (body) bubble.append(elementWithText('div', body));
-    const photoUrl = this.handlers.resolveChatPhotoUrl?.(message.photo ?? '');
+    const photoUrl = this.handlers.resolveChatPhotoUrl?.(message.image || message.photo || '');
     if (photoUrl) {
       const image = document.createElement('img');
       image.className = 'message-photo';

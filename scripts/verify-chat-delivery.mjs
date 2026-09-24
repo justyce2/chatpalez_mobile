@@ -51,6 +51,25 @@ async function history(token) {
   if (!response.ok || envelope.status !== 'success') throw new Error(`HTTP chat history rejected (${response.status})`);
   return envelope.data?.messages ?? [];
 }
+async function verifyGroup(token, label) {
+  const url = new URL('/apis/php/chat/group/metadata', origin);
+  url.searchParams.set('conversation_id', conversationId);
+  const response = await deadline(fetch(url, {
+    headers: { Accept: 'application/json', 'x-mobile-client': 'chatpalez-mobile-v1', 'x-auth-token': token }
+  }), `${label} group metadata`);
+  const envelope = await response.json();
+  const group = envelope.data;
+  if (!response.ok || envelope.status !== 'success' || !group?.multiple_recipients || !group.mobile_group_customizable) {
+    throw new Error(`${label} cannot load customizable group metadata`);
+  }
+  if (process.env.CHAT_EXPECT_GROUP_NAME && group.name !== process.env.CHAT_EXPECT_GROUP_NAME) {
+    throw new Error(`${label} group name mismatch`);
+  }
+  if (process.env.CHAT_EXPECT_GROUP_PICTURE === '1' && !group.mobile_group_picture_source) {
+    throw new Error(`${label} group picture is missing`);
+  }
+  return group;
+}
 async function sendAndVerify(sender, receiver, senderToken, receiverToken, label) {
   const marker = `mobile-socket-check-${randomUUID()}`;
   const received = deadline(new Promise((resolve) => {
@@ -81,6 +100,13 @@ async function sendAndVerify(sender, receiver, senderToken, receiverToken, label
 }
 try {
   const [a, b] = await Promise.all(tokens.map((token, index) => connect(token, index ? 'B' : 'A')));
+  if (process.env.CHAT_EXPECT_GROUP === '1') {
+    const groups = await Promise.all([verifyGroup(tokens[0], 'A'), verifyGroup(tokens[1], 'B')]);
+    if (String(groups[0].conversation_id) !== String(groups[1].conversation_id)
+      || groups[0].name !== groups[1].name || groups[0].picture !== groups[1].picture) {
+      throw new Error('Group identity differs between members');
+    }
+  }
   await Promise.all([a, b].map((socket) => emitAck(socket, 'event_client_open_thread', { conversation_id: conversationId })));
   await sendAndVerify(a, b, tokens[0], tokens[1], 'A → B');
   await sendAndVerify(b, a, tokens[1], tokens[0], 'B → A');

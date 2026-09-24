@@ -1,4 +1,4 @@
-import type { ChatContact, Conversation, Message, MessagesResult } from './api/chat';
+import type { ChatContact, ChatFeatures, Conversation, Message, MessagesResult } from './api/chat';
 import type { NotificationItem } from './api/notifications';
 import type { BlockedUser, MobileAccount, ProfileUpdate, UserProfile } from './api/user';
 import type { AuthSession } from './auth/session';
@@ -23,6 +23,7 @@ export type AppShellHandlers = {
   onShowCreateActions?: () => Promise<string | null>;
   onOpenPublicPage?: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
+  onPickChatPhoto?: () => Promise<File | null>;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
   onLoadProfile?: () => Promise<UserProfile>;
   onLoadAccount?: () => Promise<MobileAccount>;
@@ -38,6 +39,10 @@ export type AppShellHandlers = {
   onLoadContacts?: (query: string, offset: number) => Promise<PageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
   onStartGroupConversation?: (recipientIds: Array<number | string>, message: string) => Promise<Conversation>;
+  onCanCustomizeGroupChats?: () => Promise<boolean>;
+  onLoadChatFeatures?: () => Promise<ChatFeatures>;
+  onUpdateGroupMetadata?: (conversationId: number | string, title: string, picture?: File) => Promise<Conversation>;
+  onLoadGroupMetadata?: (conversationId: number | string) => Promise<Conversation>;
   onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
@@ -303,11 +308,12 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         const name = String(conversation.name || conversation.name_list || 'Conversation');
         threadName.textContent = name;
         threadAvatar.replaceChildren();
-        const picture = conversation.picture && handlers.resolveChatPhotoUrl?.(String(conversation.picture));
+        const picture = handlers.resolveChatPhotoUrl?.(String(conversation.picture || conversation.recipients?.[0]?.user_picture || ''));
         if (picture) {
           const img = document.createElement('img');
           img.src = picture;
           img.alt = '';
+          img.addEventListener('error', () => { threadAvatar.replaceChildren(initials(name)); }, { once: true });
           threadAvatar.append(img);
         } else {
           threadAvatar.textContent = initials(name);
@@ -325,10 +331,17 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         }
       },
       resolveChatPhotoUrl: handlers.resolveChatPhotoUrl,
+      onPickChatPhoto: handlers.onPickChatPhoto,
+      onLoadChatAccount: handlers.onLoadAccount,
+      onSaveChatPrivacy: handlers.onUpdatePrivacy,
       onLoadConversations: handlers.onLoadConversations,
       onLoadContacts: handlers.onLoadContacts,
       onStartConversation: handlers.onStartConversation,
       onStartGroupConversation: handlers.onStartGroupConversation,
+      onCanCustomizeGroupChats: handlers.onCanCustomizeGroupChats,
+      onLoadChatFeatures: handlers.onLoadChatFeatures,
+      onUpdateGroupMetadata: handlers.onUpdateGroupMetadata,
+      onLoadGroupMetadata: handlers.onLoadGroupMetadata,
       onLoadMessages: handlers.onLoadMessages,
       onSendMessage: handlers.onSendMessage,
       onTyping: handlers.onTyping,
@@ -407,7 +420,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       if (backInProgress) return true;
       backInProgress = true;
       try {
-      const sheet = layout.querySelector('.shared-action-sheet');
+      const sheet = layout.querySelector('.shared-action-sheet, .chat-settings-sheet');
       if (sheet) {
         sheet.remove();
         for (const [id, button] of buttons) button.classList.toggle('is-active', id === (currentDestination?.kind === 'local' ? currentDestination.tab : currentDestination?.kind === 'web' ? currentDestination.activeTab : 'messages'));

@@ -83,6 +83,31 @@ describe('ChatService', () => {
     });
   });
 
+  it('checks group metadata readiness before creating a named group and saves only changed metadata', async () => {
+    const get = vi.fn().mockResolvedValue({ customizable: true });
+    const post = vi.fn().mockResolvedValue({ conversation_id: 9, name: 'Project team' });
+    const chat = new ChatService({ get, post } as unknown as ChatPalezApiClient);
+    await expect(chat.canCustomizeGroupChats()).resolves.toBe(true);
+    await chat.updateGroupMetadata(9, 'Project team');
+    expect(get).toHaveBeenCalledWith('chat/group/capabilities');
+    expect(post).toHaveBeenCalledWith('chat/group/metadata', { conversation_id: 9, title: 'Project team' });
+    await chat.updateGroupMetadata(9, 'New name', 'photos/2026/09/group.jpg');
+    expect(post).toHaveBeenLastCalledWith('chat/group/metadata', {
+      conversation_id: 9, title: 'New name', picture: 'photos/2026/09/group.jpg'
+    });
+    await chat.getGroupMetadata(9);
+    expect(get).toHaveBeenLastCalledWith('chat/group/metadata', { conversation_id: 9 });
+  });
+
+  it('reads site chat capabilities without presenting them as per-user switches', async () => {
+    const get = vi.fn().mockResolvedValue({ system: {
+      chat_photos_enabled: '1', chat_typing_enabled: '0', chat_seen_enabled: true, chat_socket_enabled: 1
+    } });
+    const chat = new ChatService({ get } as unknown as ChatPalezApiClient);
+    await expect(chat.getFeatures()).resolves.toEqual({ photos: true, typing: false, seen: true, realtime: true });
+    expect(get).toHaveBeenCalledWith('app/settings');
+  });
+
   it('omits the message cursor for ordinary offset history paging', async () => {
     const get = vi.fn().mockResolvedValue({ messages: [] });
     const api = { get, post: vi.fn() } as unknown as ChatPalezApiClient;

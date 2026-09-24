@@ -17,6 +17,8 @@ import { installRegistration, needsRegistrationCompletion, resumeRegistration, t
 import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
 import { getChatPhotoUrl } from './media';
+import { pickNativeChatPhoto } from './chat-photo-picker';
+import { playReceivedChatSound, unlockChatAudio } from './chat-sound';
 import {
   logoutNativeNotifications,
   requestNativeNotificationPermission
@@ -386,7 +388,8 @@ const shell = createAppShell(root, {
   onGoBackWebModule: () => webContentSurface.goBack(),
   onShowCreateActions: webContentSurface.isSupported() ? () => webContentSurface.showCreateActions() : undefined,
   onOpenPublicPage: openPublicModule,
-  resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source),
+  resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source, config.allowedHosts),
+  onPickChatPhoto: Capacitor.isNativePlatform() ? pickNativeChatPhoto : undefined,
   onLoadProfile: async () => {
     const profile = await users.getProfile();
     logInfo('Native profile loaded', { userId: profile.user_id });
@@ -426,6 +429,13 @@ const shell = createAppShell(root, {
     logInfo('Group conversation started', { conversationId: conversation.conversation_id, recipientCount: recipientIds.length });
     return conversation;
   },
+  onCanCustomizeGroupChats: () => chat.canCustomizeGroupChats(),
+  onLoadChatFeatures: () => chat.getFeatures(),
+  onUpdateGroupMetadata: async (conversationId, title, picture) => {
+    const source = picture ? await uploads.uploadChatPhoto(picture) : undefined;
+    return chat.updateGroupMetadata(conversationId, title, source);
+  },
+  onLoadGroupMetadata: (conversationId) => chat.getGroupMetadata(conversationId),
   onLoadMessages: async (conversationId, offset) => {
     const result = await chat.getMessages(conversationId, offset);
     logDebug('Conversation messages loaded', {
@@ -504,6 +514,8 @@ const shell = createAppShell(root, {
     await chat.markSeen(ids);
   },
   onOpenConversation: (conversation, events) => {
+    const activeSession = getSession();
+    if (activeSession) unlockChatAudio(activeSession.user.user_id);
     const conversationId = conversation.conversation_id;
     chatRealtime.openConversation(conversationId);
     events.setRealtimeStatus(chatRealtime.isConnected());
@@ -513,7 +525,10 @@ const shell = createAppShell(root, {
     );
     const stop = chatRealtime.subscribe({
       onMessage: (event) => {
-        if (String(event.conversation?.conversation_id ?? '') === currentConversationId) void events.refresh();
+        if (String(event.conversation?.conversation_id ?? '') === currentConversationId) {
+          if (event.is_me === false && activeSession) playReceivedChatSound(activeSession.user.user_id);
+          void events.refresh();
+        }
       },
       onTyping: (event) => {
         if (String(event.conversation_id) === currentConversationId) {

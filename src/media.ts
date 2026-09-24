@@ -1,6 +1,20 @@
-export function getChatPhotoUrl(origin: URL, source: string | undefined): string | null {
-  if (!source || !/^photos\/\d{4}\/\d{2}\/[A-Za-z0-9._-]+\.[A-Za-z0-9]+$/.test(source)) {
+export function getChatPhotoUrl(
+  origin: URL,
+  source: string | undefined,
+  allowedHosts: ReadonlySet<string> = new Set([origin.hostname.toLowerCase()])
+): string | null {
+  if (!source) return null;
+  if (/^photos\/\d{4}\/\d{2}\/[A-Za-z0-9._-]+\.(?:jpe?g|png|gif|webp|avif)$/i.test(source)) {
+    return new URL(`uploads/${source}`, origin).toString();
+  }
+
+  try {
+    const url = new URL(source, origin);
+    if (url.protocol !== 'https:' || !allowedHosts.has(url.hostname.toLowerCase()) || url.username || url.password) return null;
+    if (!/^\/(?:uploads|content\/themes|content\/uploads)\/[A-Za-z0-9_./%-]+\.(?:jpe?g|png|gif|webp|avif)$/i.test(url.pathname)) return null;
+    if (url.pathname.split('/').includes('..')) return null;
+    return url.toString();
+  } catch {
     return null;
   }
-  return new URL(`uploads/${source}`, origin).toString();
 }
