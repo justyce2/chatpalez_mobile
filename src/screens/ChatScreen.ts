@@ -4,6 +4,7 @@ import { CoalescedResync } from '../chat-resync';
 import { RealtimeDeliveryUncertainError } from '../chat-realtime';
 import { isChatSoundEnabled, playSentChatSound, setChatSoundEnabled, unlockChatAudio } from '../chat-sound';
 import { latestOutgoingReceipt } from '../chat-receipts';
+import { chatProfilePath } from '../chat-profile-route';
 import type { MobileAccount } from '../api/user';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
@@ -14,6 +15,7 @@ export type ChatScreenHandlers = {
   onOpenThreadRoute?: (conversation: Conversation) => void;
   onOpenComposeRoute?: () => void;
   onOpenCommunityGroups?: (path: string) => void;
+  onOpenCorrespondentProfile?: (path: string) => void;
   onRequestBack?: () => void;
   onThreadPresenceChange?: (conversationId: number | string, presence: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
@@ -50,6 +52,7 @@ export class ChatScreen {
   private activeMessageActionsCleanup: (() => void) | null = null;
   private activeConversation: Conversation | null = null;
   private attachmentCleanup: (() => void) | null = null;
+  private readonly drafts = new Map<string, { text: string; photo: File | null }>();
   private viewVersion = 0;
 
   constructor(
@@ -176,6 +179,52 @@ export class ChatScreen {
           .catch((error: unknown) => { button.disabled = false; window.alert(error instanceof Error ? error.message : 'Unable to update chat.'); });
       });
       body.append(button);
+    }
+    this.content.append(sheet);
+  }
+
+  openConversationIdentity(): void {
+    const conversation = this.activeConversation;
+    if (!conversation) return;
+    const group = Boolean(conversation.multiple_recipients || conversation.node_id);
+    const recipient = group ? undefined : conversation.recipients?.[0];
+    const name = group
+      ? String(conversation.name || conversation.name_list || 'Community group')
+      : String(conversation.name || conversation.name_list || recipient?.user_name || 'Chat member');
+    const { sheet, body, close } = this.createSettingsSheet(group ? 'Group information' : 'Profile preview');
+    const card = element('div', 'chat-profile-preview');
+    const avatar = element('span', 'chat-profile-preview__avatar');
+    const picture = this.handlers.resolveChatPhotoUrl?.(String(conversation.picture || recipient?.user_picture || ''));
+    if (picture) {
+      const image = document.createElement('img');
+      image.src = picture;
+      image.alt = '';
+      image.addEventListener('error', () => { avatar.replaceChildren(initials(name)); }, { once: true });
+      avatar.append(image);
+    } else avatar.textContent = initials(name);
+    const details = element('div', 'chat-profile-preview__details');
+    details.append(elementWithText('strong', name));
+    if (group) details.append(elementWithText('span', `${conversation.recipients?.length ?? 0} participants`));
+    else {
+      if (recipient?.user_name) details.append(elementWithText('span', `@${recipient.user_name}`));
+      if (conversation.user_is_online || recipient?.user_is_online) details.append(elementWithText('small', 'Online'));
+    }
+    card.append(avatar, details);
+    body.append(card);
+    if (group) {
+      const link = conversation.link;
+      if (conversation.node_type === 'group' && link?.startsWith('groups/')) {
+        const view = primaryButton('View community group');
+        view.addEventListener('click', () => { close(); this.handlers.onOpenCommunityGroups?.(`/${link}`); });
+        body.append(view);
+      }
+    } else {
+      const path = chatProfilePath(recipient?.user_name);
+      if (path && this.handlers.onOpenCorrespondentProfile) {
+        const view = primaryButton('View full profile');
+        view.addEventListener('click', () => { close(); this.handlers.onOpenCorrespondentProfile?.(path); });
+        body.append(view);
+      } else body.append(paragraph('The full profile is unavailable because this chat has no profile username.'));
     }
     this.content.append(sheet);
   }
@@ -513,6 +562,8 @@ export class ChatScreen {
     text.rows = 2;
     text.placeholder = 'Write a message…';
     text.setAttribute('aria-label', 'Message or photo caption');
+    const savedDraft = this.drafts.get(String(conversationId));
+    if (savedDraft) text.value = savedDraft.text;
     const send = primaryButton('');
     send.type = 'submit';
     send.classList.add('message-send-button');
@@ -520,6 +571,7 @@ export class ChatScreen {
     send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
     composer.append(attach, text, photo, send);
     this.content.append(attachment, composer);
+    if (savedDraft?.photo) showAttachment(savedDraft.photo);
     if (this.handlers.onLoadChatFeatures) {
       void this.handlers.onLoadChatFeatures().then((features) => {
         if (version !== this.viewVersion || features.photos) return;
@@ -644,6 +696,8 @@ export class ChatScreen {
     const stopRealtime = this.handlers.onOpenConversation?.(conversation, realtimeHandlers);
 
     const leaveThread = (): void => {
+      if (text.value || selectedPhoto) this.drafts.set(String(conversationId), { text: text.value, photo: selectedPhoto });
+      else this.drafts.delete(String(conversationId));
       if (typingTimer) window.clearTimeout(typingTimer);
       setTyping(false);
       stopRealtime?.();
@@ -670,6 +724,7 @@ export class ChatScreen {
       thread.scrollTop = thread.scrollHeight;
       send.disabled = true;
       attach.disabled = true;
+      text.disabled = true;
       send.classList.add('is-sending');
       send.setAttribute('aria-label', 'Sending message');
       setTyping(false);
@@ -682,6 +737,7 @@ export class ChatScreen {
             : 'Last message sent via standard delivery';
           text.value = '';
           clearAttachment();
+          this.drafts.delete(String(conversationId));
           playSentChatSound(this.session.user.user_id);
           await refresh();
         })
@@ -698,6 +754,7 @@ export class ChatScreen {
         .finally(() => {
           send.disabled = false;
           attach.disabled = false;
+          text.disabled = false;
           send.classList.remove('is-sending');
           send.setAttribute('aria-label', 'Send message');
           send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
@@ -716,13 +773,13 @@ export class ChatScreen {
   }
 
   private cleanupActiveThread(): void {
-    this.attachmentCleanup?.();
-    this.attachmentCleanup = null;
     this.activeMessageActionsCleanup?.();
     this.activeMessageActionsCleanup = null;
     const cleanup = this.activeThreadCleanup;
     this.activeThreadCleanup = null;
     cleanup?.();
+    this.attachmentCleanup?.();
+    this.attachmentCleanup = null;
   }
 
   private messageBubble(message: Message, refresh: () => Promise<void>): HTMLDivElement {

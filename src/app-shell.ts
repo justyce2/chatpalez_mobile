@@ -208,7 +208,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     avatar.addEventListener('click', () => void selectTab('profile'));
     topActions.append(avatar);
     const brandRow = element('div', 'mobile-topbar__brand-row');
-    const threadIdentity = element('div', 'thread-topbar-identity');
+    const threadIdentity = element('button', 'thread-topbar-identity');
+    threadIdentity.type = 'button';
+    threadIdentity.setAttribute('aria-label', 'View conversation profile');
+    threadIdentity.addEventListener('click', () => chatScreen.openConversationIdentity());
     threadIdentity.hidden = true;
     const threadAvatar = element('span', 'thread-topbar-identity__avatar');
     const threadCopy = element('span', 'thread-topbar-identity__copy');
@@ -302,6 +305,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           recordDestination({ kind: 'chat-thread', conversation });
         }
         const name = String(conversation.name || conversation.name_list || 'Conversation');
+        threadIdentity.setAttribute('aria-label', conversation.multiple_recipients ? 'View group information' : `View ${name}'s profile preview`);
         threadName.textContent = name;
         threadAvatar.replaceChildren();
         const picture = handlers.resolveChatPhotoUrl?.(String(conversation.picture || (!conversation.multiple_recipients ? conversation.recipients?.[0]?.user_picture : '') || ''));
@@ -319,7 +323,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           : conversation.user_is_online ? 'Online' : conversation.user_last_seen ? `Last seen ${conversation.user_last_seen}` : '';
       },
       onOpenComposeRoute: () => { if (!restoringDestination) recordDestination({ kind: 'chat-compose' }); },
-      onOpenCommunityGroups: (path) => showRetainedModule(path, 'Groups', ''),
+      onOpenCommunityGroups: (path) => showRetainedModule(path, 'Groups', '', true, currentDestination?.kind === 'chat-thread'),
+      onOpenCorrespondentProfile: (path) => showRetainedModule(path, 'Profile', '', true, true),
       onRequestBack: () => { void navigateBack(); },
       onThreadPresenceChange: (conversationId, presence) => {
         if (currentDestination?.kind === 'chat-thread'
@@ -347,7 +352,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     });
 
     type ShellDestination =
-      | { kind: 'web'; path: string; title: string; activeTab: string }
+      | { kind: 'web'; path: string; title: string; activeTab: string; returnToChat?: boolean }
       | { kind: 'local'; tab: 'messages' | 'notifications' | 'profile' }
       | { kind: 'chat-compose' }
       | { kind: 'chat-thread'; conversation: Conversation };
@@ -420,6 +425,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         return true;
       }
 
+      if (currentDestination?.kind === 'web' && currentDestination.returnToChat && navigationStack.at(-1)?.kind === 'chat-thread') {
+        const thread = navigationStack.pop()!;
+        currentDestination = thread;
+        await renderDestination(thread, false);
+        updateBackButton();
+        return true;
+      }
+
       if (currentDestination?.kind === 'web' && (webCanGoBack || await handlers.onCanGoBackWebModule?.())) {
         await handlers.onGoBackWebModule?.();
         webCanGoBack = await handlers.onCanGoBackWebModule?.() ?? false;
@@ -461,14 +474,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     };
 
 
-    function showRetainedModule(path: string, _titleText: string, activeTab: string, record = true): void {
+    function showRetainedModule(path: string, _titleText: string, activeTab: string, record = true, returnToChat = false): void {
       ++transitionVersion;
       chatScreen.deactivate();
       profileScreen.deactivate();
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === activeTab);
       content.classList.add('mobile-content--web-surface');
       content.replaceChildren();
-      if (record) recordDestination({ kind: 'web', path, title: _titleText, activeTab });
+      if (record) recordDestination({ kind: 'web', path, title: _titleText, activeTab, returnToChat });
 
       // The shared Capacitor document keeps the app chrome resident while a
       // separate native WebView/WKWebView owns the remote ChatPalez page.
