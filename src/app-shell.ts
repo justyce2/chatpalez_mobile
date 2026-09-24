@@ -46,7 +46,7 @@ export type AppShellHandlers = {
   onDeleteConversation?: (conversationId: number | string) => Promise<void>;
   onReactToMessage?: (messageId: number | string, reaction: string) => Promise<void>;
   onDeleteMessage?: (messageId: number | string) => Promise<void>;
-  onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
+  onMarkSeen?: (conversationId: number | string) => Promise<void>;
   onOpenConversation?: import('./screens/ChatScreen').ChatScreenHandlers['onOpenConversation'];
   onLoadNotifications?: () => Promise<NotificationItem[]>;
   onLoadBlockedUsers?: (offset: number) => Promise<PageResult<BlockedUser>>;
@@ -1196,11 +1196,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
             thread.append(...bubbles);
           }
           historyOffset = nextOffset;
-          const ids = messages
-            .map((message) => message.message_id)
-            .filter((id): id is number | string => id !== undefined && id !== null);
-          if (ids.length > 0 && handlers.onMarkSeen) {
-            void handlers.onMarkSeen(ids).catch(() => undefined);
+          if (!older && messages.some((message) => String(message.user_id ?? message.sender_id ?? '') !== String(session.user.user_id)) && handlers.onMarkSeen) {
+            void handlers.onMarkSeen(conversationId).catch(() => undefined);
           }
           if (!older) thread.scrollTop = thread.scrollHeight;
         } catch (error) {

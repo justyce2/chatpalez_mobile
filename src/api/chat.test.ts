@@ -133,12 +133,12 @@ describe('ChatService', () => {
     const chat = new ChatService(api);
 
     await chat.setTyping(9, true);
-    await chat.markSeen([1, 2]);
+    await chat.markSeen(9);
 
     expect(post).toHaveBeenNthCalledWith(1, 'chat/actions/typing', {
       conversation_id: 9,
       is_typing: 1
     });
-    expect(post).toHaveBeenNthCalledWith(2, 'chat/actions/seen', { ids: [1, 2] });
+    expect(post).toHaveBeenNthCalledWith(2, 'chat/actions/seen', { ids: [9] });
   });
 });

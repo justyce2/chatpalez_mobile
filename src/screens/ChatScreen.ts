@@ -3,6 +3,7 @@ import type { AuthSession } from '../auth/session';
 import { CoalescedResync } from '../chat-resync';
 import { RealtimeDeliveryUncertainError } from '../chat-realtime';
 import { isChatSoundEnabled, playSentChatSound, setChatSoundEnabled, unlockChatAudio } from '../chat-sound';
+import { latestOutgoingReceipt } from '../chat-receipts';
 import type { MobileAccount } from '../api/user';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
@@ -30,7 +31,7 @@ export type ChatScreenHandlers = {
   onDeleteConversation?: (conversationId: number | string) => Promise<void>;
   onReactToMessage?: (messageId: number | string, reaction: string) => Promise<void>;
   onDeleteMessage?: (messageId: number | string) => Promise<void>;
-  onMarkSeen?: (ids: Array<number | string>) => Promise<void>;
+  onMarkSeen?: (conversationId: number | string) => Promise<void>;
   onOpenConversation?: (
     conversation: Conversation,
     events: {
@@ -435,13 +436,11 @@ export class ChatScreen {
       : conversation.user_is_online ? 'Online' : conversation.user_last_seen ? `Last seen ${conversation.user_last_seen}` : '';
     let normalPresence = presence.textContent;
     updateHeaderPresence(presence.textContent);
-    const seenState = element('p', 'conversation-seen-state');
-    seenState.textContent = '';
     const realtimeStatus = element('p', 'conversation-realtime-status');
     realtimeStatus.textContent = 'Connecting to live chat…';
     const deliveryStatus = element('p', 'conversation-delivery-status');
     deliveryStatus.setAttribute('aria-live', 'polite');
-    this.content.append(presence, seenState, realtimeStatus, deliveryStatus);
+    this.content.append(presence, realtimeStatus, deliveryStatus);
 
     const loadOlder = secondaryButton('Load older messages');
     loadOlder.hidden = true;
@@ -468,9 +467,13 @@ export class ChatScreen {
     const attachmentImage = document.createElement('img');
     attachmentImage.alt = 'Selected photo';
     const attachmentName = element('span', 'chat-attachment-preview__name');
+    const attachmentHint = elementWithText('span', 'Add a caption below, or send the photo on its own.');
+    attachmentHint.className = 'chat-attachment-preview__hint';
+    const attachmentDetails = element('div', 'chat-attachment-preview__details');
+    attachmentDetails.append(attachmentName, attachmentHint);
     const removeAttachment = secondaryButton('Remove');
     removeAttachment.type = 'button';
-    attachment.append(attachmentImage, attachmentName, removeAttachment);
+    attachment.append(attachmentImage, attachmentDetails, removeAttachment);
     let selectedPhoto: File | null = null;
     let previewUrl: string | null = null;
     const clearAttachment = (): void => {
@@ -480,6 +483,7 @@ export class ChatScreen {
       photo.value = '';
       attachment.hidden = true;
       attachmentImage.removeAttribute('src');
+      text.placeholder = 'Write a message…';
       send.setAttribute('aria-label', 'Send message');
     };
     const showAttachment = (file: File): void => {
@@ -490,6 +494,7 @@ export class ChatScreen {
       attachmentImage.src = previewUrl;
       attachmentName.textContent = file.name;
       attachment.hidden = false;
+      text.placeholder = 'Add a caption (optional)…';
       send.setAttribute('aria-label', 'Send message and photo');
     };
     this.attachmentCleanup = clearAttachment;
@@ -507,6 +512,7 @@ export class ChatScreen {
     const text = document.createElement('textarea');
     text.rows = 2;
     text.placeholder = 'Write a message…';
+    text.setAttribute('aria-label', 'Message or photo caption');
     const send = primaryButton('');
     send.type = 'submit';
     send.classList.add('message-send-button');
@@ -514,6 +520,14 @@ export class ChatScreen {
     send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
     composer.append(attach, text, photo, send);
     this.content.append(attachment, composer);
+    if (this.handlers.onLoadChatFeatures) {
+      void this.handlers.onLoadChatFeatures().then((features) => {
+        if (version !== this.viewVersion || features.photos) return;
+        attach.disabled = true;
+        attach.title = 'Photo messages are disabled by site settings.';
+        if (selectedPhoto) clearAttachment();
+      }).catch(() => undefined);
+    }
 
     let typingTimer: number | undefined;
     let typingActive = false;
@@ -531,6 +545,16 @@ export class ChatScreen {
 
     let historyOffset = 0;
     let pendingBubble: HTMLDivElement | null = null;
+    let lastMarkedIncomingId: string | null = null;
+    let receiptMessageId: string | null = null;
+    const renderReceipt = (seenNameList: string): void => {
+      const receipt = thread.querySelector<HTMLElement>('.chat-message-receipt');
+      if (!receipt || !receiptMessageId) return;
+      const seen = !conversation.multiple_recipients && !conversation.node_id && Boolean(seenNameList.trim());
+      receipt.textContent = seen ? '✓✓ Seen' : '✓ Sent';
+      receipt.setAttribute('aria-label', seen ? `Seen by ${seenNameList}` : 'Sent');
+      receipt.classList.toggle('is-seen', seen);
+    };
     const refresh = async (older = false): Promise<void> => {
       try {
         const nextOffset = older ? historyOffset + 1 : 0;
@@ -543,12 +567,17 @@ export class ChatScreen {
           : result.user_last_seen ? `Last seen ${String(result.user_last_seen)}` : normalPresence;
         presence.textContent = result.typing_name_list ? `${result.typing_name_list} typing…` : normalPresence;
         updateHeaderPresence(presence.textContent);
-        seenState.textContent = result.seen_name_list ? `Seen by ${String(result.seen_name_list)}` : '';
         loadOlder.hidden = !result.has_more;
         if (!older) thread.replaceChildren();
         if (!older && messages.length === 0) thread.append(paragraph('No messages yet.'));
 
+        const latestReceipt = !older ? latestOutgoingReceipt(messages, this.session.user.user_id, conversation, result.seen_name_list) : null;
+        receiptMessageId = !older ? latestReceipt?.messageId ?? null : receiptMessageId;
         const bubbles = messages.map((message) => this.messageBubble(message, refresh));
+        if (latestReceipt && bubbles.length) {
+          const marker = element('small', 'chat-message-receipt');
+          bubbles.at(-1)!.append(marker);
+        }
         if (older) {
           const beforeHeight = thread.scrollHeight;
           const beforeTop = thread.scrollTop;
@@ -560,10 +589,15 @@ export class ChatScreen {
           thread.scrollTop = thread.scrollHeight;
         }
         historyOffset = nextOffset;
+        if (!older) renderReceipt(String(result.seen_name_list ?? ''));
 
-        const ids = messages.map((message) => message.message_id)
-          .filter((id): id is number | string => id !== undefined && id !== null);
-        if (ids.length && this.handlers.onMarkSeen) void this.handlers.onMarkSeen(ids).catch(() => undefined);
+        const latestIncoming = [...messages].reverse().find((message) =>
+          String(message.user_id ?? message.sender_id ?? '') !== String(this.session.user.user_id));
+        const incomingId = latestIncoming?.message_id === undefined ? null : String(latestIncoming.message_id);
+        if (!older && incomingId && incomingId !== lastMarkedIncomingId && this.handlers.onMarkSeen) {
+          lastMarkedIncomingId = incomingId;
+          void this.handlers.onMarkSeen(conversationId).catch(() => { lastMarkedIncomingId = null; });
+        }
 
       } catch (error) {
         if (!older) {
@@ -591,7 +625,7 @@ export class ChatScreen {
       },
       setSeen: (seenNameList) => {
         if (version !== this.viewVersion) return;
-        seenState.textContent = seenNameList ? `Seen by ${seenNameList}` : '';
+        renderReceipt(seenNameList);
       },
       setPresence: (online, lastSeen) => {
         if (version !== this.viewVersion) return;
@@ -623,7 +657,14 @@ export class ChatScreen {
       if ((!message && !selectedPhoto) || !this.handlers.onSendMessage) return;
       unlockChatAudio(this.session.user.user_id);
       pendingBubble = element('div', 'message-bubble is-mine is-pending');
-      pendingBubble.append(elementWithText('div', message || 'Photo'));
+      if (selectedPhoto && previewUrl) {
+        const pendingImage = document.createElement('img');
+        pendingImage.className = 'message-photo';
+        pendingImage.src = previewUrl;
+        pendingImage.alt = 'Photo being sent';
+        pendingBubble.append(pendingImage);
+      }
+      if (message) pendingBubble.append(elementWithText('div', message));
       pendingBubble.append(elementWithText('small', 'Sending…'));
       thread.append(pendingBubble);
       thread.scrollTop = thread.scrollHeight;
@@ -691,7 +732,6 @@ export class ChatScreen {
     if (mine) bubble.classList.add('is-mine');
 
     const body = String(message.message ?? '');
-    if (body) bubble.append(elementWithText('div', body));
     const photoUrl = this.handlers.resolveChatPhotoUrl?.(message.image || message.photo || '');
     if (photoUrl) {
       const image = document.createElement('img');
@@ -700,6 +740,11 @@ export class ChatScreen {
       image.alt = 'Shared photo';
       image.loading = 'lazy';
       bubble.append(image);
+    }
+    if (body) {
+      const caption = elementWithText('div', body);
+      caption.className = 'chat-message-text';
+      bubble.append(caption);
     }
     if (!body && !photoUrl) bubble.append(elementWithText('div', 'Attachment'));
     if (message.time) bubble.append(elementWithText('small', String(message.time)));

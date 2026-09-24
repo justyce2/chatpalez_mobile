@@ -154,7 +154,7 @@ export class ChatService {
     });
   }
 
-  async markSeen(ids: Array<number | string>): Promise<void> {
-    await this.api.post<unknown>('chat/actions/seen', { ids });
+  async markSeen(conversationId: number | string): Promise<void> {
+    await this.api.post<unknown>('chat/actions/seen', { ids: [conversationId] });
   }
 }
