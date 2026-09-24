@@ -389,7 +389,7 @@ export class ChatScreen {
       if (reason) window.alert(reason);
       void this.render();
     };
-    const realtimeHandlers = {
+    const realtimeHandlers: Parameters<NonNullable<ChatScreenHandlers['onOpenConversation']>>[1] = {
       refresh: () => latestResync.request(),
       setTyping: (typingNameList) => {
         presence.textContent = typingNameList ? `${typingNameList} typing…` : presence.textContent;

@@ -4,7 +4,7 @@ import { createWebSessionTransition, normalizeInternalPath } from './web-session
 describe('normalizeInternalPath', () => {
   it('keeps the bridge token and destination out of the action URL', () => {
     const transition = createWebSessionTransition({
-      config: { origin: new URL('https://chatpalez.com'), allowedHosts: new Set(['chatpalez.com']) },
+      config: { origin: new URL('https://chatpalez.com'), chatSocketUrl: new URL('https://chatpalez.com'), allowedHosts: new Set(['chatpalez.com']) },
       token: 'jwt-value',
       path: '/groups?tab=joined'
     });
@@ -17,7 +17,7 @@ describe('normalizeInternalPath', () => {
 
   it('rejects an empty bridge token', () => {
     expect(() => createWebSessionTransition({
-      config: { origin: new URL('https://chatpalez.com'), allowedHosts: new Set(['chatpalez.com']) },
+      config: { origin: new URL('https://chatpalez.com'), chatSocketUrl: new URL('https://chatpalez.com'), allowedHosts: new Set(['chatpalez.com']) },
       token: '   ',
       path: '/'
     })).toThrow(/session is unavailable/i);

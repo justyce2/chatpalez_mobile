@@ -28,6 +28,7 @@ import { bindWebBridgeEvents } from './web-bridge-events';
 
 const config: AppConfig = {
   origin: new URL('https://chatpalez.com'),
+  chatSocketUrl: new URL('https://chatpalez.com'),
   allowedHosts: new Set(['chatpalez.com'])
 };
 
