@@ -84,6 +84,7 @@ p { color: #64748b; line-height: 1.55; }
 .compact-button { margin-top: 0; padding: 9px 12px; }
 .conversation-realtime-status { margin: 0 0 8px; color: #64748b; font-size: .75rem; }
 .conversation-realtime-status.is-live { color: #087a58; }
+.conversation-delivery-status { margin: 0 0 8px; color: #64748b; font-size: .75rem; }
 .message-bubble.is-pending { opacity: .65; }
 .message-bubble.is-pending small { display: block; margin-top: 5px; }
 .message-actions-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, .22); }

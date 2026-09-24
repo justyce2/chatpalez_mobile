@@ -4,6 +4,7 @@ import { CoalescedResync } from '../chat-resync';
 import { RealtimeDeliveryUncertainError } from '../chat-realtime';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
+export type ChatDeliveryTransport = 'realtime' | 'http';
 
 export type ChatScreenHandlers = {
   onConversationModeChange?: (active: boolean) => void;
@@ -13,7 +14,7 @@ export type ChatScreenHandlers = {
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
   onStartGroupConversation?: (recipientIds: Array<number | string>, message: string) => Promise<Conversation>;
   onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
-  onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<void>;
+  onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onLeaveConversation?: (conversationId: number | string) => Promise<void>;
   onDeleteConversation?: (conversationId: number | string) => Promise<void>;
@@ -299,7 +300,9 @@ export class ChatScreen {
     seenState.textContent = '';
     const realtimeStatus = element('p', 'conversation-realtime-status');
     realtimeStatus.textContent = 'Connecting to live chat…';
-    this.content.append(presence, seenState, realtimeStatus);
+    const deliveryStatus = element('p', 'conversation-delivery-status');
+    deliveryStatus.setAttribute('aria-live', 'polite');
+    this.content.append(presence, seenState, realtimeStatus, deliveryStatus);
 
     const loadOlder = secondaryButton('Load older messages');
     loadOlder.hidden = true;
@@ -442,9 +445,12 @@ export class ChatScreen {
       send.setAttribute('aria-label', 'Sending message');
       setTyping(false);
       void this.handlers.onSendMessage(conversationId, message, selectedPhoto)
-        .then(async () => {
+        .then(async (transport) => {
           pendingBubble?.remove();
           pendingBubble = null;
+          deliveryStatus.textContent = transport === 'realtime'
+            ? 'Last message sent via live chat'
+            : 'Last message sent via standard delivery';
           text.value = '';
           photo.value = '';
           await refresh();

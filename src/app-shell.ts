@@ -4,7 +4,7 @@ import type { BlockedUser, MobileAccount, ProfileUpdate, UserProfile } from './a
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
 import { ProfileScreen } from './screens/ProfileScreen';
-import { ChatScreen } from './screens/ChatScreen';
+import { ChatScreen, type ChatDeliveryTransport } from './screens/ChatScreen';
 
 export type LoginCredentials = {
   usernameEmail: string;
@@ -39,7 +39,7 @@ export type AppShellHandlers = {
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
   onStartGroupConversation?: (recipientIds: Array<number | string>, message: string) => Promise<Conversation>;
   onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
-  onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<void>;
+  onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onLeaveConversation?: (conversationId: number | string) => Promise<void>;
   onDeleteConversation?: (conversationId: number | string) => Promise<void>;

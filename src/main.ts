@@ -433,7 +433,7 @@ const shell = createAppShell(root, {
       try {
         await chatRealtime.sendMessage(conversationId, message);
         logInfo('Message sent through realtime chat', { conversationId });
-        return;
+        return 'realtime' as const;
       } catch (error) {
         if (!chatRealtime.isConnected()) {
           logWarn('Realtime disconnected before delivery confirmation; suppressing automatic HTTP retry', {
@@ -462,6 +462,7 @@ const shell = createAppShell(root, {
     const photoSource = photo ? await uploads.uploadChatPhoto(photo) : '';
     await chat.sendMessage(conversationId, message, photoSource);
     logInfo('Message sent through HTTP chat', { conversationId });
+    return 'http' as const;
   },
   onTyping: async (conversationId, isTyping) => {
     if (chatRealtime.isConnected()) {
