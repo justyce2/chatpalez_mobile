@@ -38,11 +38,7 @@ export type AppShellHandlers = {
   onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<PageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
-  onStartGroupConversation?: (recipientIds: Array<number | string>, message: string) => Promise<Conversation>;
-  onCanCustomizeGroupChats?: () => Promise<boolean>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
-  onUpdateGroupMetadata?: (conversationId: number | string, title: string, picture?: File) => Promise<Conversation>;
-  onLoadGroupMetadata?: (conversationId: number | string) => Promise<Conversation>;
   onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
@@ -308,7 +304,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         const name = String(conversation.name || conversation.name_list || 'Conversation');
         threadName.textContent = name;
         threadAvatar.replaceChildren();
-        const picture = handlers.resolveChatPhotoUrl?.(String(conversation.picture || conversation.recipients?.[0]?.user_picture || ''));
+        const picture = handlers.resolveChatPhotoUrl?.(String(conversation.picture || (!conversation.multiple_recipients ? conversation.recipients?.[0]?.user_picture : '') || ''));
         if (picture) {
           const img = document.createElement('img');
           img.src = picture;
@@ -323,6 +319,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           : conversation.user_is_online ? 'Online' : conversation.user_last_seen ? `Last seen ${conversation.user_last_seen}` : '';
       },
       onOpenComposeRoute: () => { if (!restoringDestination) recordDestination({ kind: 'chat-compose' }); },
+      onOpenCommunityGroups: (path) => showRetainedModule(path, 'Groups', ''),
       onRequestBack: () => { void navigateBack(); },
       onThreadPresenceChange: (conversationId, presence) => {
         if (currentDestination?.kind === 'chat-thread'
@@ -337,11 +334,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onLoadConversations: handlers.onLoadConversations,
       onLoadContacts: handlers.onLoadContacts,
       onStartConversation: handlers.onStartConversation,
-      onStartGroupConversation: handlers.onStartGroupConversation,
-      onCanCustomizeGroupChats: handlers.onCanCustomizeGroupChats,
       onLoadChatFeatures: handlers.onLoadChatFeatures,
-      onUpdateGroupMetadata: handlers.onUpdateGroupMetadata,
-      onLoadGroupMetadata: handlers.onLoadGroupMetadata,
       onLoadMessages: handlers.onLoadMessages,
       onSendMessage: handlers.onSendMessage,
       onTyping: handlers.onTyping,
@@ -936,9 +929,12 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       header.append(back, screenTitle('New chat'));
       content.append(header);
 
-      const modeNote = paragraph('Select one person for a direct chat, or select multiple people to start a group conversation.');
+      const modeNote = paragraph('Select one person for a direct chat. Community group chats are managed in Groups.');
       modeNote.className = 'conversation-help';
       content.append(modeNote);
+      const browseGroups = secondaryButton('Browse community groups');
+      browseGroups.addEventListener('click', () => showRetainedModule('/groups', 'Groups', ''));
+      content.append(browseGroups);
 
       const selected = new Map<string, ChatContact>();
       const selectedWrap = element('div', 'selected-contact-chips');
@@ -991,7 +987,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           });
           selectedWrap.append(chip);
         }
-        send.textContent = selected.size > 1 ? `Start group (${selected.size})` : 'Start conversation';
+        send.textContent = 'Start conversation';
       };
 
       const loadContacts = async (append = false): Promise<void> => {
@@ -1034,10 +1030,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
             row.addEventListener('click', () => {
               if (selected.has(id)) selected.delete(id);
-              else selected.set(id, contact);
+              else { selected.clear(); selected.set(id, contact); }
               refreshSelected();
-              row.classList.toggle('is-selected', selected.has(id));
-              marker.textContent = selected.has(id) ? '✓' : '+';
+              void loadContacts();
             });
             results.append(row);
           }
@@ -1051,11 +1046,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         const message = text.value.trim();
         const ids = [...selected.values()].map((contact) => contact.user_id);
         if (!message || ids.length === 0) return;
-        const operation = ids.length === 1
-          ? handlers.onStartConversation?.(ids[0], message)
-          : handlers.onStartGroupConversation?.(ids, message);
+        const operation = handlers.onStartConversation?.(ids[0], message);
         if (!operation) {
-          window.alert(ids.length > 1 ? 'Group messaging is not available in this build.' : 'Messaging is not available in this build.');
+          window.alert('Messaging is not available in this build.');
           return;
         }
         send.disabled = true;
@@ -1065,7 +1058,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           .catch((error: unknown) => {
             window.alert(error instanceof Error ? error.message : 'Unable to start conversation.');
             send.disabled = false;
-            send.textContent = ids.length > 1 ? `Start group (${ids.length})` : 'Start conversation';
+            send.textContent = 'Start conversation';
           });
       });
 

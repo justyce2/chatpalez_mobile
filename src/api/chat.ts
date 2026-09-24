@@ -27,6 +27,9 @@ export type Conversation = {
   name?: string;
   name_list?: string;
   picture?: string;
+  link?: string;
+  picture_left?: string;
+  picture_right?: string;
   multiple_recipients?: boolean;
   seen?: number | string | boolean;
   user_is_online?: boolean;
@@ -34,8 +37,6 @@ export type Conversation = {
   recipients?: ConversationRecipient[];
   node_id?: number | string | null;
   node_type?: string | null;
-  mobile_group_customizable?: boolean;
-  mobile_group_picture_source?: string;
   last_message?: Record<string, unknown> | null;
   [key: string]: unknown;
 };
@@ -119,13 +120,7 @@ export class ChatService {
   }
 
   async startConversation(recipientId: number | string, message: string): Promise<Conversation> {
-    return this.startGroupConversation([recipientId], message);
-  }
-
-  async startGroupConversation(recipientIds: Array<number | string>, message: string): Promise<Conversation> {
-    const recipients = [...new Set(recipientIds.map((id) => String(id)).filter(Boolean))];
-    if (recipients.length === 0) throw new Error('Select at least one recipient.');
-
+    const recipients = [String(recipientId)];
     return this.api.post<Conversation>('chat/message', {
       conversation_id: null,
       message,
@@ -134,27 +129,6 @@ export class ChatService {
       voice_note: '',
       recipients: JSON.stringify(recipients)
     });
-  }
-
-  async canCustomizeGroupChats(): Promise<boolean> {
-    try {
-      const result = await this.api.get<{ customizable: boolean }>('chat/group/capabilities');
-      return result.customizable === true;
-    } catch {
-      return false;
-    }
-  }
-
-  async updateGroupMetadata(conversationId: number | string, title: string, picture?: string): Promise<Conversation> {
-    return this.api.post<Conversation>('chat/group/metadata', {
-      conversation_id: conversationId,
-      title,
-      ...(picture === undefined ? {} : { picture })
-    });
-  }
-
-  async getGroupMetadata(conversationId: number | string): Promise<Conversation> {
-    return this.api.get<Conversation>('chat/group/metadata', { conversation_id: conversationId });
   }
 
   async leaveConversation(conversationId: number | string): Promise<void> {

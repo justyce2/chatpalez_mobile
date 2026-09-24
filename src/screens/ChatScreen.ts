@@ -12,6 +12,7 @@ export type ChatScreenHandlers = {
   onConversationModeChange?: (active: boolean) => void;
   onOpenThreadRoute?: (conversation: Conversation) => void;
   onOpenComposeRoute?: () => void;
+  onOpenCommunityGroups?: (path: string) => void;
   onRequestBack?: () => void;
   onThreadPresenceChange?: (conversationId: number | string, presence: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
@@ -21,11 +22,7 @@ export type ChatScreenHandlers = {
   onLoadConversations?: (offset: number) => Promise<ChatPageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<ChatPageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
-  onStartGroupConversation?: (recipientIds: Array<number | string>, message: string) => Promise<Conversation>;
-  onCanCustomizeGroupChats?: () => Promise<boolean>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
-  onUpdateGroupMetadata?: (conversationId: number | string, title: string, picture?: File) => Promise<Conversation>;
-  onLoadGroupMetadata?: (conversationId: number | string) => Promise<Conversation>;
   onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
@@ -116,7 +113,7 @@ export class ChatScreen {
     if (!conversation.seen) row.classList.add('is-unread');
 
     const avatar = element('span', 'conversation-avatar');
-    const picture = this.handlers.resolveChatPhotoUrl?.(conversation.picture || conversation.recipients?.[0]?.user_picture || '');
+    const picture = this.handlers.resolveChatPhotoUrl?.(conversation.picture || (!conversation.multiple_recipients ? conversation.recipients?.[0]?.user_picture : '') || '');
     if (picture) {
       const img = document.createElement('img');
       img.src = picture;
@@ -158,9 +155,9 @@ export class ChatScreen {
     const settings = secondaryButton('Chat settings');
     settings.addEventListener('click', () => { close(); void this.openChatSettings(); });
     body.append(settings);
-    if (conversation.multiple_recipients && !conversation.node_id) {
-      const group = secondaryButton('Group name & image');
-      group.addEventListener('click', () => { close(); this.openGroupSettings(conversation); });
+    if (conversation.node_type === 'group' && conversation.link?.startsWith('groups/')) {
+      const group = secondaryButton('View community group');
+      group.addEventListener('click', () => { close(); this.handlers.onOpenCommunityGroups?.(`/${conversation.link}`); });
       body.append(group);
     }
     for (const [label, operation] of [
@@ -274,69 +271,6 @@ export class ChatScreen {
     }
   }
 
-  private openGroupSettings(conversation: Conversation): void {
-    const { sheet, body, close } = this.createSettingsSheet('Group details');
-    if (!conversation.mobile_group_customizable || !this.handlers.onUpdateGroupMetadata) {
-      body.append(paragraph('Group details need the mobile group metadata update on the server. Messaging remains available.'));
-      this.content.append(sheet);
-      return;
-    }
-    const nameLabel = element('label', 'chat-group-field');
-    nameLabel.append(elementWithText('span', 'Group name'));
-    const name = document.createElement('input');
-    name.type = 'text';
-    name.maxLength = 80;
-    name.value = String(conversation.name || '');
-    nameLabel.append(name);
-    const image = secondaryButton('Change group image');
-    const preview = document.createElement('img');
-    preview.className = 'chat-group-image-preview';
-    preview.alt = 'Group image preview';
-    preview.hidden = true;
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/*';
-    fileInput.hidden = true;
-    const selected = element('p', 'chat-settings-status');
-    let chosenPhoto: File | undefined;
-    const choose = (file: File | null): void => {
-      if (!file) return;
-      if (!file.type.startsWith('image/')) { selected.textContent = 'Choose an image file.'; return; }
-      chosenPhoto = file;
-      selected.textContent = `Selected: ${file.name}`;
-      const reader = new FileReader();
-      reader.onload = () => { preview.src = String(reader.result); preview.hidden = false; };
-      reader.readAsDataURL(file);
-    };
-    fileInput.addEventListener('change', () => choose(fileInput.files?.[0] ?? null));
-    image.addEventListener('click', () => {
-      if (!this.handlers.onPickChatPhoto) { fileInput.click(); return; }
-      void this.handlers.onPickChatPhoto().then(choose).catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        if (!/cancel|OS-PLUG-CAMR-0020/i.test(message)) selected.textContent = message;
-      });
-    });
-    const save = primaryButton('Save group details');
-    save.addEventListener('click', () => {
-      const titleText = name.value.trim();
-      if (!titleText) { selected.textContent = 'Enter a group name.'; return; }
-      const version = this.viewVersion;
-      save.disabled = true;
-      selected.textContent = 'Saving…';
-      void this.handlers.onUpdateGroupMetadata!(conversation.conversation_id, titleText, chosenPhoto)
-        .then((updated) => {
-          if (version !== this.viewVersion) return;
-          this.activeConversation = updated;
-          this.handlers.onOpenThreadRoute?.(updated);
-          close();
-        })
-        .catch((error: unknown) => { selected.textContent = error instanceof Error ? error.message : 'Unable to save group details.'; })
-        .finally(() => { save.disabled = false; });
-    });
-    body.append(nameLabel, image, fileInput, preview, selected, save);
-    this.content.append(sheet);
-  }
-
   private async renderNewChat(): Promise<void> {
     ++this.viewVersion;
     this.cleanupActiveThread();
@@ -348,7 +282,12 @@ export class ChatScreen {
     back.classList.add('compact-button');
     back.addEventListener('click', () => this.handlers.onRequestBack?.());
     header.append(back, title('New chat'));
-    this.content.append(header, paragraph('Select one person for a direct chat, or multiple people for a group chat.'));
+    this.content.append(header, paragraph('Select one person for a direct chat. Community group chats are managed in Groups.'));
+    if (this.handlers.onOpenCommunityGroups) {
+      const groups = secondaryButton('Browse community groups');
+      groups.addEventListener('click', () => this.handlers.onOpenCommunityGroups?.('/groups'));
+      this.content.append(groups);
+    }
 
     if (!this.handlers.onLoadContacts || !this.handlers.onStartConversation) {
       this.content.append(paragraph('Starting new chats is unavailable.'));
@@ -376,49 +315,12 @@ export class ChatScreen {
     const composer = document.createElement('form');
     composer.className = 'initial-message-form group-message-form';
     composer.hidden = true;
-    const groupDetails = element('div', 'chat-group-creation');
-    groupDetails.hidden = true;
-    const groupName = document.createElement('input');
-    groupName.type = 'text';
-    groupName.maxLength = 80;
-    groupName.placeholder = 'Group name';
-    groupName.setAttribute('aria-label', 'Group name');
-    const groupImage = secondaryButton('Choose group image');
-    groupImage.type = 'button';
-    const groupPreview = document.createElement('img');
-    groupPreview.className = 'chat-group-image-preview';
-    groupPreview.alt = 'Group image preview';
-    groupPreview.hidden = true;
-    const groupImageInput = document.createElement('input');
-    groupImageInput.type = 'file';
-    groupImageInput.accept = 'image/*';
-    groupImageInput.hidden = true;
-    const groupImageStatus = element('span', 'chat-settings-status');
-    let groupPhoto: File | undefined;
-    const selectGroupImage = (file: File | null): void => {
-      if (!file) return;
-      if (!file.type.startsWith('image/')) { groupImageStatus.textContent = 'Choose an image file.'; return; }
-      groupPhoto = file;
-      groupImageStatus.textContent = `Selected: ${file.name}`;
-      const reader = new FileReader();
-      reader.onload = () => { groupPreview.src = String(reader.result); groupPreview.hidden = false; };
-      reader.readAsDataURL(file);
-    };
-    groupImageInput.addEventListener('change', () => selectGroupImage(groupImageInput.files?.[0] ?? null));
-    groupImage.addEventListener('click', () => {
-      if (!this.handlers.onPickChatPhoto) { groupImageInput.click(); return; }
-      void this.handlers.onPickChatPhoto().then(selectGroupImage).catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        if (!/cancel|OS-PLUG-CAMR-0020/i.test(message)) groupImageStatus.textContent = message;
-      });
-    });
-    groupDetails.append(groupName, groupImage, groupImageInput, groupPreview, groupImageStatus);
     const text = document.createElement('textarea');
     text.rows = 3;
     text.placeholder = 'Write the first message…';
     const send = primaryButton('Start chat');
     send.type = 'submit';
-    composer.append(groupDetails, text, send);
+    composer.append(text, send);
     this.content.append(composer);
 
     let offset = 0;
@@ -431,7 +333,6 @@ export class ChatScreen {
       chips.replaceChildren();
       chips.hidden = selected.size === 0;
       composer.hidden = selected.size === 0;
-      groupDetails.hidden = selected.size < 2;
       for (const [id, contact] of selected) {
         const chip = element('button', 'selected-contact-chip');
         chip.type = 'button';
@@ -444,7 +345,7 @@ export class ChatScreen {
         });
         chips.append(chip);
       }
-      send.textContent = selected.size > 1 ? `Start group (${selected.size})` : 'Start chat';
+      send.textContent = 'Start chat';
     };
 
     const loadContacts = async (append = false): Promise<void> => {
@@ -487,10 +388,9 @@ export class ChatScreen {
           marker.className = 'contact-select-marker';
           row.append(copy, marker);
           row.addEventListener('click', () => {
-            if (selected.has(id)) selected.delete(id); else selected.set(id, contact);
+            if (selected.has(id)) selected.delete(id); else { selected.clear(); selected.set(id, contact); }
             refreshSelected();
-            row.classList.toggle('is-selected', selected.has(id));
-            marker.textContent = selected.has(id) ? '✓' : '+';
+            void loadContacts();
           });
           results.append(row);
         }
@@ -506,28 +406,9 @@ export class ChatScreen {
       const message = text.value.trim();
       const ids = [...selected.values()].map((contact) => contact.user_id);
       if (!message || ids.length === 0) return;
-      const group = ids.length > 1;
-      const groupTitle = groupName.value.trim();
-      if (group && !groupTitle) { window.alert('Enter a group name.'); groupName.focus(); return; }
       send.disabled = true;
       send.textContent = 'Starting…';
-      void (async () => {
-        if (group) {
-          if (!this.handlers.onStartGroupConversation || !this.handlers.onUpdateGroupMetadata
-            || !await this.handlers.onCanCustomizeGroupChats?.()) {
-            throw new Error('Group naming needs the mobile group metadata update on the server. No message was sent.');
-          }
-          const conversation = await this.handlers.onStartGroupConversation(ids, message);
-          try {
-            return await this.handlers.onUpdateGroupMetadata(conversation.conversation_id, groupTitle, groupPhoto);
-          } catch (error) {
-            window.alert(`The group message was sent, but its details could not be saved: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            return conversation;
-          }
-        }
-        if (!this.handlers.onStartConversation) throw new Error('Chat is unavailable in this build.');
-        return this.handlers.onStartConversation(ids[0], message);
-      })()
+      void this.handlers.onStartConversation!(ids[0], message)
         .then((conversation) => this.openConversation(conversation))
         .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to start chat.'))
         .finally(() => { send.disabled = false; refreshSelected(); });
@@ -728,28 +609,7 @@ export class ChatScreen {
     };
     const stopRealtime = this.handlers.onOpenConversation?.(conversation, realtimeHandlers);
 
-    let groupTimer: number | undefined;
-    if (conversation.multiple_recipients && !conversation.node_id && this.handlers.onLoadGroupMetadata) {
-      let currentName = conversation.name;
-      let currentPicture = conversation.picture;
-      const syncGroupDetails = async (): Promise<void> => {
-        try {
-          const updated = await this.handlers.onLoadGroupMetadata!(conversationId);
-          if (version !== this.viewVersion) return;
-          if (updated.name !== currentName || updated.picture !== currentPicture) {
-            currentName = updated.name;
-            currentPicture = updated.picture;
-            this.activeConversation = updated;
-            this.handlers.onOpenThreadRoute?.(updated);
-          }
-        } catch { /* Message delivery remains usable if metadata is unavailable. */ }
-      };
-      void syncGroupDetails();
-      groupTimer = window.setInterval(() => { if (!document.hidden) void syncGroupDetails(); }, 30000);
-    }
-
     const leaveThread = (): void => {
-      if (groupTimer) window.clearInterval(groupTimer);
       if (typingTimer) window.clearTimeout(typingTimer);
       setTyping(false);
       stopRealtime?.();

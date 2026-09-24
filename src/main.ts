@@ -424,18 +424,7 @@ const shell = createAppShell(root, {
     logInfo('Conversation started', { conversationId: conversation.conversation_id, recipientId });
     return conversation;
   },
-  onStartGroupConversation: async (recipientIds, message) => {
-    const conversation = await chat.startGroupConversation(recipientIds, message);
-    logInfo('Group conversation started', { conversationId: conversation.conversation_id, recipientCount: recipientIds.length });
-    return conversation;
-  },
-  onCanCustomizeGroupChats: () => chat.canCustomizeGroupChats(),
   onLoadChatFeatures: () => chat.getFeatures(),
-  onUpdateGroupMetadata: async (conversationId, title, picture) => {
-    const source = picture ? await uploads.uploadChatPhoto(picture) : undefined;
-    return chat.updateGroupMetadata(conversationId, title, source);
-  },
-  onLoadGroupMetadata: (conversationId) => chat.getGroupMetadata(conversationId),
   onLoadMessages: async (conversationId, offset) => {
     const result = await chat.getMessages(conversationId, offset);
     logDebug('Conversation messages loaded', {
