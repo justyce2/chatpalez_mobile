@@ -18,7 +18,7 @@ import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
 import { getChatPhotoUrl } from './media';
 import { pickNativeChatPhoto } from './chat-photo-picker';
-import { playReceivedChatSound, unlockChatAudio } from './chat-sound';
+import { isChatSoundEnabled, playReceivedChatSound, unlockChatAudio } from './chat-sound';
 import {
   logoutNativeNotifications,
   requestNativeNotificationPermission
@@ -207,6 +207,13 @@ async function performOpenWebModule(path: string, target?: string): Promise<void
     logInfo('Authenticated retained-web transition requested', { path, target: target ?? null });
 
     if (webContentSurface.isSupported()) {
+      const activeSession = getSession();
+      if (activeSession) {
+        await webContentSurface.setChatSoundEnabled(isChatSoundEnabled(activeSession.user.user_id))
+          .catch((error) => logWarn('Web chat sound preference could not be synchronized', {
+            detail: error instanceof Error ? error.message : String(error ?? '')
+          }));
+      }
       shell.setBusy(true, 'Loading page…');
       let loaded = false;
       const stop = await webContentSurface.onLoadFinished(() => {
@@ -390,6 +397,13 @@ const shell = createAppShell(root, {
   onOpenPublicPage: openPublicModule,
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source, config.allowedHosts),
   onPickChatPhoto: Capacitor.isNativePlatform() ? pickNativeChatPhoto : undefined,
+  onChatSoundChange: (enabled) => {
+    void webContentSurface.setChatSoundEnabled(enabled).catch((error) => {
+      logWarn('Web chat sound preference could not be synchronized', {
+        detail: error instanceof Error ? error.message : String(error ?? '')
+      });
+    });
+  },
   onLoadProfile: async () => {
     const profile = await users.getProfile();
     logInfo('Native profile loaded', { userId: profile.user_id });

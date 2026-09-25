@@ -32,6 +32,7 @@ interface WebContentSurfaceNativePlugin {
   reload(): Promise<void>;
   resetSession(): Promise<void>;
   postMessage(options: { message: unknown }): Promise<void>;
+  setChatSoundEnabled(options: { enabled: boolean }): Promise<void>;
   showCreateActions(): Promise<{ action?: string }>;
   addListener(eventName: 'routeChanged', listener: (event: { url: string }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(eventName: 'loadStarted', listener: (event: { url?: string }) => void): Promise<{ remove: () => Promise<void> }>;
@@ -143,6 +144,11 @@ export class WebContentSurface {
   async postMessage(message: unknown): Promise<void> {
     if (!this.isSupported() || !this.opened) return;
     await NativeSurface.postMessage({ message });
+  }
+
+  async setChatSoundEnabled(enabled: boolean): Promise<void> {
+    if (!this.isSupported()) return;
+    await NativeSurface.setChatSoundEnabled({ enabled });
   }
 
   async onCommand(listener: (command: WebSurfaceCommand) => void): Promise<() => Promise<void>> {

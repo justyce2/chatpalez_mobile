@@ -22,6 +22,7 @@ export type ChatScreenHandlers = {
   onThreadPresenceChange?: (conversationId: number | string, presence: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onPickChatPhoto?: () => Promise<File | null>;
+  onChatSoundChange?: (enabled: boolean) => void;
   onLoadChatAccount?: () => Promise<MobileAccount>;
   onSaveChatPrivacy?: (privacy: Record<string, string | boolean>) => Promise<void>;
   onLoadConversations?: (offset: number) => Promise<ChatPageResult<Conversation>>;
@@ -261,6 +262,7 @@ export class ChatScreen {
     sound.checked = isChatSoundEnabled(this.session.user.user_id);
     sound.addEventListener('change', () => {
       setChatSoundEnabled(this.session.user.user_id, sound.checked);
+      this.handlers.onChatSoundChange?.(sound.checked);
       if (sound.checked) unlockChatAudio(this.session.user.user_id);
     });
     soundRow.append(elementWithText('span', 'Message sounds on this device'), sound);
@@ -549,6 +551,10 @@ export class ChatScreen {
     attachment.hidden = true;
     const attachmentImage = document.createElement('img');
     attachmentImage.alt = 'Selected photo';
+    attachmentImage.addEventListener('error', () => {
+      attachmentImage.hidden = true;
+      attachmentHint.textContent = 'Photo selected. Preview unavailable; you can still add a caption and send.';
+    });
     const attachmentName = element('span', 'chat-attachment-preview__name');
     const attachmentHint = elementWithText('span', 'Add a caption below, or send the photo on its own.');
     attachmentHint.className = 'chat-attachment-preview__hint';
@@ -559,23 +565,27 @@ export class ChatScreen {
     attachment.append(attachmentImage, attachmentDetails, removeAttachment);
     let selectedPhoto: File | null = null;
     let previewUrl: string | null = null;
+    let photosAvailable = true;
     const clearAttachment = (): void => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       previewUrl = null;
       selectedPhoto = null;
       photo.value = '';
       attachment.hidden = true;
+      attachmentImage.hidden = false;
       attachmentImage.removeAttribute('src');
       text.placeholder = 'Write a message…';
       send.setAttribute('aria-label', 'Send message');
     };
     const showAttachment = (file: File): void => {
       if (!file.type.startsWith('image/')) { window.alert('Choose an image file to attach.'); return; }
+      if (file.size > 8 * 1024 * 1024) { window.alert('This photo is too large. Choose a smaller image.'); return; }
       clearAttachment();
       selectedPhoto = file;
       previewUrl = URL.createObjectURL(file);
       attachmentImage.src = previewUrl;
       attachmentName.textContent = file.name;
+      attachmentHint.textContent = 'Add a caption below, or send the photo on its own.';
       attachment.hidden = false;
       text.placeholder = 'Add a caption (optional)…';
       send.setAttribute('aria-label', 'Send message and photo');
@@ -585,11 +595,18 @@ export class ChatScreen {
     photo.addEventListener('change', () => { const file = photo.files?.[0]; if (file) showAttachment(file); });
     attach.addEventListener('click', () => {
       if (!this.handlers.onPickChatPhoto) { photo.click(); return; }
+      attach.disabled = true;
+      attach.textContent = 'Preparing…';
       void this.handlers.onPickChatPhoto()
-        .then((file) => { if (file && version === this.viewVersion) showAttachment(file); })
+        .then((file) => { if (file && version === this.viewVersion && photosAvailable) showAttachment(file); })
         .catch((error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
           if (!/cancel|OS-PLUG-CAMR-0020/i.test(message)) window.alert(message || 'Unable to select a photo.');
+        }).finally(() => {
+          if (version === this.viewVersion) {
+            attach.textContent = 'Photo';
+            attach.disabled = !photosAvailable;
+          }
         });
     });
     const text = document.createElement('textarea');
@@ -609,6 +626,7 @@ export class ChatScreen {
     if (this.handlers.onLoadChatFeatures) {
       void this.handlers.onLoadChatFeatures().then((features) => {
         if (version !== this.viewVersion || features.photos) return;
+        photosAvailable = false;
         attach.disabled = true;
         attach.title = 'Photo messages are disabled by site settings.';
         if (selectedPhoto) clearAttachment();
@@ -784,6 +802,7 @@ export class ChatScreen {
       if (message) pendingBubble.append(elementWithText('div', message));
       pendingBubble.append(elementWithText('small', 'Sending…'));
       thread.append(pendingBubble);
+      if (selectedPhoto) attachment.hidden = true;
       thread.scrollTop = thread.scrollHeight;
       send.disabled = true;
       attach.disabled = true;
@@ -807,6 +826,7 @@ export class ChatScreen {
         .catch(async (error: unknown) => {
           pendingBubble?.remove();
           pendingBubble = null;
+          if (selectedPhoto) attachment.hidden = false;
           if (error instanceof RealtimeDeliveryUncertainError) {
             await latestResync.request().catch(() => undefined);
             window.alert('Delivery could not be confirmed. The conversation was refreshed; check whether your message appears before retrying.');
@@ -816,7 +836,7 @@ export class ChatScreen {
         })
         .finally(() => {
           send.disabled = false;
-          attach.disabled = false;
+          attach.disabled = !photosAvailable;
           text.disabled = false;
           send.classList.remove('is-sending');
           send.setAttribute('aria-label', 'Send message');

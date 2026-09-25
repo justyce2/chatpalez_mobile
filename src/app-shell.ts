@@ -24,6 +24,7 @@ export type AppShellHandlers = {
   onOpenPublicPage?: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onPickChatPhoto?: () => Promise<File | null>;
+  onChatSoundChange?: (enabled: boolean) => void;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
   onLoadProfile?: () => Promise<UserProfile>;
   onLoadAccount?: () => Promise<MobileAccount>;
@@ -334,6 +335,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       },
       resolveChatPhotoUrl: handlers.resolveChatPhotoUrl,
       onPickChatPhoto: handlers.onPickChatPhoto,
+      onChatSoundChange: handlers.onChatSoundChange,
       onLoadChatAccount: handlers.onLoadAccount,
       onSaveChatPrivacy: handlers.onUpdatePrivacy,
       onLoadConversations: handlers.onLoadConversations,

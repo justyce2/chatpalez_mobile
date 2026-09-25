@@ -15,6 +15,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         CAPPluginMethod(name: "goBack", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "reload", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "postMessage", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setChatSoundEnabled", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showCreateActions", returnType: CAPPluginReturnPromise)
     ]
 
@@ -22,6 +23,8 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
     private var feedLoadingView: UIView?
     private var feedLoading = false
     private var feedLoadGeneration = 0
+    private var chatSoundEnabled = true
+    private var surfaceVisible = false
     private var allowedOrigin: URL?
 
     private func ensureWebView() -> WKWebView? {
@@ -102,6 +105,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
             request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
             request.httpBody = "token=\(self.formEncode(token))&path=\(self.formEncode(path))".data(using: .utf8)
             webView.isHidden = false
+            self.surfaceVisible = true
             webView.superview?.bringSubviewToFront(webView)
             if self.feedLoading, let loading = self.feedLoadingView {
                 loading.superview?.bringSubviewToFront(loading)
@@ -119,6 +123,8 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         DispatchQueue.main.async {
             if let webView = self.ensureWebView() {
                 webView.isHidden = false
+                self.surfaceVisible = true
+                self.syncChatSound()
                 webView.superview?.bringSubviewToFront(webView)
                 if self.feedLoading, let loading = self.feedLoadingView {
                     loading.isHidden = false
@@ -132,6 +138,8 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
     @objc func hide(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             self.contentWebView?.isHidden = true
+            self.surfaceVisible = false
+            self.syncChatSound()
             self.feedLoadingView?.isHidden = true
             call.resolve()
         }
@@ -230,11 +238,24 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         }
     }
 
+    @objc func setChatSoundEnabled(_ call: CAPPluginCall) {
+        guard let enabled = call.getBool("enabled") else {
+            call.reject("Missing chat sound preference.")
+            return
+        }
+        DispatchQueue.main.async {
+            self.chatSoundEnabled = enabled
+            self.syncChatSound()
+            call.resolve()
+        }
+    }
+
     @objc func resetSession(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             self.contentWebView?.stopLoading()
             self.contentWebView?.loadHTMLString("", baseURL: nil)
             self.contentWebView?.isHidden = true
+            self.surfaceVisible = false
             self.feedLoadGeneration += 1
             self.finishFeedLoading()
             self.allowedOrigin = nil
@@ -294,6 +315,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let url = webView.url, isAllowed(url) else { return }
         if url.path != "/mobile-session.php" { finishFeedLoading() }
+        syncChatSound()
         notifyListeners("routeChanged", data: ["url": url.absoluteString])
         notifyListeners("loadFinished", data: ["url": url.absoluteString])
     }
@@ -309,6 +331,12 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
     private func finishFeedLoading() {
         feedLoading = false
         feedLoadingView?.isHidden = true
+    }
+
+    private func syncChatSound() {
+        guard let webView = contentWebView, allowedOrigin != nil else { return }
+        let enabled = surfaceVisible && chatSoundEnabled ? "true" : "false"
+        webView.evaluateJavaScript("if (typeof window.__chatpalezBaseChatSound === 'undefined') window.__chatpalezBaseChatSound = !!window.chat_sound; window.chat_sound = window.__chatpalezBaseChatSound && \(enabled);", completionHandler: nil)
     }
 
     private func isAllowed(_ url: URL) -> Bool {

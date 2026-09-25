@@ -44,6 +44,8 @@ public class WebContentSurfacePlugin extends Plugin {
     private FrameLayout feedLoadingView;
     private boolean feedLoading;
     private int feedLoadGeneration;
+    private boolean chatSoundEnabled = true;
+    private boolean surfaceVisible;
     private String allowedOrigin;
 
     @Override
@@ -125,6 +127,7 @@ public class WebContentSurfacePlugin extends Plugin {
                 Uri uri = Uri.parse(url);
                 if (isAllowed(uri)) {
                     if (!"/mobile-session.php".equals(uri.getPath())) finishFeedLoading();
+                    syncChatSound();
                     JSObject data = new JSObject();
                     data.put("url", url);
                     notifyListeners("loadFinished", data);
@@ -189,6 +192,7 @@ public class WebContentSurfacePlugin extends Plugin {
             feedLoadingView.setVisibility(feedLoading ? View.VISIBLE : View.GONE);
             String body = "token=" + encode(token) + "&path=" + encode(path);
             contentWebView.setVisibility(View.VISIBLE);
+            surfaceVisible = true;
             contentWebView.bringToFront();
             if (feedLoading) feedLoadingView.bringToFront();
             contentWebView.postUrl(action, body.getBytes(StandardCharsets.UTF_8));
@@ -205,6 +209,8 @@ public class WebContentSurfacePlugin extends Plugin {
             ensureWebView();
             if (contentWebView != null) {
                 contentWebView.setVisibility(View.VISIBLE);
+                surfaceVisible = true;
+                syncChatSound();
                 contentWebView.bringToFront();
                 if (feedLoading) {
                     feedLoadingView.setVisibility(View.VISIBLE);
@@ -219,6 +225,8 @@ public class WebContentSurfacePlugin extends Plugin {
     public void hide(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             if (contentWebView != null) contentWebView.setVisibility(View.GONE);
+            surfaceVisible = false;
+            syncChatSound();
             if (feedLoadingView != null) feedLoadingView.setVisibility(View.GONE);
             call.resolve();
         });
@@ -386,6 +394,20 @@ public class WebContentSurfacePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setChatSoundEnabled(PluginCall call) {
+        Boolean enabled = call.getBoolean("enabled");
+        if (enabled == null) {
+            call.reject("Missing chat sound preference.");
+            return;
+        }
+        getActivity().runOnUiThread(() -> {
+            chatSoundEnabled = enabled;
+            syncChatSound();
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
     public void resetSession(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             if (contentWebView != null) {
@@ -397,6 +419,7 @@ public class WebContentSurfacePlugin extends Plugin {
             }
             finishFeedLoading();
             ++feedLoadGeneration;
+            surfaceVisible = false;
             CookieManager cookies = CookieManager.getInstance();
             cookies.removeAllCookies(value -> cookies.flush());
             allowedOrigin = null;
@@ -434,6 +457,15 @@ public class WebContentSurfacePlugin extends Plugin {
     private void finishFeedLoading() {
         feedLoading = false;
         if (feedLoadingView != null) feedLoadingView.setVisibility(View.GONE);
+    }
+
+    private void syncChatSound() {
+        if (contentWebView == null || allowedOrigin == null) return;
+        contentWebView.evaluateJavascript(
+                "if (typeof window.__chatpalezBaseChatSound === 'undefined') " +
+                "window.__chatpalezBaseChatSound = !!window.chat_sound; " +
+                "window.chat_sound = window.__chatpalezBaseChatSound && " +
+                (surfaceVisible && chatSoundEnabled ? "true" : "false") + ";", null);
     }
 
 

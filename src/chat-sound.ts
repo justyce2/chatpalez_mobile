@@ -1,14 +1,19 @@
 const keyFor = (userId: number | string): string => `chatpalez.chat-sound.v1.${userId}`;
 let audioContext: AudioContext | null = null;
+const currentPreferences = new Map<string, boolean>();
 
 export function isChatSoundEnabled(userId: number | string): boolean {
-  try { return window.localStorage.getItem(keyFor(userId)) !== 'off'; }
+  const key = keyFor(userId);
+  if (currentPreferences.has(key)) return currentPreferences.get(key)!;
+  try { return window.localStorage.getItem(key) !== 'off'; }
   catch { return true; }
 }
 
 export function setChatSoundEnabled(userId: number | string, enabled: boolean): void {
-  try { window.localStorage.setItem(keyFor(userId), enabled ? 'on' : 'off'); }
-  catch { /* The preference remains at its default when storage is unavailable. */ }
+  const key = keyFor(userId);
+  currentPreferences.set(key, enabled);
+  try { window.localStorage.setItem(key, enabled ? 'on' : 'off'); }
+  catch { /* The current session still respects the chosen setting. */ }
 }
 
 export function unlockChatAudio(userId: number | string): void {
