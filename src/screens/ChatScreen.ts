@@ -7,6 +7,7 @@ import { latestOutgoingReceipt } from '../chat-receipts';
 import { mergeChatHistory } from '../chat-history';
 import { clearDirectChatHistory } from '../chat-clear';
 import { chatProfilePath } from '../chat-profile-route';
+import { chatMessageText } from '../chat-message-text';
 import type { MobileAccount } from '../api/user';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
@@ -135,7 +136,12 @@ export class ChatScreen {
     const copy = element('span', 'conversation-item__copy');
     const name = String(conversation.name || conversation.name_list || 'Conversation');
     copy.append(elementWithText('strong', name));
-    const last = String(conversation.last_message?.message || conversation.last_message?.text || '');
+    const lastMessage = conversation.last_message;
+    const last = lastMessage ? chatMessageText({
+      message: typeof lastMessage.message === 'string' ? lastMessage.message : String(lastMessage.text ?? ''),
+      message_orginal: typeof lastMessage.message_orginal === 'string' ? lastMessage.message_orginal : undefined,
+      message_orginal_decoded: typeof lastMessage.message_orginal_decoded === 'string' ? lastMessage.message_orginal_decoded : undefined
+    }) : '';
     const secondary = last || (conversation.multiple_recipients
       ? `${conversation.recipients?.length ?? 0} participants`
       : conversation.user_is_online ? 'Online' : 'Open chat');
@@ -872,7 +878,7 @@ export class ChatScreen {
     const mine = senderId && senderId === String(this.session.user.user_id ?? '');
     if (mine) bubble.classList.add('is-mine');
 
-    const body = String(message.message ?? '');
+    const body = chatMessageText(message);
     const photoUrl = this.handlers.resolveChatPhotoUrl?.(message.image || message.photo || '');
     if (photoUrl) {
       const image = document.createElement('img');

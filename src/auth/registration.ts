@@ -84,7 +84,54 @@ function renderSignUpForm(options: RegistrationOptions, metadata: RegistrationMe
   );
 
   const gender = metadata.genders.length > 0 ? selectFromRecords(metadata.genders, 'Select gender', ['gender_id', 'id'], ['gender_name', 'name']) : null;
-  if (gender) form.append(field('Gender', gender));
+  if (gender && !enabled(metadata.system.genders_disabled)) { gender.required = true; form.append(field('Gender', gender)); }
+
+  const invitation = enabled(metadata.system.invitation_enabled) ? input('text', 'Invitation code') : null;
+  if (invitation) form.append(field('Invitation code', invitation));
+  const phone = enabled(metadata.system.activation_enabled) && metadata.system.activation_type === 'sms'
+    ? input('tel', 'Phone number') : null;
+  if (phone) { phone.autocomplete = 'tel'; form.append(field('Phone number', phone)); }
+  const birthdate = enabled(metadata.system.age_restriction) ? input('date', 'Date of birth') : null;
+  if (birthdate) {
+    birthdate.min = '1905-01-01';
+    birthdate.max = `${Math.min(2017, new Date().getFullYear() - Number(metadata.system.minimum_age || 0))}-12-31`;
+    form.append(field('Date of birth', birthdate));
+  }
+  const userGroup = enabled(metadata.system.select_user_group_enabled)
+    ? selectFromRecords(metadata.userGroups, 'Select user group', ['user_group_id'], ['user_group_title', 'permissions_group_title']) : null;
+  if (userGroup) { userGroup.required = true; form.append(field('User group', userGroup)); }
+  const customFields = metadata.customFields.map((record) => {
+    const id = firstValue(record, ['field_id']);
+    const label = firstValue(record, ['label']);
+    const type = firstValue(record, ['type']);
+    if (!/^\d+$/.test(id) || !label) return null;
+    let control: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    if (type === 'selectbox' || type === 'multipleselectbox') {
+      control = document.createElement('select');
+      const placeholder = document.createElement('option');
+      placeholder.value = 'none';
+      placeholder.textContent = `Select ${label}`;
+      if (type === 'multipleselectbox') { control.multiple = true; placeholder.remove(); }
+      else control.append(placeholder);
+      const choices = Array.isArray(record.options) ? record.options : [];
+      choices.forEach((choice, index) => {
+        const option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = String(choice);
+        control.append(option);
+      });
+    } else if (type === 'textarea') {
+      control = document.createElement('textarea');
+    } else if (type === 'textbox') {
+      control = input('text', label, false);
+    } else return null;
+    control.required = enabled(record.mandatory);
+    if ((control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) && Number(record.length) > 0) {
+      control.maxLength = Number(record.length);
+    }
+    form.append(field(label, control));
+    return { key: `fld_${id}`, control };
+  }).filter((entry): entry is { key: string; control: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement } => entry !== null);
 
   form.append(field('Password', passwordField(password)), field('Confirm password', passwordField(confirm)));
   if (options.onOpenPublicPage) {
@@ -109,7 +156,14 @@ function renderSignUpForm(options: RegistrationOptions, metadata: RegistrationMe
       email: email.value,
       password: password.value,
       confirm: confirm.value,
-      gender: gender?.value || undefined
+      gender: gender?.value || undefined,
+      invitationCode: invitation?.value,
+      phone: phone?.value,
+      birthdate: birthdate?.value,
+      userGroup: userGroup?.value,
+      customFields: Object.fromEntries(customFields.map(({ key, control }) => [key,
+        control instanceof HTMLSelectElement && control.multiple
+          ? Array.from(control.selectedOptions, (option) => option.value) : control.value]))
     }).then((session) => {
       options.onSessionCreated(session);
       continueAfterRegistration(options, metadata, session);
@@ -373,4 +427,8 @@ function showError(element: HTMLParagraphElement, reason: unknown, fallback: str
 
 function isFalseLike(value: unknown): boolean {
   return value === false || value === 0 || value === '0';
+}
+
+function enabled(value: unknown): boolean {
+  return value === true || value === 1 || value === '1';
 }

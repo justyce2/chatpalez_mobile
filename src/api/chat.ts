@@ -54,6 +54,8 @@ export type Message = {
   user_id?: number | string;
   sender_id?: number | string;
   message?: string;
+  message_orginal?: string;
+  message_orginal_decoded?: string;
   time?: string;
   photo?: string;
   image?: string;

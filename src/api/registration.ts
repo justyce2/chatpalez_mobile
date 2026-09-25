@@ -19,7 +19,10 @@ export type SignUpInput = {
   confirm: string;
   gender?: string;
   birthdate?: string;
-  customFields?: Record<string, string>;
+  invitationCode?: string;
+  phone?: string;
+  userGroup?: string;
+  customFields?: Record<string, string | string[]>;
 };
 
 export type GettingStartedInput = {
@@ -67,8 +70,8 @@ export class RegistrationService {
 
   async signUp(input: SignUpInput): Promise<AuthSession> {
     const payload: Record<string, unknown> = {
-      firstname: input.firstName.trim(),
-      lastname: input.lastName.trim(),
+      first_name: input.firstName.trim(),
+      last_name: input.lastName.trim(),
       username: input.username.trim(),
       email: input.email.trim(),
       password: input.password,
@@ -77,7 +80,15 @@ export class RegistrationService {
     };
 
     if (input.gender) payload.gender = input.gender;
-    if (input.birthdate) payload.birthdate = input.birthdate;
+    if (input.invitationCode) payload.invitation_code = input.invitationCode.trim();
+    if (input.phone) payload.phone = input.phone.trim();
+    if (input.userGroup) payload.custom_user_group = input.userGroup;
+    if (input.birthdate) {
+      const [year, month, day] = input.birthdate.split('-');
+      payload.birth_year = year;
+      payload.birth_month = month;
+      payload.birth_day = day;
+    }
     if (input.customFields) {
       for (const [key, value] of Object.entries(input.customFields)) {
         payload[key] = value;
