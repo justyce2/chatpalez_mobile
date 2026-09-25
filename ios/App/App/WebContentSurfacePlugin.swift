@@ -19,6 +19,9 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
     ]
 
     private var contentWebView: WKWebView?
+    private var feedLoadingView: UIView?
+    private var feedLoading = false
+    private var feedLoadGeneration = 0
     private var allowedOrigin: URL?
 
     private func ensureWebView() -> WKWebView? {
@@ -42,6 +45,28 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         webView.navigationDelegate = self
         host.addSubview(webView)
         host.bringSubviewToFront(webView)
+        let loading = UIView(frame: .zero)
+        loading.backgroundColor = .white
+        loading.isHidden = true
+        let spinner = UIActivityIndicatorView(style: .large)
+        spinner.color = UIColor(red: 0, green: 102.0 / 255.0, blue: 178.0 / 255.0, alpha: 1)
+        spinner.startAnimating()
+        let label = UILabel()
+        label.text = "Loading your feed…"
+        label.textColor = UIColor(red: 18.0 / 255.0, green: 50.0 / 255.0, blue: 77.0 / 255.0, alpha: 1)
+        label.font = .systemFont(ofSize: 16, weight: .medium)
+        let stack = UIStackView(arrangedSubviews: [spinner, label])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 16
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        loading.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: loading.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: loading.centerYAnchor)
+        ])
+        host.addSubview(loading)
+        feedLoadingView = loading
         contentWebView = webView
         return webView
     }
@@ -68,12 +93,23 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
 
             self.allowedOrigin = origin
             self.applyFrame(call, to: webView)
+            self.feedLoadGeneration += 1
+            let generation = self.feedLoadGeneration
+            self.feedLoading = path == "/"
+            self.feedLoadingView?.isHidden = !self.feedLoading
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
             request.httpBody = "token=\(self.formEncode(token))&path=\(self.formEncode(path))".data(using: .utf8)
             webView.isHidden = false
             webView.superview?.bringSubviewToFront(webView)
+            if self.feedLoading, let loading = self.feedLoadingView {
+                loading.superview?.bringSubviewToFront(loading)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+                    guard let self, self.feedLoadGeneration == generation else { return }
+                    self.finishFeedLoading()
+                }
+            }
             webView.load(request)
             call.resolve()
         }
@@ -84,6 +120,10 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
             if let webView = self.ensureWebView() {
                 webView.isHidden = false
                 webView.superview?.bringSubviewToFront(webView)
+                if self.feedLoading, let loading = self.feedLoadingView {
+                    loading.isHidden = false
+                    loading.superview?.bringSubviewToFront(loading)
+                }
             }
             call.resolve()
         }
@@ -92,6 +132,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
     @objc func hide(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             self.contentWebView?.isHidden = true
+            self.feedLoadingView?.isHidden = true
             call.resolve()
         }
     }
@@ -194,6 +235,8 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
             self.contentWebView?.stopLoading()
             self.contentWebView?.loadHTMLString("", baseURL: nil)
             self.contentWebView?.isHidden = true
+            self.feedLoadGeneration += 1
+            self.finishFeedLoading()
             self.allowedOrigin = nil
             let store = WKWebsiteDataStore.default()
             let types = WKWebsiteDataStore.allWebsiteDataTypes()
@@ -237,14 +280,35 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         decisionHandler(.cancel)
     }
 
+    public func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        if let response = navigationResponse.response as? HTTPURLResponse, response.statusCode >= 400 {
+            finishFeedLoading()
+        }
+        decisionHandler(.allow)
+    }
+
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         notifyListeners("loadStarted", data: ["url": webView.url?.absoluteString ?? ""])
     }
 
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let url = webView.url, isAllowed(url) else { return }
+        if url.path != "/mobile-session.php" { finishFeedLoading() }
         notifyListeners("routeChanged", data: ["url": url.absoluteString])
         notifyListeners("loadFinished", data: ["url": url.absoluteString])
+    }
+
+    public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        if (error as NSError).code != NSURLErrorCancelled { finishFeedLoading() }
+    }
+
+    public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        if (error as NSError).code != NSURLErrorCancelled { finishFeedLoading() }
+    }
+
+    private func finishFeedLoading() {
+        feedLoading = false
+        feedLoadingView?.isHidden = true
     }
 
     private func isAllowed(_ url: URL) -> Bool {
@@ -258,6 +322,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         let width = max(1, CGFloat(call.getDouble("width") ?? 1))
         let height = max(1, CGFloat(call.getDouble("height") ?? 1))
         webView.frame = CGRect(x: x, y: y, width: width, height: height)
+        feedLoadingView?.frame = webView.frame
     }
 
     private func formEncode(_ value: String) -> String {

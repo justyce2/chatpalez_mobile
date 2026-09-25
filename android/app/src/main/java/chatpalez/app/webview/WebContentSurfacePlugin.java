@@ -10,6 +10,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceResponse;
 import android.content.Intent;
 import android.widget.FrameLayout;
 import android.app.Dialog;
@@ -18,6 +20,7 @@ import android.view.Gravity;
 import android.view.Window;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ProgressBar;
 import android.widget.Button;
 import android.text.SpannableString;
 import android.text.Spanned;
@@ -38,6 +41,9 @@ import java.nio.charset.StandardCharsets;
 @CapacitorPlugin(name = "WebContentSurface")
 public class WebContentSurfacePlugin extends Plugin {
     private WebView contentWebView;
+    private FrameLayout feedLoadingView;
+    private boolean feedLoading;
+    private int feedLoadGeneration;
     private String allowedOrigin;
 
     @Override
@@ -84,6 +90,16 @@ public class WebContentSurfacePlugin extends Plugin {
 
         contentWebView.setWebViewClient(new WebViewClient() {
             @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame()) finishFeedLoading();
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
+                if (request.isForMainFrame()) finishFeedLoading();
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 if (isAllowed(uri)) return false;
@@ -108,6 +124,7 @@ public class WebContentSurfacePlugin extends Plugin {
                 emitRouteChanged(url);
                 Uri uri = Uri.parse(url);
                 if (isAllowed(uri)) {
+                    if (!"/mobile-session.php".equals(uri.getPath())) finishFeedLoading();
                     JSObject data = new JSObject();
                     data.put("url", url);
                     notifyListeners("loadFinished", data);
@@ -116,6 +133,27 @@ public class WebContentSurfacePlugin extends Plugin {
         });
         host.addView(contentWebView, new FrameLayout.LayoutParams(1, 1));
         contentWebView.bringToFront();
+
+        feedLoadingView = new FrameLayout(getContext());
+        feedLoadingView.setBackgroundColor(Color.WHITE);
+        feedLoadingView.setVisibility(View.GONE);
+        LinearLayout loadingContent = new LinearLayout(getContext());
+        loadingContent.setOrientation(LinearLayout.VERTICAL);
+        loadingContent.setGravity(Gravity.CENTER);
+        int spacing = Math.round(16 * getContext().getResources().getDisplayMetrics().density);
+        ProgressBar progress = new ProgressBar(getContext());
+        loadingContent.addView(progress);
+        TextView label = new TextView(getContext());
+        label.setText("Loading your feed…");
+        label.setTextColor(Color.rgb(18, 50, 77));
+        label.setTextSize(16);
+        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        labelParams.topMargin = spacing;
+        loadingContent.addView(label, labelParams);
+        feedLoadingView.addView(loadingContent, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        host.addView(feedLoadingView, new FrameLayout.LayoutParams(1, 1));
     }
 
     @PluginMethod
@@ -146,10 +184,17 @@ public class WebContentSurfacePlugin extends Plugin {
 
             allowedOrigin = requestedOrigin;
             applyFrame(call);
+            final int generation = ++feedLoadGeneration;
+            feedLoading = "/".equals(path);
+            feedLoadingView.setVisibility(feedLoading ? View.VISIBLE : View.GONE);
             String body = "token=" + encode(token) + "&path=" + encode(path);
             contentWebView.setVisibility(View.VISIBLE);
             contentWebView.bringToFront();
+            if (feedLoading) feedLoadingView.bringToFront();
             contentWebView.postUrl(action, body.getBytes(StandardCharsets.UTF_8));
+            if (feedLoading) contentWebView.postDelayed(() -> {
+                if (feedLoadGeneration == generation) finishFeedLoading();
+            }, 15000);
             call.resolve();
         });
     }
@@ -161,6 +206,10 @@ public class WebContentSurfacePlugin extends Plugin {
             if (contentWebView != null) {
                 contentWebView.setVisibility(View.VISIBLE);
                 contentWebView.bringToFront();
+                if (feedLoading) {
+                    feedLoadingView.setVisibility(View.VISIBLE);
+                    feedLoadingView.bringToFront();
+                }
             }
             call.resolve();
         });
@@ -170,6 +219,7 @@ public class WebContentSurfacePlugin extends Plugin {
     public void hide(PluginCall call) {
         getActivity().runOnUiThread(() -> {
             if (contentWebView != null) contentWebView.setVisibility(View.GONE);
+            if (feedLoadingView != null) feedLoadingView.setVisibility(View.GONE);
             call.resolve();
         });
     }
@@ -345,6 +395,8 @@ public class WebContentSurfacePlugin extends Plugin {
                 contentWebView.clearCache(false);
                 contentWebView.setVisibility(View.GONE);
             }
+            finishFeedLoading();
+            ++feedLoadGeneration;
             CookieManager cookies = CookieManager.getInstance();
             cookies.removeAllCookies(value -> cookies.flush());
             allowedOrigin = null;
@@ -371,6 +423,17 @@ public class WebContentSurfacePlugin extends Plugin {
         params.leftMargin = x;
         params.topMargin = y;
         contentWebView.setLayoutParams(params);
+        if (feedLoadingView != null) {
+            FrameLayout.LayoutParams loadingParams = new FrameLayout.LayoutParams(width, height);
+            loadingParams.leftMargin = x;
+            loadingParams.topMargin = y;
+            feedLoadingView.setLayoutParams(loadingParams);
+        }
+    }
+
+    private void finishFeedLoading() {
+        feedLoading = false;
+        if (feedLoadingView != null) feedLoadingView.setVisibility(View.GONE);
     }
 
 
