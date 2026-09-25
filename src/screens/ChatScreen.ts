@@ -9,6 +9,8 @@ import { clearDirectChatHistory } from '../chat-clear';
 import { chatProfilePath } from '../chat-profile-route';
 import { chatMessageText } from '../chat-message-text';
 import type { MobileAccount } from '../api/user';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
 export type ChatDeliveryTransport = 'realtime' | 'http';
@@ -54,6 +56,7 @@ export type ChatScreenHandlers = {
 export class ChatScreen {
   private activeThreadCleanup: (() => void) | null = null;
   private activeMessageActionsCleanup: (() => void) | null = null;
+  private activeImagePreviewCleanup: (() => void) | null = null;
   private activeConversation: Conversation | null = null;
   private attachmentCleanup: (() => void) | null = null;
   private readonly drafts = new Map<string, { text: string; photo: File | null }>();
@@ -531,13 +534,12 @@ export class ChatScreen {
     realtimeStatus.textContent = 'Connecting to live chat…';
     const deliveryStatus = element('p', 'conversation-delivery-status');
     deliveryStatus.setAttribute('aria-live', 'polite');
-    this.content.append(presence, realtimeStatus, deliveryStatus);
+    this.content.append(presence);
 
     const loadOlder = secondaryButton('Load older messages');
     loadOlder.hidden = true;
-    this.content.append(loadOlder);
     const thread = element('div', 'message-thread');
-    thread.append(paragraph('Loading messages…'));
+    thread.append(loadOlder, paragraph('Loading messages…'));
     this.content.append(thread);
 
     if (!this.handlers.onLoadMessages) {
@@ -627,7 +629,7 @@ export class ChatScreen {
     send.setAttribute('aria-label', 'Send message');
     send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
     composer.append(attach, text, photo, send);
-    this.content.append(attachment, composer);
+    this.content.append(realtimeStatus, deliveryStatus, attachment, composer);
     if (savedDraft?.photo) showAttachment(savedDraft.photo);
     if (this.handlers.onLoadChatFeatures) {
       void this.handlers.onLoadChatFeatures().then((features) => {
@@ -661,6 +663,32 @@ export class ChatScreen {
     let pendingBubble: HTMLDivElement | null = null;
     let lastMarkedIncomingId: string | null = null;
     let receiptMessageId: string | null = null;
+    let previousScrollTop = 0;
+    let touchStartY = 0;
+    let requestedHistory = false;
+    const updateHistoryControl = (): void => {
+      loadOlder.hidden = !hasMoreHistory || !requestedHistory || thread.scrollTop > 64 || loadingOlder;
+    };
+    thread.addEventListener('scroll', () => {
+      const current = thread.scrollTop;
+      if (current > previousScrollTop + 2 || current > 64) requestedHistory = false;
+      else if (current < previousScrollTop - 2 && current <= 64) requestedHistory = true;
+      previousScrollTop = current;
+      updateHistoryControl();
+    }, { passive: true });
+    thread.addEventListener('wheel', (event) => {
+      if (event.deltaY < 0 && thread.scrollTop <= 64) {
+        requestedHistory = true;
+        updateHistoryControl();
+      }
+    }, { passive: true });
+    thread.addEventListener('touchstart', (event) => { touchStartY = event.touches[0]?.clientY ?? 0; }, { passive: true });
+    thread.addEventListener('touchmove', (event) => {
+      if ((event.touches[0]?.clientY ?? 0) - touchStartY > 20 && thread.scrollTop <= 64) {
+        requestedHistory = true;
+        updateHistoryControl();
+      }
+    }, { passive: true });
     const renderReceipt = (seenNameList: string): void => {
       const receipt = thread.querySelector<HTMLElement>('.chat-message-receipt');
       if (!receipt || !receiptMessageId) return;
@@ -684,7 +712,7 @@ export class ChatScreen {
         presence.textContent = result.typing_name_list ? `${result.typing_name_list} typing…` : normalPresence;
         updateHeaderPresence(presence.textContent);
         if (older || !hasLoadedHistory) hasMoreHistory = Boolean(result.has_more);
-        loadOlder.hidden = !hasMoreHistory;
+        updateHistoryControl();
 
         const stickToBottom = !hasLoadedHistory || (!older && thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80);
         const topEdge = thread.getBoundingClientRect().top;
@@ -711,7 +739,7 @@ export class ChatScreen {
           const marker = element('small', 'chat-message-receipt');
           bubbles.find((bubble) => bubble.dataset.messageId === latestReceipt.messageId)?.append(marker);
         }
-        thread.replaceChildren(...bubbles);
+        thread.replaceChildren(loadOlder, ...bubbles);
         if (!renderedMessages.length) thread.append(paragraph('No messages yet.'));
         if (pendingBubble) thread.append(pendingBubble);
         if (anchorId && anchorTop !== undefined) {
@@ -724,6 +752,9 @@ export class ChatScreen {
         }
         if (older) historyOffset = nextOffset;
         hasLoadedHistory = true;
+        if (older) requestedHistory = false;
+        previousScrollTop = thread.scrollTop;
+        updateHistoryControl();
         if (!older) renderReceipt(String(result.seen_name_list ?? ''));
 
         const latestIncoming = [...messages].reverse().find((message) =>
@@ -742,7 +773,10 @@ export class ChatScreen {
           deliveryStatus.textContent = error instanceof Error ? error.message : 'Unable to refresh messages.';
         }
       } finally {
-        if (older) loadingOlder = false;
+        if (older) {
+          loadingOlder = false;
+          updateHistoryControl();
+        }
       }
     };
     const latestResync = new CoalescedResync(() => refresh(false));
@@ -791,7 +825,11 @@ export class ChatScreen {
     };
     this.activeThreadCleanup = leaveThread;
 
-    loadOlder.addEventListener('click', () => void refresh(true));
+    loadOlder.addEventListener('click', () => {
+      requestedHistory = false;
+      updateHistoryControl();
+      void refresh(true);
+    });
     composer.addEventListener('submit', (event) => {
       event.preventDefault();
       const message = text.value.trim();
@@ -817,12 +855,10 @@ export class ChatScreen {
       send.setAttribute('aria-label', 'Sending message');
       setTyping(false);
       void this.handlers.onSendMessage(conversationId, message, selectedPhoto ?? undefined)
-        .then(async (transport) => {
+        .then(async () => {
           pendingBubble?.remove();
           pendingBubble = null;
-          deliveryStatus.textContent = transport === 'realtime'
-            ? 'Last message sent via live chat'
-            : 'Last message sent via standard delivery';
+          deliveryStatus.textContent = '';
           text.value = '';
           clearAttachment();
           this.drafts.delete(String(conversationId));
@@ -862,6 +898,8 @@ export class ChatScreen {
   }
 
   private cleanupActiveThread(): void {
+    this.activeImagePreviewCleanup?.();
+    this.activeImagePreviewCleanup = null;
     this.activeMessageActionsCleanup?.();
     this.activeMessageActionsCleanup = null;
     const cleanup = this.activeThreadCleanup;
@@ -881,12 +919,25 @@ export class ChatScreen {
     const body = chatMessageText(message);
     const photoUrl = this.handlers.resolveChatPhotoUrl?.(message.image || message.photo || '');
     if (photoUrl) {
+      const openPhoto = element('button', 'message-photo-open');
+      openPhoto.type = 'button';
+      openPhoto.setAttribute('aria-label', 'Preview shared photo');
       const image = document.createElement('img');
       image.className = 'message-photo';
       image.src = photoUrl;
       image.alt = 'Shared photo';
       image.loading = 'lazy';
-      bubble.append(image);
+      openPhoto.append(image);
+      openPhoto.addEventListener('click', () => this.openImagePreview(photoUrl));
+      // An image tap should not start the parent bubble's long-press actions.
+      for (const type of ['pointerdown', 'pointerup', 'contextmenu', 'keydown']) {
+        openPhoto.addEventListener(type, (event) => event.stopPropagation());
+      }
+      image.addEventListener('error', () => {
+        openPhoto.replaceChildren(elementWithText('span', 'Photo unavailable'));
+        openPhoto.disabled = true;
+      }, { once: true });
+      bubble.append(openPhoto);
     }
     if (body) {
       const caption = elementWithText('div', body);
@@ -904,6 +955,82 @@ export class ChatScreen {
       this.installMessageActions(bubble, message.message_id, Boolean(mine), refresh);
     }
     return bubble;
+  }
+
+  private openImagePreview(photoUrl: string): void {
+    this.activeImagePreviewCleanup?.();
+    const backdrop = element('div', 'chat-image-preview');
+    backdrop.setAttribute('role', 'dialog');
+    backdrop.setAttribute('aria-modal', 'true');
+    backdrop.setAttribute('aria-label', 'Chat photo preview');
+    const close = secondaryButton('Close');
+    close.className = 'chat-image-preview__close';
+    const image = document.createElement('img');
+    image.src = photoUrl;
+    image.alt = 'Full-size shared photo';
+    const viewport = element('div', 'chat-image-preview__viewport');
+    viewport.append(image);
+    const actions = element('div', 'chat-image-preview__actions');
+    const zoom = secondaryButton('Zoom in');
+    zoom.addEventListener('click', () => {
+      const enlarged = viewport.classList.toggle('is-zoomed');
+      zoom.textContent = enlarged ? 'Zoom out' : 'Zoom in';
+    });
+    const save = secondaryButton('Save or share');
+    save.addEventListener('click', () => void this.shareImage(photoUrl));
+    actions.append(zoom, save, close);
+    backdrop.append(viewport, actions);
+    const dismiss = (): void => {
+      backdrop.remove();
+      document.removeEventListener('keydown', onKeydown);
+      if (this.activeImagePreviewCleanup === dismiss) this.activeImagePreviewCleanup = null;
+    };
+    const onKeydown = (event: KeyboardEvent): void => { if (event.key === 'Escape') dismiss(); };
+    close.addEventListener('click', dismiss);
+    backdrop.addEventListener('click', (event) => { if (event.target === backdrop) dismiss(); });
+    document.addEventListener('keydown', onKeydown);
+    document.body.append(backdrop);
+    this.activeImagePreviewCleanup = dismiss;
+    close.focus();
+  }
+
+  private async shareImage(photoUrl: string): Promise<void> {
+    let nativeShareAttempted = false;
+    try {
+      const response = await fetch(photoUrl);
+      if (!response.ok) throw new Error('Unable to download photo.');
+      const blob = await response.blob();
+      if (!blob.type.startsWith('image/')) throw new Error('This photo is unavailable.');
+      const extension = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+      const file = new File([blob], `chatpalez-photo.${extension}`, { type: blob.type });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'ChatPalez photo' });
+        return;
+      }
+      if (Capacitor.isNativePlatform()) {
+        nativeShareAttempted = true;
+        await Share.share({ title: 'ChatPalez photo', url: photoUrl });
+        return;
+      }
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = file.name;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (nativeShareAttempted && /cancel/i.test(error instanceof Error ? error.message : String(error))) return;
+      if (Capacitor.isNativePlatform() && !nativeShareAttempted) {
+        try {
+          await Share.share({ title: 'ChatPalez photo', url: photoUrl });
+          return;
+        } catch { /* Show the original failure if the share sheet is unavailable. */ }
+      }
+      window.alert(error instanceof Error ? error.message : 'Unable to save this photo.');
+    }
   }
 
   private installMessageActions(
