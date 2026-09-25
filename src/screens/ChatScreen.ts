@@ -1005,29 +1005,70 @@ export class ChatScreen {
     const backdrop = element('div', 'chat-forward-picker');
     backdrop.setAttribute('role', 'dialog');
     backdrop.setAttribute('aria-modal', 'true');
-    backdrop.setAttribute('aria-label', 'Forward to a ChatPalez chat');
+    backdrop.setAttribute('aria-label', 'Review and forward messages');
     const panel = element('div', 'chat-forward-picker__panel');
     const heading = element('div', 'chat-forward-picker__heading');
-    heading.append(elementWithText('strong', `Forward ${selected.length} message${selected.length === 1 ? '' : 's'}`));
-    const closeButton = secondaryButton('×');
+    const headingCopy = element('div', 'chat-forward-picker__heading-copy');
+    headingCopy.append(elementWithText('small', 'CHATPALEZ'), elementWithText('strong', 'Forward messages'));
+    heading.append(headingCopy);
+    const closeButton = elementWithText('button', '×') as HTMLButtonElement;
+    closeButton.type = 'button';
+    closeButton.className = 'chat-forward-picker__close';
     closeButton.setAttribute('aria-label', 'Close forwarding');
     heading.append(closeButton);
+    const body = element('div', 'chat-forward-picker__body');
+    body.append(elementWithText('h2', 'Send to'));
     const search = document.createElement('form');
-    search.className = 'contact-search';
+    search.className = 'contact-search chat-forward-picker__search';
     const query = document.createElement('input');
     query.type = 'search';
-    query.placeholder = 'Search people';
+    query.placeholder = 'Search people by name';
     query.setAttribute('aria-label', 'Search people to forward to');
     const searchButton = primaryButton('Search');
     searchButton.type = 'submit';
     search.append(query, searchButton);
-    const recent = secondaryButton('Recent chats');
-    const status = paragraph('Choose a conversation or search for a person.');
+    const recent = elementWithText('button', 'Recent chats') as HTMLButtonElement;
+    recent.type = 'button';
+    recent.className = 'chat-forward-picker__recent';
+    const status = paragraph('Select one or more destinations, then review your messages.');
     status.setAttribute('aria-live', 'polite');
     const results = element('div', 'chat-forward-picker__results');
     const more = secondaryButton('Load more');
     more.hidden = true;
-    panel.append(heading, search, recent, status, results, more);
+    const recipients = element('div', 'chat-forward-picker__recipients');
+    recipients.setAttribute('aria-label', 'Selected destinations');
+    recipients.hidden = true;
+    const review = element('div', 'chat-forward-picker__review');
+    review.append(elementWithText('h2', `Review ${selected.length} message${selected.length === 1 ? '' : 's'}`));
+    const editors: HTMLTextAreaElement[] = [];
+    selected.forEach((item, index) => {
+      const card = element('div', 'chat-forward-picker__message');
+      const photo = String(item.image || item.photo || '');
+      if (photo) {
+        const photoUrl = this.handlers.resolveChatPhotoUrl?.(photo);
+        if (photoUrl) {
+          const image = document.createElement('img');
+          image.src = photoUrl;
+          image.alt = 'Photo to forward';
+          image.loading = 'lazy';
+          card.append(image);
+        } else card.append(elementWithText('span', 'Photo attachment'));
+      }
+      const editor = document.createElement('textarea');
+      editor.value = displayChatMessage(item).text;
+      editor.placeholder = photo ? 'Add or edit a caption (optional)' : 'Edit this message';
+      editor.setAttribute('aria-label', `Message ${index + 1} ${photo ? 'caption' : 'text'}`);
+      editor.rows = Math.min(5, Math.max(2, editor.value.split('\n').length));
+      editors.push(editor);
+      card.append(editor);
+      review.append(card);
+    });
+    body.append(search, recent, status, results, more, recipients, review);
+    const footer = element('div', 'chat-forward-picker__footer');
+    const sendButton = primaryButton('Select a destination');
+    sendButton.disabled = true;
+    footer.append(sendButton);
+    panel.append(heading, body, footer);
     backdrop.append(panel);
     let closed = false;
     let busy = false;
@@ -1035,6 +1076,35 @@ export class ChatScreen {
     let contacts = false;
     let offset = 0;
     let loadVersion = 0;
+    type Destination = { name: string; picture: string; target: { conversationId?: number | string; recipientId?: number | string } };
+    const selectedDestinations = new Map<string, Destination>();
+    const updateDestinations = (): void => {
+      recipients.replaceChildren();
+      recipients.hidden = selectedDestinations.size === 0;
+      for (const [key, destination] of selectedDestinations) {
+        const chip = elementWithText('button', `${destination.name} ×`) as HTMLButtonElement;
+        chip.type = 'button';
+        chip.className = 'chat-forward-picker__chip';
+        chip.setAttribute('aria-label', `Remove ${destination.name}`);
+        chip.disabled = busy || failed;
+        chip.addEventListener('click', () => {
+          selectedDestinations.delete(key);
+          updateDestinations();
+        });
+        recipients.append(chip);
+      }
+      results.querySelectorAll<HTMLButtonElement>('button[data-destination]').forEach((row) => {
+        const selectedRow = selectedDestinations.has(row.dataset.destination!);
+        row.classList.toggle('is-selected', selectedRow);
+        row.setAttribute('aria-pressed', String(selectedRow));
+        row.querySelector('.chat-forward-picker__check')!.textContent = selectedRow ? '✓' : '+';
+      });
+      sendButton.textContent = selectedDestinations.size
+        ? `Send ${selected.length} message${selected.length === 1 ? '' : 's'} to ${selectedDestinations.size} chat${selectedDestinations.size === 1 ? '' : 's'}`
+        : 'Select a destination';
+      sendButton.disabled = busy || failed || !selectedDestinations.size || editors.some((editor, index) =>
+        !editor.value.trim() && !selected[index].image && !selected[index].photo);
+    };
     const close = (): void => {
       closed = true;
       backdrop.remove();
@@ -1042,51 +1112,76 @@ export class ChatScreen {
       if (this.forwardPickerCleanup === close) this.forwardPickerCleanup = null;
     };
     const onKeydown = (event: KeyboardEvent): void => { if (event.key === 'Escape' && !busy) close(); };
-    const send = async (target: { conversationId?: number | string; recipientId?: number | string }): Promise<void> => {
-      if (busy || failed) return;
+    const send = async (): Promise<void> => {
+      updateDestinations();
+      if (busy || failed || sendButton.disabled) return;
       busy = true;
       results.querySelectorAll<HTMLButtonElement>('button').forEach((button) => { button.disabled = true; });
       more.disabled = true;
+      query.disabled = true;
+      searchButton.disabled = true;
+      recent.disabled = true;
+      editors.forEach((editor) => { editor.disabled = true; });
+      updateDestinations();
       let sent = 0;
+      const destinations = [...selectedDestinations.values()];
+      const total = destinations.length * selected.length;
+      const edited = editors.map((editor) => editor.value.trim());
+      let refreshCurrent = false;
       try {
-        for (const item of selected) {
-          status.textContent = `Forwarding ${sent + 1} of ${selected.length}…`;
-          const result = await this.handlers.onForwardMessage!(
-            target,
-            forwardedText(displayChatMessage(item).text),
-            String(item.image || item.photo || '')
-          );
-          sent += 1;
-          if (closed) return;
-          if (result.conversation_id === undefined || result.conversation_id === null) {
-            throw new Error('The destination chat could not be confirmed.');
+        for (const destination of destinations) {
+          let target = destination.target;
+          for (const [index, item] of selected.entries()) {
+            status.textContent = `Sending ${sent + 1} of ${total} to ${destination.name}…`;
+            const result = await this.handlers.onForwardMessage!(
+              target, forwardedText(edited[index]), String(item.image || item.photo || '')
+            );
+            sent += 1;
+            if (result.conversation_id === undefined || result.conversation_id === null) {
+              throw new Error('The destination chat could not be confirmed.');
+            }
+            target = { conversationId: result.conversation_id };
+            if (String(result.conversation_id) === String(this.activeConversation?.conversation_id)) refreshCurrent = true;
+            if (closed) return;
           }
-          target = { conversationId: result.conversation_id };
         }
         close();
         this.dismissSelection();
-        if (target.conversationId !== undefined
-          && String(target.conversationId) === String(this.activeConversation?.conversation_id)) {
-          await refresh?.();
-        }
+        if (refreshCurrent) await refresh?.();
       } catch (error) {
         failed = true;
-        for (const item of selected.slice(0, sent)) this.selectedMessages.delete(String(item.message_id));
-        if (sent) this.updateSelection();
-        if (!closed) status.textContent = `${sent} of ${selected.length} confirmed. Delivery of the next message is uncertain. Check the destination chat before trying again. ${error instanceof Error ? error.message : ''}`;
+        if (!closed) status.textContent = `${sent} of ${total} confirmed. Delivery of the next message is uncertain. Check the destination chats before trying again. ${error instanceof Error ? error.message : ''}`;
+        if (refreshCurrent) void refresh?.();
       } finally {
         busy = false;
-        if (!closed && !failed) {
-          results.querySelectorAll<HTMLButtonElement>('button').forEach((button) => { button.disabled = false; });
-          more.disabled = false;
-        }
+        if (!closed) updateDestinations();
       }
     };
-    const addRow = (name: string, target: { conversationId?: number | string; recipientId?: number | string }): void => {
-      const row = secondaryButton(name);
-      row.className = 'chat-forward-picker__row';
-      row.addEventListener('click', () => { void send(target); });
+    const addRow = (key: string, destination: Destination, detail: string): void => {
+      const row = element('button', 'chat-forward-picker__row') as HTMLButtonElement;
+      row.type = 'button';
+      row.dataset.destination = key;
+      const avatar = element('span', 'chat-forward-picker__avatar');
+      const picture = this.handlers.resolveChatPhotoUrl?.(destination.picture);
+      if (picture) {
+        const image = document.createElement('img');
+        image.src = picture;
+        image.alt = '';
+        image.loading = 'lazy';
+        image.addEventListener('error', () => { avatar.replaceChildren(initials(destination.name)); }, { once: true });
+        avatar.append(image);
+      } else avatar.textContent = initials(destination.name);
+      const copy = element('span', 'chat-forward-picker__row-copy');
+      copy.append(elementWithText('strong', destination.name), elementWithText('small', detail));
+      const check = element('span', 'chat-forward-picker__check');
+      row.append(avatar, copy, check);
+      row.addEventListener('click', () => {
+        if (selectedDestinations.has(key)) selectedDestinations.delete(key);
+        else selectedDestinations.set(key, destination);
+        updateDestinations();
+      });
       results.append(row);
+      updateDestinations();
     };
     const load = async (append = false): Promise<void> => {
       if (busy || failed) return;
@@ -1096,22 +1191,27 @@ export class ChatScreen {
       try {
         if (contacts) {
           const page = await this.handlers.onLoadContacts!(query.value.trim(), offset);
-          if (closed || version !== this.viewVersion || request !== loadVersion) return;
-          for (const person of page.items) addRow(
-            String(person.user_fullname || person.user_firstname || person.user_name || `User ${person.user_id}`),
-            { recipientId: person.user_id }
-          );
+          if (closed || busy || version !== this.viewVersion || request !== loadVersion) return;
+          for (const person of page.items) addRow(`person:${person.user_id}`, {
+            name: String(person.user_fullname || person.user_firstname || person.user_name || `User ${person.user_id}`),
+            picture: person.user_picture || '', target: { recipientId: person.user_id }
+          }, person.user_name ? `@${person.user_name}` : 'ChatPalez member');
           more.hidden = !page.hasMore;
         } else {
           const page = await this.handlers.onLoadConversations!(offset);
-          if (closed || version !== this.viewVersion || request !== loadVersion) return;
-          for (const chat of page.items) addRow(
-            String(chat.name || chat.name_list || `Chat ${chat.conversation_id}`),
-            { conversationId: chat.conversation_id }
-          );
+          if (closed || busy || version !== this.viewVersion || request !== loadVersion) return;
+          for (const chat of page.items) {
+            const direct = !chat.multiple_recipients && !chat.node_id && chat.recipients?.length === 1;
+            const key = direct ? `person:${chat.recipients![0].user_id}` : `chat:${chat.conversation_id}`;
+            addRow(key, {
+              name: String(chat.name || chat.name_list || `Chat ${chat.conversation_id}`),
+              picture: chat.picture || (direct ? chat.recipients![0].user_picture || '' : ''),
+              target: { conversationId: chat.conversation_id }
+            }, chat.multiple_recipients || chat.node_id ? 'Group chat' : 'Recent chat');
+          }
           more.hidden = !page.hasMore;
         }
-        status.textContent = results.childElementCount ? 'Choose where to forward.' : 'No matching chats found.';
+        status.textContent = results.childElementCount ? 'Tap to select destinations. You can edit the messages below.' : 'No matching chats found.';
       } catch (error) {
         if (!closed && request === loadVersion) status.textContent = error instanceof Error ? error.message : 'Unable to load chats.';
       }
@@ -1124,6 +1224,8 @@ export class ChatScreen {
     });
     recent.addEventListener('click', () => { contacts = false; query.value = ''; void load(); });
     more.addEventListener('click', () => { offset += 1; void load(true); });
+    sendButton.addEventListener('click', () => { void send(); });
+    editors.forEach((editor) => editor.addEventListener('input', updateDestinations));
     document.addEventListener('keydown', onKeydown);
     document.body.append(backdrop);
     this.forwardPickerCleanup = close;
