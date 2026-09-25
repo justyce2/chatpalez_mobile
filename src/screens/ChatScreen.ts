@@ -5,6 +5,7 @@ import { RealtimeDeliveryUncertainError } from '../chat-realtime';
 import { isChatSoundEnabled, playSentChatSound, setChatSoundEnabled, unlockChatAudio } from '../chat-sound';
 import { latestOutgoingReceipt } from '../chat-receipts';
 import { mergeChatHistory } from '../chat-history';
+import { clearDirectChatHistory } from '../chat-clear';
 import { chatProfilePath } from '../chat-profile-route';
 import type { MobileAccount } from '../api/user';
 
@@ -253,7 +254,7 @@ export class ChatScreen {
   }
 
   private async openChatSettings(): Promise<void> {
-    const { sheet, body } = this.createSettingsSheet('Chat settings');
+    const { sheet, body, close } = this.createSettingsSheet('Chat settings');
     const soundRow = element('label', 'chat-settings-row');
     const sound = document.createElement('input');
     sound.type = 'checkbox';
@@ -268,6 +269,38 @@ export class ChatScreen {
     serverSettings.append(paragraph('Loading chat privacy…'));
     const featuresStatus = element('div', 'chat-feature-status');
     body.append(serverSettings, featuresStatus);
+    if (this.handlers.onLoadConversations && this.handlers.onDeleteConversation) {
+      const clearRow = element('div', 'chat-server-settings');
+      clearRow.append(elementWithText('strong', 'Chat history'));
+      clearRow.append(paragraph('Remove all one-to-one chats from your inbox in one action. Group chats are unaffected. The site may permanently delete messages for everyone, depending on its settings.'));
+      const clearButton = secondaryButton('Clear all direct chats');
+      const clearStatus = element('p', 'chat-settings-status');
+      clearStatus.setAttribute('aria-live', 'polite');
+      clearButton.addEventListener('click', () => {
+        if (!window.confirm('Clear all direct chats? Depending on site settings, messages may be permanently deleted for everyone. This cannot be undone.')) return;
+        clearButton.disabled = true;
+        clearStatus.textContent = 'Finding conversations…';
+        const version = this.viewVersion;
+        let completed = 0;
+        void clearDirectChatHistory(
+          (offset) => this.handlers.onLoadConversations!(offset),
+          (id) => this.handlers.onDeleteConversation!(id),
+          (done, total) => { completed = done; clearStatus.textContent = `Clearing ${done} of ${total} chats…`; }
+        ).then(({ cleared }) => {
+          close();
+          if (version === this.viewVersion) {
+            if (this.activeConversation) this.handlers.onRequestBack?.();
+            else void this.render();
+          }
+          window.alert(cleared ? `${cleared} chats removed from your inbox.` : 'There are no direct chats to clear.');
+        }).catch((error: unknown) => {
+          clearStatus.textContent = `${completed} chats removed. ${error instanceof Error ? error.message : 'Unable to finish clearing chats.'}`;
+          clearButton.disabled = false;
+        });
+      });
+      clearRow.append(clearButton, clearStatus);
+      body.append(clearRow);
+    }
     this.content.append(sheet);
     if (this.handlers.onLoadChatFeatures) {
       void this.handlers.onLoadChatFeatures().then((features) => {
