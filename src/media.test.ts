@@ -20,4 +20,13 @@ describe('chat photo URL', () => {
     expect(getChatPhotoUrl(origin, 'https://attacker.example/a.png')).toBeNull();
     expect(getChatPhotoUrl(origin, 'videos/2026/09/movie.mp4')).toBeNull();
   });
+
+  it('uses the configured upload host for chat photos without trusting arbitrary hosts', () => {
+    const uploads = new URL('https://cloud.chatpalez.com/uploads/');
+    expect(getChatPhotoUrl(origin, 'photos/2026/09/image.png', new Set(['chatpalez.com']), uploads))
+      .toBe('https://cloud.chatpalez.com/uploads/photos/2026/09/image.png');
+    expect(getChatPhotoUrl(origin, 'https://cloud.chatpalez.com/uploads/photos/2026/09/image.png', new Set(['chatpalez.com']), uploads))
+      .toBe('https://cloud.chatpalez.com/uploads/photos/2026/09/image.png');
+    expect(getChatPhotoUrl(origin, 'https://cloud.chatpalez.com/private/image.png', new Set(['chatpalez.com']), uploads)).toBeNull();
+  });
 });

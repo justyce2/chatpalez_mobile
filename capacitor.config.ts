@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
   appName,
   webDir: 'dist',
   appendUserAgent: ' ChatPalezMobile/1.0',
-  loggingBehavior: 'debug',
+  loggingBehavior: 'none',
   server: {
     allowNavigation: ['chatpalez.com', 'www.chatpalez.com']
   },

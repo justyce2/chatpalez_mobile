@@ -427,7 +427,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         return true;
       }
 
-      if (currentDestination?.kind === 'web' && currentDestination.returnToChat && navigationStack.at(-1)?.kind === 'chat-thread') {
+      if (currentDestination?.kind === 'web' && currentDestination.returnToChat && navigationStack[navigationStack.length - 1]?.kind === 'chat-thread') {
         const thread = navigationStack.pop()!;
         currentDestination = thread;
         await renderDestination(thread, false);
@@ -577,7 +577,8 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
       if (record) {
         if (tab === 'messages' && currentDestination?.kind === 'chat-compose') {
-          if (navigationStack.at(-1)?.kind === 'local' && destinationKey(navigationStack.at(-1)!) === 'local:messages') navigationStack.pop();
+          const previous = navigationStack[navigationStack.length - 1];
+          if (previous?.kind === 'local' && destinationKey(previous) === 'local:messages') navigationStack.pop();
           currentDestination = { kind: 'local', tab: 'messages' };
           updateBackButton();
         } else {

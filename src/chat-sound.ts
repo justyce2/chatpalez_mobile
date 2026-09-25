@@ -19,7 +19,7 @@ export function setChatSoundEnabled(userId: number | string, enabled: boolean): 
 export function unlockChatAudio(userId: number | string): void {
   if (!isChatSoundEnabled(userId)) return;
   try {
-    audioContext ??= new window.AudioContext();
+    if (!audioContext) audioContext = new window.AudioContext();
     if (audioContext.state === 'suspended') void audioContext.resume();
   } catch { /* Audio is optional. */ }
 }

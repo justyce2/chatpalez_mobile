@@ -7,7 +7,7 @@ export function latestOutgoingReceipt(
   conversation: Conversation,
   seenNameList: string | undefined
 ): { messageId: string; status: 'sent' | 'seen' } | null {
-  const latest = messages.at(-1);
+  const latest = messages[messages.length - 1];
   if (!latest?.message_id || String(latest.user_id ?? latest.sender_id ?? '') !== String(userId)) return null;
   const direct = !conversation.multiple_recipients && !conversation.node_id;
   return {

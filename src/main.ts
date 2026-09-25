@@ -395,7 +395,7 @@ const shell = createAppShell(root, {
   onGoBackWebModule: () => webContentSurface.goBack(),
   onShowCreateActions: webContentSurface.isSupported() ? () => webContentSurface.showCreateActions() : undefined,
   onOpenPublicPage: openPublicModule,
-  resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source, config.allowedHosts),
+  resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source, config.allowedHosts, config.uploadsBaseUrl),
   onPickChatPhoto: Capacitor.isNativePlatform() ? pickNativeChatPhoto : undefined,
   onChatSoundChange: (enabled) => {
     void webContentSurface.setChatSoundEnabled(enabled).catch((error) => {

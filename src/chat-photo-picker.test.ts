@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
-const { chooseFromGallery } = vi.hoisted(() => ({ chooseFromGallery: vi.fn() }));
+const { chooseFromGallery, pick, platform } = vi.hoisted(() => ({
+  chooseFromGallery: vi.fn(), pick: vi.fn(), platform: { value: 'ios' }
+}));
 vi.mock('@capacitor/camera', () => ({
   Camera: { chooseFromGallery }, MediaTypeSelection: { Photo: 'photo' }
+}));
+vi.mock('@capacitor/core', () => ({
+  Capacitor: { getPlatform: () => platform.value, convertFileSrc: (uri: string) => `https://localhost/_capacitor_file_${uri.slice(7)}` },
+  registerPlugin: () => ({ pick })
 }));
 
 import { pickNativeChatPhoto } from './chat-photo-picker';
@@ -34,5 +40,22 @@ describe('native chat photo picker', () => {
     await expect(pickNativeChatPhoto()).rejects.toThrow('too large');
     expect(readBlob).not.toHaveBeenCalled();
     fetchMock.mockRestore();
+  });
+
+  it('uses a cached content stream on Android while preserving the iOS picker', async () => {
+    platform.value = 'android';
+    pick.mockResolvedValueOnce({ uri: 'file:///data/user/0/chatpalez/cache/photo.jpg', type: 'image/jpeg' });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true, headers: new Headers(), blob: async () => new Blob(['photo'], { type: 'image/jpeg' })
+    } as Response);
+    try {
+      const file = await pickNativeChatPhoto();
+      expect(file?.type).toBe('image/jpeg');
+      expect(fetchMock).toHaveBeenCalledWith('https://localhost/_capacitor_file_/data/user/0/chatpalez/cache/photo.jpg');
+      expect(chooseFromGallery).toHaveBeenCalledTimes(2);
+    } finally {
+      platform.value = 'ios';
+      fetchMock.mockRestore();
+    }
   });
 });

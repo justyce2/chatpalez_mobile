@@ -15,6 +15,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(WebContentSurfacePlugin.class);
+        registerPlugin(ChatPhotoPickerPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

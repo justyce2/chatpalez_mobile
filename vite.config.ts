@@ -4,7 +4,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    target: 'es2022'
+    target: 'es2019'
   },
   server: {
     host: true
