@@ -17,7 +17,7 @@ type OpenOptions = WebContentFrame & {
 };
 
 export type WebSurfaceCommand = {
-  type: 'share' | 'pick-media' | 'open-native' | 'open-external';
+  type: 'share' | 'pick-media' | 'open-native' | 'open-external' | 'open-chat';
   requestId?: string;
   payload?: unknown;
 };

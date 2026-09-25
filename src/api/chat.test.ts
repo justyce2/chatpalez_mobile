@@ -22,6 +22,22 @@ describe('ChatService', () => {
     expect(getPage).toHaveBeenCalledWith('chat/conversations', { offset: 2 });
   });
 
+  it('resolves an existing direct thread without creating or sending a message', async () => {
+    const get = vi.fn().mockResolvedValue({ conversation_id: 19, name: 'Ada' });
+    const post = vi.fn();
+    const chat = new ChatService({ get, post } as unknown as ChatPalezApiClient);
+
+    await expect(chat.getConversationForRecipient(42)).resolves.toEqual({ conversation_id: 19, name: 'Ada' });
+    expect(get).toHaveBeenCalledWith('chat/conversation', { conversation_id: 0, user_id: 42 });
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('uses an addressed draft when the engine has no mutual conversation', async () => {
+    const get = vi.fn().mockResolvedValue([]);
+    const chat = new ChatService({ get } as unknown as ChatPalezApiClient);
+    await expect(chat.getConversationForRecipient(42)).resolves.toBeNull();
+  });
+
   it('loads contact search through the official contacts endpoint', async () => {
     const getPage = vi.fn().mockResolvedValue({ data: [], hasMore: false });
     const api = { getPage, post: vi.fn() } as unknown as ChatPalezApiClient;

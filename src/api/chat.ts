@@ -94,6 +94,15 @@ export class ChatService {
     return this.api.getPage<Conversation[]>('chat/conversations', { offset });
   }
 
+  async getConversationForRecipient(userId: number | string): Promise<Conversation | null> {
+    const conversation = await this.api.get<Conversation | []>('chat/conversation', {
+      conversation_id: 0,
+      user_id: userId
+    });
+    return conversation && !Array.isArray(conversation) && conversation.conversation_id
+      ? conversation : null;
+  }
+
   async getContacts(query = '', offset = 0): Promise<ChatContact[]> {
     return (await this.getContactsPage(query, offset)).data;
   }

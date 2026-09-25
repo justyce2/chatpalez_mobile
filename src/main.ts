@@ -287,6 +287,23 @@ async function ensureWebSurfaceCommandRegistration(): Promise<void> {
           return;
         }
         void shell.navigateToNative(screen);
+        return;
+      }
+
+      if (command.type === 'open-chat') {
+        const payload = command.payload as { userId?: unknown; name?: unknown; username?: unknown; picture?: unknown } | undefined;
+        const id = String(payload?.userId ?? '');
+        if (!/^\d+$/.test(id) || id === '0') return;
+        if (!getSession()) {
+          renderLogin('Your session has expired. Sign in again to continue.');
+          return;
+        }
+        void shell.openChatRecipient({
+          user_id: id,
+          user_fullname: typeof payload?.name === 'string' ? payload.name : '',
+          user_name: typeof payload?.username === 'string' ? payload.username : '',
+          user_picture: typeof payload?.picture === 'string' ? payload.picture : ''
+        });
       }
     }).then(() => undefined).catch((error) => {
       webSurfaceCommandRegistration = null;
@@ -434,6 +451,7 @@ const shell = createAppShell(root, {
     logInfo('Conversation list loaded', { count: page.data.length, offset, hasMore: page.hasMore });
     return { items: page.data, hasMore: page.hasMore };
   },
+  onFindConversation: (recipientId) => chat.getConversationForRecipient(recipientId),
   onLoadContacts: async (query, offset) => {
     const page = await chat.getContactsPage(query, offset);
     logDebug('Chat contacts loaded', { query, count: page.data.length, offset, hasMore: page.hasMore });

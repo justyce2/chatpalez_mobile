@@ -71,8 +71,9 @@ public class WebContentSurfacePlugin extends Plugin {
         String userAgent = settings.getUserAgentString();
         if (userAgent == null) userAgent = "";
         if (!userAgent.contains("ChatPalezMobile/1.0")) {
-            settings.setUserAgentString(userAgent + " ChatPalezMobile/1.0");
+            userAgent += " ChatPalezMobile/1.0";
         }
+        settings.setUserAgentString(userAgent + " ChatPalezNativeChat/1.0");
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
@@ -475,7 +476,8 @@ public class WebContentSurfacePlugin extends Plugin {
             JSObject data = JSObject.fromJSONObject(new JSONObject(raw));
             String type = data.getString("type");
             if (!"share".equals(type) && !"pick-media".equals(type)
-                    && !"open-native".equals(type) && !"open-external".equals(type)) return;
+                    && !"open-native".equals(type) && !"open-external".equals(type)
+                    && !"open-chat".equals(type)) return;
             notifyListeners("command", data);
         } catch (Exception ignored) {
         }

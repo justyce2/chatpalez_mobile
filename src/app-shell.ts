@@ -43,6 +43,7 @@ export type AppShellHandlers = {
   onUpdatePassword?: (payload: { current: string; new: string; confirm: string }) => Promise<void>;
   onUpdatePrivacy?: (payload: Record<string, string | boolean>) => Promise<void>;
   onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
+  onFindConversation?: (recipientId: number | string) => Promise<Conversation | null>;
   onLoadContacts?: (query: string, offset: number) => Promise<PageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
   onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
@@ -68,6 +69,7 @@ export type AppShell = {
   showAuthenticated: (session: AuthSession, initialTab?: 'home' | 'messages' | 'notifications' | 'profile') => void;
   navigateBack: () => Promise<boolean>;
   navigateToNative: (screen: 'messages' | 'notifications' | 'profile') => Promise<boolean>;
+  openChatRecipient: (contact: ChatContact) => Promise<boolean>;
   setWebBackAvailable: (available: boolean) => void;
   setBusy: (busy: boolean, message?: string) => void;
   setRetryAction: (action: () => void) => void;
@@ -76,6 +78,7 @@ export type AppShell = {
 export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): AppShell {
   let activeBackHandler: (() => Promise<boolean>) | null = null;
   let activeNativeNavigationHandler: ((screen: 'messages' | 'notifications' | 'profile') => Promise<boolean>) | null = null;
+  let activeOpenChatRecipientHandler: ((contact: ChatContact) => Promise<boolean>) | null = null;
   let activeWebBackAvailabilityHandler: ((available: boolean) => void) | null = null;
   let retryAction: (() => void) | null = null;
   let authBackHandler: (() => boolean) | null = null;
@@ -371,7 +374,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       },
       onOpenThreadRoute: (conversation) => {
         if (!restoringDestination) {
-          if (currentDestination?.kind === 'chat-compose') {
+          if (currentDestination?.kind === 'chat-compose' && !currentDestination.contact) {
             currentDestination = { kind: 'local', tab: 'messages' };
           }
           recordDestination({ kind: 'chat-thread', conversation });
@@ -429,7 +432,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       | { kind: 'web'; path: string; title: string; activeTab: string; returnToChat?: boolean; returnToFriends?: boolean }
       | { kind: 'local'; tab: 'messages' | 'notifications' | 'profile' }
       | { kind: 'friends' }
-      | { kind: 'chat-compose' }
+      | { kind: 'chat-compose'; contact?: ChatContact }
       | { kind: 'chat-thread'; conversation: Conversation };
     const navigationStack: ShellDestination[] = [];
     let currentDestination: ShellDestination | null = null;
@@ -442,7 +445,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       if (destination.kind === 'web') return `web:${destination.path}`;
       if (destination.kind === 'local') return `local:${destination.tab}`;
       if (destination.kind === 'friends') return 'friends';
-      if (destination.kind === 'chat-compose') return 'chat:compose';
+      if (destination.kind === 'chat-compose') return destination.contact ? `chat:compose:${destination.contact.user_id}` : 'chat:compose';
       return `chat:thread:${destination.conversation.conversation_id}`;
     };
 
@@ -488,7 +491,10 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       content.classList.remove('mobile-content--web-surface');
       restoringDestination = true;
       try {
-        if (destination.kind === 'chat-compose') await chatScreen.openCompose();
+        if (destination.kind === 'chat-compose') {
+          if (destination.contact) await chatScreen.openRecipient(destination.contact);
+          else await chatScreen.openCompose();
+        }
         else await chatScreen.openConversation(destination.conversation);
       } finally {
         restoringDestination = false;
@@ -556,6 +562,25 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     activeBackHandler = navigateBack;
     activeNativeNavigationHandler = async (screen) => {
       await selectTab(screen, true);
+      return true;
+    };
+    activeOpenChatRecipientHandler = async (contact) => {
+      if (!handlers.onFindConversation || !contact.user_id) return false;
+      const version = ++transitionVersion;
+      let conversation: Conversation | null;
+      try {
+        conversation = await handlers.onFindConversation(contact.user_id);
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : 'Unable to open chat.');
+        return false;
+      }
+      if (version !== transitionVersion) return false;
+      const destination: ShellDestination = conversation
+        ? { kind: 'chat-thread', conversation }
+        : { kind: 'chat-compose', contact };
+      recordDestination(destination);
+      await renderDestination(destination, false);
+      updateBackButton();
       return true;
     };
     activeWebBackAvailabilityHandler = (available) => {
@@ -1379,6 +1404,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       return activeBackHandler ? activeBackHandler() : false;
     },
     navigateToNative: async (screen) => activeNativeNavigationHandler ? activeNativeNavigationHandler(screen) : false,
+    openChatRecipient: async (contact) => activeOpenChatRecipientHandler ? activeOpenChatRecipientHandler(contact) : false,
     setWebBackAvailable: (available) => activeWebBackAvailabilityHandler?.(available),
     setBusy,
     setRetryAction

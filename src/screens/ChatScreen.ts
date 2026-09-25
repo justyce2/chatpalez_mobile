@@ -168,6 +168,11 @@ export class ChatScreen {
     return this.renderNewChat();
   }
 
+  openRecipient(contact: ChatContact): Promise<void> {
+    this.handlers.onOpenComposeRoute?.();
+    return this.renderNewChat(contact);
+  }
+
   openConversation(conversation: Conversation): Promise<void> {
     this.handlers.onOpenThreadRoute?.(conversation);
     return this.renderConversation(conversation);
@@ -375,7 +380,7 @@ export class ChatScreen {
     }
   }
 
-  private async renderNewChat(): Promise<void> {
+  private async renderNewChat(initialContact?: ChatContact): Promise<void> {
     ++this.viewVersion;
     this.cleanupActiveThread();
     this.activeConversation = null;
@@ -385,9 +390,13 @@ export class ChatScreen {
     const back = secondaryButton('Back');
     back.classList.add('compact-button');
     back.addEventListener('click', () => this.handlers.onRequestBack?.());
-    header.append(back, title('New chat'));
-    this.content.append(header, paragraph('Select one person for a direct chat. Community group chats are managed in Groups.'));
-    if (this.handlers.onOpenCommunityGroups) {
+    const recipientName = initialContact
+      ? String(initialContact.user_fullname || [initialContact.user_firstname, initialContact.user_lastname].filter(Boolean).join(' ') || initialContact.user_name || 'Chat')
+      : '';
+    header.append(back, title(initialContact ? `Chat with ${recipientName}` : 'New chat'));
+    this.content.append(header);
+    if (!initialContact) this.content.append(paragraph('Select one person for a direct chat. Community group chats are managed in Groups.'));
+    if (!initialContact && this.handlers.onOpenCommunityGroups) {
       const groups = secondaryButton('Browse community groups');
       groups.addEventListener('click', () => this.handlers.onOpenCommunityGroups?.('/groups'));
       this.content.append(groups);
@@ -399,6 +408,7 @@ export class ChatScreen {
     }
 
     const selected = new Map<string, ChatContact>();
+    if (initialContact) selected.set(String(initialContact.user_id), initialContact);
     const chips = element('div', 'selected-contact-chips');
     chips.hidden = true;
     this.content.append(chips);
@@ -412,9 +422,11 @@ export class ChatScreen {
     search.type = 'submit';
     searchForm.append(query, search);
     this.content.append(searchForm);
+    searchForm.hidden = Boolean(initialContact);
 
     const results = element('div', 'contact-list');
     this.content.append(results);
+    results.hidden = Boolean(initialContact);
 
     const composer = document.createElement('form');
     composer.className = 'initial-message-form group-message-form';
@@ -438,15 +450,16 @@ export class ChatScreen {
       chips.hidden = selected.size === 0;
       composer.hidden = selected.size === 0;
       for (const [id, contact] of selected) {
-        const chip = element('button', 'selected-contact-chip');
-        chip.type = 'button';
+        const chip = element(initialContact ? 'span' : 'button', 'selected-contact-chip');
         const name = String(contact.user_fullname || contact.user_firstname || contact.user_name || `User ${contact.user_id}`);
-        chip.textContent = `${name} ×`;
-        chip.addEventListener('click', () => {
-          selected.delete(id);
-          refreshSelected();
-          void loadContacts();
-        });
+        chip.textContent = initialContact ? name : `${name} ×`;
+        if (!initialContact) {
+          chip.addEventListener('click', () => {
+            selected.delete(id);
+            refreshSelected();
+            void loadContacts();
+          });
+        }
         chips.append(chip);
       }
       send.textContent = 'Start chat';
@@ -518,7 +531,8 @@ export class ChatScreen {
         .finally(() => { send.disabled = false; refreshSelected(); });
     });
 
-    await loadContacts();
+    if (initialContact) refreshSelected();
+    else await loadContacts();
   }
 
   private async renderConversation(conversation: Conversation): Promise<void> {

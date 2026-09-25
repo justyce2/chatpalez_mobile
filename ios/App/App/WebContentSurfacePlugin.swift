@@ -40,7 +40,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         let webView = WKWebView(frame: .zero, configuration: configuration)
         // The dedicated WKWebView is outside Capacitor's primary web view, so
         // explicitly mirror the app UA marker required by mobile-session.php.
-        webView.customUserAgent = "Mozilla/5.0 ChatPalezMobile/1.0"
+        webView.customUserAgent = "Mozilla/5.0 ChatPalezMobile/1.0 ChatPalezNativeChat/1.0"
         webView.backgroundColor = .white
         webView.isOpaque = true
         webView.isHidden = true
@@ -282,7 +282,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         guard message.name == "ChatPalezNativeSurface",
               let body = message.body as? [String: Any],
               let type = body["type"] as? String,
-              ["share", "pick-media", "open-native", "open-external"].contains(type) else { return }
+              ["share", "pick-media", "open-native", "open-external", "open-chat"].contains(type) else { return }
         notifyListeners("command", data: body)
     }
 
