@@ -83,6 +83,20 @@ describe('ChatService', () => {
     });
   });
 
+  it('starts a recipient chat with a forwarded photo and caption through the engine route', async () => {
+    const post = vi.fn().mockResolvedValue({ conversation_id: 9 });
+    const chat = new ChatService({ post } as unknown as ChatPalezApiClient);
+    await chat.startConversation(42, '↪ Forwarded\nSee this', 'photos/2026/09/photo.jpg');
+    expect(post).toHaveBeenCalledWith('chat/message', {
+      conversation_id: null,
+      recipients: JSON.stringify(['42']),
+      message: '↪ Forwarded\nSee this',
+      photo: 'photos/2026/09/photo.jpg',
+      video: '',
+      voice_note: ''
+    });
+  });
+
   it('reads site chat capabilities without presenting them as per-user switches', async () => {
     const get = vi.fn().mockResolvedValue({ system: {
       chat_photos_enabled: '1', chat_typing_enabled: '0', chat_seen_enabled: true, chat_socket_enabled: 1

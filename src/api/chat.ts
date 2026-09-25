@@ -121,12 +121,12 @@ export class ChatService {
     });
   }
 
-  async startConversation(recipientId: number | string, message: string): Promise<Conversation> {
+  async startConversation(recipientId: number | string, message: string, photo = ''): Promise<Conversation> {
     const recipients = [String(recipientId)];
     return this.api.post<Conversation>('chat/message', {
       conversation_id: null,
       message,
-      photo: '',
+      photo,
       video: '',
       voice_note: '',
       recipients: JSON.stringify(recipients)

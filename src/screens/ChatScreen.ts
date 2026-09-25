@@ -8,6 +8,7 @@ import { mergeChatHistory } from '../chat-history';
 import { clearDirectChatHistory } from '../chat-clear';
 import { chatProfilePath } from '../chat-profile-route';
 import { chatMessageText } from '../chat-message-text';
+import { canForwardMessage, displayChatMessage, forwardedText } from '../chat-forward';
 import type { MobileAccount } from '../api/user';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -15,6 +16,7 @@ import { saveChatPhoto } from '../chat-photo-save';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
 export type ChatDeliveryTransport = 'realtime' | 'http';
+export type ChatSelectionState = { count: number; canForward: boolean; canDelete: boolean; canCopy: boolean };
 
 export type ChatScreenHandlers = {
   onConversationModeChange?: (active: boolean) => void;
@@ -24,6 +26,7 @@ export type ChatScreenHandlers = {
   onOpenCorrespondentProfile?: (path: string) => void;
   onRequestBack?: () => void;
   onThreadPresenceChange?: (conversationId: number | string, presence: string) => void;
+  onSelectionChange?: (selection: ChatSelectionState | null) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onPickChatPhoto?: () => Promise<File | null>;
   onChatSoundChange?: (enabled: boolean) => void;
@@ -32,6 +35,7 @@ export type ChatScreenHandlers = {
   onLoadConversations?: (offset: number) => Promise<ChatPageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<ChatPageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
+  onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
   onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<ChatDeliveryTransport>;
@@ -60,6 +64,10 @@ export class ChatScreen {
   private activeImagePreviewCleanup: (() => void) | null = null;
   private activeConversation: Conversation | null = null;
   private attachmentCleanup: (() => void) | null = null;
+  private readonly selectedMessages = new Map<string, Message>();
+  private selectionThread: HTMLElement | null = null;
+  private selectedRefresh: (() => Promise<void>) | null = null;
+  private forwardPickerCleanup: (() => void) | null = null;
   private readonly drafts = new Map<string, { text: string; photo: File | null }>();
   private viewVersion = 0;
 
@@ -741,6 +749,7 @@ export class ChatScreen {
           bubbles.find((bubble) => bubble.dataset.messageId === latestReceipt.messageId)?.append(marker);
         }
         thread.replaceChildren(loadOlder, ...bubbles);
+        if (this.selectedMessages.size) this.updateSelection();
         if (!renderedMessages.length) thread.append(paragraph('No messages yet.'));
         if (pendingBubble) thread.append(pendingBubble);
         if (anchorId && anchorTop !== undefined) {
@@ -899,6 +908,9 @@ export class ChatScreen {
   }
 
   private cleanupActiveThread(): void {
+    this.forwardPickerCleanup?.();
+    this.forwardPickerCleanup = null;
+    this.dismissSelection();
     this.activeImagePreviewCleanup?.();
     this.activeImagePreviewCleanup = null;
     this.activeMessageActionsCleanup?.();
@@ -910,6 +922,256 @@ export class ChatScreen {
     this.attachmentCleanup = null;
   }
 
+  dismissSelection(): boolean {
+    if (!this.selectedMessages.size && !this.selectionThread) return false;
+    this.selectedMessages.clear();
+    this.activeMessageActionsCleanup?.();
+    this.selectionThread?.querySelectorAll('.message-bubble.is-selected').forEach((bubble) => {
+      bubble.classList.remove('is-selected');
+      bubble.setAttribute('aria-selected', 'false');
+    });
+    this.selectionThread = null;
+    this.selectedRefresh = null;
+    this.handlers.onSelectionChange?.(null);
+    return true;
+  }
+
+  dismissForwardPicker(): boolean {
+    if (!this.forwardPickerCleanup) return false;
+    this.forwardPickerCleanup();
+    return true;
+  }
+
+  private updateSelection(): void {
+    const selected = [...this.selectedMessages.values()];
+    if (!selected.length) { this.dismissSelection(); return; }
+    this.selectionThread?.querySelectorAll<HTMLDivElement>('.message-bubble[data-message-id]').forEach((bubble) => {
+      const active = this.selectedMessages.has(bubble.dataset.messageId!);
+      bubble.classList.toggle('is-selected', active);
+      bubble.setAttribute('aria-selected', String(active));
+    });
+    if (selected.length > 1) this.activeMessageActionsCleanup?.();
+    this.handlers.onSelectionChange?.({
+      count: selected.length,
+      canForward: Boolean(this.handlers.onForwardMessage) && selected.every(canForwardMessage),
+      canDelete: Boolean(this.handlers.onDeleteMessage) && selected.every((item) =>
+        String(item.user_id ?? item.sender_id ?? '') === String(this.session.user.user_id)),
+      canCopy: selected.length === 1 && Boolean(displayChatMessage(selected[0]).text)
+    });
+  }
+
+  private toggleMessageSelection(message: Message, thread: HTMLElement, refresh: () => Promise<void>): void {
+    if (message.message_id == null) return;
+    const id = String(message.message_id);
+    if (this.selectedMessages.has(id)) this.selectedMessages.delete(id);
+    else this.selectedMessages.set(id, message);
+    this.selectionThread = thread;
+    this.selectedRefresh = refresh;
+    this.updateSelection();
+  }
+
+  async copySelected(): Promise<void> {
+    const selected = [...this.selectedMessages.values()];
+    if (selected.length !== 1) return;
+    const text = displayChatMessage(selected[0]).text;
+    if (!text) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const field = document.createElement('textarea');
+        field.value = text;
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.append(field);
+        field.select();
+        const copied = document.execCommand('copy');
+        field.remove();
+        if (!copied) throw new Error('Copy failed');
+      }
+      this.dismissSelection();
+    } catch {
+      window.alert('Unable to copy this message.');
+    }
+  }
+
+  forwardSelected(): void {
+    const selected = [...this.selectedMessages.values()];
+    if (!selected.length || !selected.every(canForwardMessage) || !this.handlers.onForwardMessage
+      || !this.handlers.onLoadConversations || !this.handlers.onLoadContacts) return;
+    this.forwardPickerCleanup?.();
+    const refresh = this.selectedRefresh;
+    const version = this.viewVersion;
+    const backdrop = element('div', 'chat-forward-picker');
+    backdrop.setAttribute('role', 'dialog');
+    backdrop.setAttribute('aria-modal', 'true');
+    backdrop.setAttribute('aria-label', 'Forward to a ChatPalez chat');
+    const panel = element('div', 'chat-forward-picker__panel');
+    const heading = element('div', 'chat-forward-picker__heading');
+    heading.append(elementWithText('strong', `Forward ${selected.length} message${selected.length === 1 ? '' : 's'}`));
+    const closeButton = secondaryButton('×');
+    closeButton.setAttribute('aria-label', 'Close forwarding');
+    heading.append(closeButton);
+    const search = document.createElement('form');
+    search.className = 'contact-search';
+    const query = document.createElement('input');
+    query.type = 'search';
+    query.placeholder = 'Search people';
+    query.setAttribute('aria-label', 'Search people to forward to');
+    const searchButton = primaryButton('Search');
+    searchButton.type = 'submit';
+    search.append(query, searchButton);
+    const recent = secondaryButton('Recent chats');
+    const status = paragraph('Choose a conversation or search for a person.');
+    status.setAttribute('aria-live', 'polite');
+    const results = element('div', 'chat-forward-picker__results');
+    const more = secondaryButton('Load more');
+    more.hidden = true;
+    panel.append(heading, search, recent, status, results, more);
+    backdrop.append(panel);
+    let closed = false;
+    let busy = false;
+    let failed = false;
+    let contacts = false;
+    let offset = 0;
+    let loadVersion = 0;
+    const close = (): void => {
+      closed = true;
+      backdrop.remove();
+      document.removeEventListener('keydown', onKeydown);
+      if (this.forwardPickerCleanup === close) this.forwardPickerCleanup = null;
+    };
+    const onKeydown = (event: KeyboardEvent): void => { if (event.key === 'Escape' && !busy) close(); };
+    const send = async (target: { conversationId?: number | string; recipientId?: number | string }): Promise<void> => {
+      if (busy || failed) return;
+      busy = true;
+      results.querySelectorAll<HTMLButtonElement>('button').forEach((button) => { button.disabled = true; });
+      more.disabled = true;
+      let sent = 0;
+      try {
+        for (const item of selected) {
+          status.textContent = `Forwarding ${sent + 1} of ${selected.length}…`;
+          const result = await this.handlers.onForwardMessage!(
+            target,
+            forwardedText(displayChatMessage(item).text),
+            String(item.image || item.photo || '')
+          );
+          sent += 1;
+          if (closed) return;
+          if (result.conversation_id === undefined || result.conversation_id === null) {
+            throw new Error('The destination chat could not be confirmed.');
+          }
+          target = { conversationId: result.conversation_id };
+        }
+        close();
+        this.dismissSelection();
+        if (target.conversationId !== undefined
+          && String(target.conversationId) === String(this.activeConversation?.conversation_id)) {
+          await refresh?.();
+        }
+      } catch (error) {
+        failed = true;
+        for (const item of selected.slice(0, sent)) this.selectedMessages.delete(String(item.message_id));
+        if (sent) this.updateSelection();
+        if (!closed) status.textContent = `${sent} of ${selected.length} confirmed. Delivery of the next message is uncertain. Check the destination chat before trying again. ${error instanceof Error ? error.message : ''}`;
+      } finally {
+        busy = false;
+        if (!closed && !failed) {
+          results.querySelectorAll<HTMLButtonElement>('button').forEach((button) => { button.disabled = false; });
+          more.disabled = false;
+        }
+      }
+    };
+    const addRow = (name: string, target: { conversationId?: number | string; recipientId?: number | string }): void => {
+      const row = secondaryButton(name);
+      row.className = 'chat-forward-picker__row';
+      row.addEventListener('click', () => { void send(target); });
+      results.append(row);
+    };
+    const load = async (append = false): Promise<void> => {
+      if (busy || failed) return;
+      const request = ++loadVersion;
+      if (!append) { results.replaceChildren(); offset = 0; }
+      status.textContent = 'Loading destinations…';
+      try {
+        if (contacts) {
+          const page = await this.handlers.onLoadContacts!(query.value.trim(), offset);
+          if (closed || version !== this.viewVersion || request !== loadVersion) return;
+          for (const person of page.items) addRow(
+            String(person.user_fullname || person.user_firstname || person.user_name || `User ${person.user_id}`),
+            { recipientId: person.user_id }
+          );
+          more.hidden = !page.hasMore;
+        } else {
+          const page = await this.handlers.onLoadConversations!(offset);
+          if (closed || version !== this.viewVersion || request !== loadVersion) return;
+          for (const chat of page.items) addRow(
+            String(chat.name || chat.name_list || `Chat ${chat.conversation_id}`),
+            { conversationId: chat.conversation_id }
+          );
+          more.hidden = !page.hasMore;
+        }
+        status.textContent = results.childElementCount ? 'Choose where to forward.' : 'No matching chats found.';
+      } catch (error) {
+        if (!closed && request === loadVersion) status.textContent = error instanceof Error ? error.message : 'Unable to load chats.';
+      }
+    };
+    closeButton.addEventListener('click', () => { if (!busy) close(); });
+    search.addEventListener('submit', (event) => {
+      event.preventDefault();
+      contacts = true;
+      void load();
+    });
+    recent.addEventListener('click', () => { contacts = false; query.value = ''; void load(); });
+    more.addEventListener('click', () => { offset += 1; void load(true); });
+    document.addEventListener('keydown', onKeydown);
+    document.body.append(backdrop);
+    this.forwardPickerCleanup = close;
+    void load();
+    closeButton.focus();
+  }
+
+  async shareSelectedOutside(): Promise<void> {
+    const selected = [...this.selectedMessages.values()];
+    if (!selected.length) return;
+    if (selected.length === 1) {
+      const item = selected[0];
+      const shared = await this.shareMessage(
+        displayChatMessage(item).text,
+        this.handlers.resolveChatPhotoUrl?.(item.image || item.photo || '') || undefined
+      );
+      if (shared) this.dismissSelection();
+      return;
+    }
+    const chunks = selected.map((item) => [
+      displayChatMessage(item).text,
+      this.handlers.resolveChatPhotoUrl?.(item.image || item.photo || '')
+    ].filter(Boolean).join('\n'));
+    if (await this.shareMessage(chunks.join('\n\n'))) this.dismissSelection();
+  }
+
+  async deleteSelected(): Promise<void> {
+    const selected = [...this.selectedMessages.values()];
+    if (!selected.length || !this.handlers.onDeleteMessage ||
+      selected.some((item) => String(item.user_id ?? item.sender_id ?? '') !== String(this.session.user.user_id))) return;
+    if (!window.confirm(`Delete ${selected.length} selected message${selected.length === 1 ? '' : 's'}?`)) return;
+    const refresh = this.selectedRefresh;
+    let deleted = 0;
+    try {
+      for (const item of selected) {
+        await this.handlers.onDeleteMessage(item.message_id!);
+        deleted += 1;
+      }
+      this.dismissSelection();
+      await refresh?.();
+    } catch (error) {
+      for (const item of selected.slice(0, deleted)) this.selectedMessages.delete(String(item.message_id));
+      this.updateSelection();
+      window.alert(`${deleted} deleted. ${error instanceof Error ? error.message : 'Unable to delete the remaining messages.'}`);
+      await refresh?.();
+    }
+  }
+
   private messageBubble(message: Message, refresh: () => Promise<void>): HTMLDivElement {
     const bubble = element('div', 'message-bubble');
     if (message.message_id != null) bubble.dataset.messageId = String(message.message_id);
@@ -917,8 +1179,13 @@ export class ChatScreen {
     const mine = senderId && senderId === String(this.session.user.user_id ?? '');
     if (mine) bubble.classList.add('is-mine');
 
-    const body = chatMessageText(message);
+    const { text: body, forwarded } = displayChatMessage(message);
     const photoUrl = this.handlers.resolveChatPhotoUrl?.(message.image || message.photo || '');
+    if (forwarded) {
+      const label = elementWithText('small', 'Forwarded');
+      label.className = 'message-forwarded-label';
+      bubble.append(label);
+    }
     if (photoUrl) {
       const openPhoto = element('button', 'message-photo-open');
       openPhoto.type = 'button';
@@ -933,6 +1200,10 @@ export class ChatScreen {
         event.stopPropagation();
         if (bubble.dataset.longPressHandled === '1') {
           delete bubble.dataset.longPressHandled;
+          return;
+        }
+        if (this.selectedMessages.size) {
+          this.toggleMessageSelection(message, bubble.parentElement ?? this.content, refresh);
           return;
         }
         this.openImagePreview(photoUrl);
@@ -958,7 +1229,7 @@ export class ChatScreen {
       if (emoji) bubble.append(elementWithText('small', `${emoji} Your reaction`));
     }
     if (message.message_id) {
-      this.installMessageActions(bubble, message.message_id, Boolean(mine), refresh, body, photoUrl || undefined);
+      this.installMessageActions(bubble, message, refresh);
     }
     return bubble;
   }
@@ -977,8 +1248,11 @@ export class ChatScreen {
     image.alt = 'Full-size shared photo';
     const viewport = element('div', 'chat-image-preview__viewport');
     viewport.append(image);
-    const save = secondaryButton('Save to Files');
+    const save = secondaryButton('');
     save.className = 'chat-image-preview__save';
+    save.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg>';
+    save.setAttribute('aria-label', 'Save photo to Files');
+    save.title = 'Save photo to Files';
     save.addEventListener('click', () => {
       save.disabled = true;
       void saveChatPhoto(photoUrl).catch((error: unknown) => {
@@ -1049,7 +1323,7 @@ export class ChatScreen {
     close.focus();
   }
 
-  private async shareMessage(body: string, photoUrl?: string): Promise<void> {
+  private async shareMessage(body: string, photoUrl?: string): Promise<boolean> {
     try {
       if (Capacitor.isNativePlatform()) {
         await Share.share({ title: 'ChatPalez message', text: body || undefined, url: photoUrl });
@@ -1059,20 +1333,19 @@ export class ChatScreen {
         await navigator.clipboard.writeText([body, photoUrl].filter(Boolean).join('\n'));
         window.alert('Message copied. You can paste it into another app.');
       }
+      return true;
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      if (/cancel/i.test(error instanceof Error ? error.message : String(error))) return;
+      if (error instanceof DOMException && error.name === 'AbortError') return false;
+      if (/cancel/i.test(error instanceof Error ? error.message : String(error))) return false;
       window.alert(error instanceof Error ? error.message : 'Unable to share this message.');
+      return false;
     }
   }
 
   private installMessageActions(
     bubble: HTMLDivElement,
-    messageId: number | string,
-    mine: boolean,
-    refresh: () => Promise<void>,
-    body: string,
-    photoUrl?: string
+    message: Message,
+    refresh: () => Promise<void>
   ): void {
     bubble.tabIndex = 0;
     bubble.setAttribute('aria-label', 'Message. Long press for actions.');
@@ -1084,47 +1357,36 @@ export class ChatScreen {
       cancel();
       bubble.dataset.longPressHandled = '1';
       this.activeMessageActionsCleanup?.();
-      const backdrop = element('div', 'message-actions-backdrop');
+      if (!this.selectedMessages.has(String(message.message_id))) {
+        this.toggleMessageSelection(message, bubble.parentElement ?? this.content, refresh);
+      }
+      if (this.selectedMessages.size !== 1) return;
       const menu = element('div', 'message-actions-menu');
-      menu.setAttribute('role', 'dialog');
-      menu.setAttribute('aria-label', 'Message actions');
+      menu.setAttribute('role', 'group');
+      menu.setAttribute('aria-label', 'React to selected message');
       const close = (): void => {
-        backdrop.remove();
         menu.remove();
         document.removeEventListener('keydown', onEscape);
         if (this.activeMessageActionsCleanup === close) this.activeMessageActionsCleanup = null;
       };
       const onEscape = (event: KeyboardEvent): void => { if (event.key === 'Escape') close(); };
-      backdrop.addEventListener('click', close);
       document.addEventListener('keydown', onEscape);
       for (const choice of reactionChoices) {
         if (!this.handlers.onReactToMessage) break;
-        const button = secondaryButton(`${choice.emoji} ${choice.label}`);
+        const button = secondaryButton(choice.emoji);
         button.classList.add('message-actions-menu__reaction');
+        button.setAttribute('aria-label', choice.label);
         button.addEventListener('click', () => {
           close();
-          void this.handlers.onReactToMessage!(messageId, choice.value)
+          void this.handlers.onReactToMessage!(message.message_id!, choice.value)
             .then(() => refresh())
             .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to react.'));
+          this.dismissSelection();
         });
         menu.append(button);
       }
-      const share = secondaryButton('Share');
-      share.addEventListener('click', () => { close(); void this.shareMessage(body, photoUrl); });
-      menu.append(share);
-      if (mine && this.handlers.onDeleteMessage) {
-        const remove = secondaryButton('Delete message');
-        remove.classList.add('message-actions-menu__delete');
-        remove.addEventListener('click', () => {
-          close();
-          if (!window.confirm('Delete this message?')) return;
-          void this.handlers.onDeleteMessage!(messageId)
-            .then(() => refresh())
-            .catch((error: unknown) => window.alert(error instanceof Error ? error.message : 'Unable to delete message.'));
-        });
-        menu.append(remove);
-      }
-      document.body.append(backdrop, menu);
+      if (!menu.childElementCount) return;
+      document.body.append(menu);
       this.activeMessageActionsCleanup = close;
       const rect = bubble.getBoundingClientRect();
       menu.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 12))}px`;
@@ -1152,6 +1414,11 @@ export class ChatScreen {
     bubble.addEventListener('pointercancel', finishPress);
     bubble.addEventListener('pointerleave', finishPress);
     bubble.addEventListener('contextmenu', (event) => { event.preventDefault(); show(); });
+    bubble.addEventListener('click', (event) => {
+      if (event.target instanceof Element && event.target.closest('.message-photo-open')) return;
+      if (bubble.dataset.longPressHandled === '1') { delete bubble.dataset.longPressHandled; return; }
+      if (this.selectedMessages.size) this.toggleMessageSelection(message, bubble.parentElement ?? this.content, refresh);
+    });
     bubble.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ' || (event.shiftKey && event.key === 'F10')) {
         event.preventDefault();

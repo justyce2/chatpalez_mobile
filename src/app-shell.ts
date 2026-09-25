@@ -39,6 +39,7 @@ export type AppShellHandlers = {
   onLoadConversations?: (offset: number) => Promise<PageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<PageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
+  onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
   onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<ChatDeliveryTransport>;
@@ -230,6 +231,45 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     threadMore.addEventListener('click', () => chatScreen.openConversationActions());
     actionRow.append(backButton, topActions, threadMore);
     topbar.append(brandRow, actionRow);
+    const selectionBar = element('div', 'chat-selection-bar');
+    selectionBar.hidden = true;
+    const selectionBack = document.createElement('button');
+    selectionBack.type = 'button';
+    selectionBack.className = 'app-back-button';
+    selectionBack.setAttribute('aria-label', 'Cancel message selection');
+    const selectionBackGlyph = element('span', 'app-back-button__glyph');
+    selectionBackGlyph.setAttribute('aria-hidden', 'true');
+    selectionBack.append(selectionBackGlyph);
+    selectionBack.addEventListener('click', () => chatScreen.dismissSelection());
+    const selectionCount = element('strong', 'chat-selection-bar__count');
+    const selectionActions = element('div', 'chat-selection-bar__actions');
+    const selectionAction = (icon: string, label: string, action: () => void): HTMLButtonElement => {
+      const button = element('button', 'chat-selection-bar__button');
+      button.type = 'button';
+      button.textContent = icon;
+      button.setAttribute('aria-label', label);
+      button.title = label;
+      button.addEventListener('click', action);
+      return button;
+    };
+    const forwardAction = selectionAction('↪', 'Forward within ChatPalez', () => chatScreen.forwardSelected());
+    const shareAction = selectionAction('↗', 'Share outside ChatPalez', () => { void chatScreen.shareSelectedOutside(); });
+    const deleteAction = selectionAction('', 'Delete selected messages', () => { void chatScreen.deleteSelected(); });
+    deleteAction.innerHTML = '<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6"/></svg>';
+    const moreAction = selectionAction('⋮', 'More selected message actions', () => { selectionMenu.hidden = !selectionMenu.hidden; });
+    const selectionMenu = element('div', 'chat-selection-bar__menu');
+    selectionMenu.hidden = true;
+    const copyAction = element('button', 'chat-selection-bar__menu-action');
+    copyAction.type = 'button';
+    copyAction.textContent = 'Copy text';
+    copyAction.addEventListener('click', () => {
+      selectionMenu.hidden = true;
+      void chatScreen.copySelected();
+    });
+    selectionMenu.append(copyAction);
+    selectionActions.append(forwardAction, shareAction, deleteAction, moreAction, selectionMenu);
+    selectionBar.append(selectionBack, selectionCount, selectionActions);
+    topbar.append(selectionBar);
 
     const content = element('main', 'mobile-content');
     const nav = element('nav', 'bottom-tabs');
@@ -291,12 +331,29 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     });
     const chatScreen = new ChatScreen(content, session, {
       onConversationModeChange: (active) => {
+        if (!active) {
+          selectionBar.hidden = true;
+          selectionMenu.hidden = true;
+          layout.classList.remove('is-selecting-chat');
+        }
         layout.classList.toggle('is-active-conversation', active);
         nav.hidden = active;
         brand.hidden = active;
         threadIdentity.hidden = !active;
         topActions.hidden = active;
         threadMore.hidden = !active;
+      },
+      onSelectionChange: (selection) => {
+        selectionBar.hidden = !selection;
+        layout.classList.toggle('is-selecting-chat', Boolean(selection));
+        selectionMenu.hidden = true;
+        if (!selection) return;
+        selectionCount.textContent = `${selection.count} selected`;
+        forwardAction.disabled = !selection.canForward;
+        forwardAction.title = selection.canForward ? 'Forward within ChatPalez' : 'Only ordinary text and photos can be forwarded';
+        deleteAction.hidden = !selection.canDelete;
+        copyAction.hidden = !selection.canCopy;
+        moreAction.hidden = !selection.canCopy;
       },
       onOpenThreadRoute: (conversation) => {
         if (!restoringDestination) {
@@ -341,6 +398,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onLoadConversations: handlers.onLoadConversations,
       onLoadContacts: handlers.onLoadContacts,
       onStartConversation: handlers.onStartConversation,
+      onForwardMessage: handlers.onForwardMessage,
       onLoadChatFeatures: handlers.onLoadChatFeatures,
       onLoadMessages: handlers.onLoadMessages,
       onSendMessage: handlers.onSendMessage,
@@ -420,6 +478,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       if (backInProgress) return true;
       backInProgress = true;
       try {
+      if (chatScreen.dismissForwardPicker() || chatScreen.dismissSelection()) return true;
       const sheet = layout.querySelector('.shared-action-sheet, .chat-settings-sheet');
       if (sheet) {
         sheet.remove();
