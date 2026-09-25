@@ -1,0 +1,48 @@
+{
+  "name": "chatpalez-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hybrid Android and iOS client for ChatPalez",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "verify:native": "node scripts/verify-native-config.mjs",
+    "build:metadata": "node scripts/build-metadata.mjs",
+    "preview": "vite preview",
+    "cap:sync": "npm run build && cap sync",
+    "cap:copy": "npm run build && cap copy",
+    "cap:add:android": "npm run build && cap add android",
+    "cap:add:ios": "npm run build && cap add ios",
+    "android": "npm run cap:sync && cap open android",
+    "ios": "npm run cap:sync && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/app-launcher": "^8.0.0",
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/keyboard": "^8.0.0",
+    "@capacitor/network": "^8.0.0",
+    "@capacitor/share": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
+    "@onesignal/capacitor-plugin": "^1.1.12",
+    "@aparajita/capacitor-secure-storage": "^8.0.0",
+    "@capacitor/camera": "^8.0.0",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

@@ -2,7 +2,8 @@
 
 **Repository:** `justyce2/chatpalez_mobile`  
 **Architecture source:** `docs/ARCHITECTURE_AND_SCOPE.md`  
-**Target:** Android + iOS hybrid mobile application using Capacitor  
+**Compliance source:** `docs/APP_STORE_COMPLIANCE.md`  
+**Target:** Android + iOS progressive hybrid application using Capacitor + selective APIs + retained web-backed modules  
 **Initial delivery window:** 2 weeks / 10 working days
 
 ---
@@ -13,8 +14,8 @@
 |---|---|
 | Planned | Accepted but not started |
 | In Progress | Actively being implemented |
-| Blocked | Waiting on a dependency, account, key, decision or backend change |
-| Testing | Implemented and undergoing verification |
+| Blocked | Waiting on a dependency, account, credential, asset or external decision |
+| Testing | Implemented and awaiting runtime/integration/device acceptance |
 | Completed | Implemented and acceptance checks passed |
 | Deferred | Deliberately moved beyond the initial release |
 
@@ -24,15 +25,17 @@
 
 | Metric | Current |
 |---|---:|
-| Total tracked tasks | 63 |
-| Completed | 2 |
+| Total tracked tasks | 108 |
+| Completed | 15 |
 | In Progress | 0 |
-| Testing | 0 |
-| Blocked | 0 |
-| Planned | 61 |
+| Testing | 34 |
+| Blocked | 9 |
+| Planned | 50 |
 | Deferred | 0 |
 
-> Update rule: whenever a feature or task is completed, update its row, completion count, notes and—where relevant—the commit/PR reference.
+> Architecture rule: new high-visibility mobile screens should prefer local/API-driven implementation when existing ChatPalez APIs can support them safely. Backend/template changes are a last resort. Retained web modules must sit behind the local app shell rather than becoming the app shell.
+
+> Automation rule: GitHub Actions are currently disabled by project-owner instruction. Do not recreate Actions workflows unless explicitly requested.
 
 ---
 
@@ -40,13 +43,13 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| A-01 | Inspect existing ChatPalez backend architecture | Completed | Backend/frontend architecture and mobile implementation approach identified | Access to `chatpalez-backend-2` | Existing PHP/Smarty/Bootstrap architecture reviewed |
-| A-02 | Define mobile architecture and scope | Completed | Architecture, scope, delivery phases, risks and DoD documented | A-01 | See `ARCHITECTURE_AND_SCOPE.md` |
-| A-03 | Validate production/staging web origin strategy | Planned | Approved URL(s), SSL behavior and environment approach documented | Backend URL/access | Determine staging vs production integration |
-| A-04 | Confirm Android application ID | Planned | Final unique package ID approved | Client/product decision | Must be stable before store release |
-| A-05 | Confirm iOS bundle identifier | Planned | Final unique bundle ID approved | Apple Developer account | Must match App Store configuration |
-| A-06 | Confirm app display name and branding assets | Planned | Name, icon source and splash assets approved | Client assets | Needed for native project branding |
-| A-07 | Confirm minimum Android/iOS support targets | Planned | Minimum supported versions recorded in project docs/config | Capacitor version decision | Prefer currently supported versions |
+| A-01 | Inspect existing ChatPalez backend architecture | Completed | Backend/frontend architecture identified | Backend access | PHP/Smarty/Bootstrap architecture reviewed |
+| A-02 | Define mobile architecture and scope | Completed | Architecture, scope, phases, risks and DoD documented | A-01 | Progressive hybrid architecture now approved |
+| A-03 | Validate production/staging origin strategy | Completed | Approved URL/SSL/environment approach documented | Backend URL | Production origin `https://chatpalez.com` verified |
+| A-04 | Confirm Android application ID | Completed | Existing store package identity preserved | Existing Android listing | `chatpalez.app.webview` |
+| A-05 | Confirm iOS bundle identifier | Blocked | Bundle ID owned/approved in Apple Developer account | Apple Developer account | Native project currently uses `chatpalez.app.webview` |
+| A-06 | Confirm app display name and branding assets | Blocked | Final name/icon/splash approved | Client assets | Display name ChatPalez; authoritative store artwork still required |
+| A-07 | Confirm minimum Android/iOS support targets | Completed | Support versions documented | Product decision | Android API 24+ / target+compile 36; iOS 15+ |
 
 ---
 
@@ -54,31 +57,31 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| B-01 | Initialize Node/TypeScript project | Planned | `package.json`, TypeScript config and scripts committed | None | Shared mobile project foundation |
-| B-02 | Install and configure Capacitor core/CLI | Planned | Capacitor initialized with valid config | B-01, A-04, A-05 | No secrets in config |
-| B-03 | Create minimal local app shell | Planned | Local shell renders loading/error/offline states | B-02 | Avoid blank WebView experience |
-| B-04 | Add Android Capacitor project | Planned | `android/` project generated and sync succeeds | B-02 | Build from Android Studio/CLI |
-| B-05 | Add iOS Capacitor project | Planned | `ios/` project generated and sync succeeds | B-02 | Requires macOS/Xcode for build verification |
-| B-06 | Add environment/config abstraction | Planned | Dev/prod origins and non-secret config separated cleanly | B-02 | Prevent hard-coded production assumptions |
-| B-07 | Add `.gitignore` and secret-safety rules | Planned | Native build artifacts, local configs and credentials excluded | B-01 | Mandatory before native credentials |
-| B-08 | Add project README/build instructions | Planned | Fresh developer can understand setup/build flow | B-01–B-07 | Update throughout implementation |
+| B-01 | Initialize Node/TypeScript project | Completed | TypeScript/Vite project committed | None | Foundation exists on `develop` |
+| B-02 | Install/configure Capacitor | Completed | Capacitor initialized with valid config | B-01 | Capacitor 8 configured |
+| B-03 | Create local application shell | Testing | Local startup/loading/error/offline shell works | B-02 | Must now evolve into primary progressive-hybrid shell |
+| B-04 | Add Android project | Completed | Android project builds | B-02 | `chatpalez.app.webview` |
+| B-05 | Add iOS project | Completed | iOS project builds without signing | B-02 | Bundle currently `chatpalez.app.webview` |
+| B-06 | Add environment/config abstraction | Completed | Origins/non-secret config separated | B-02 | Secrets excluded |
+| B-07 | Add `.gitignore` and secret-safety rules | Completed | Sensitive/native artifacts excluded | B-01 | APNs/Firebase/signing/env exclusions present |
+| B-08 | Add README/build instructions | Completed | Fresh developer can understand setup | B-01–B-07 | Current instructions documented |
 
 ---
 
-# EPIC C — Secure Web Container and Navigation
+# EPIC C — Secure Web-backed Modules and Navigation
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| C-01 | Load approved ChatPalez origin in app | Planned | App consistently opens correct mobile experience | B-03, A-03 | HTTPS only in production |
-| C-02 | Implement trusted-host allow-list | Planned | Only approved ChatPalez origins can remain inside app WebView | C-01 | Security-critical |
-| C-03 | Implement external URL interception | Planned | External links open with appropriate system/browser behavior | C-02 | Handle `http/https` intentionally |
-| C-04 | Handle `tel:` / `mailto:` / app links | Planned | Supported URI schemes hand off to OS correctly | C-03 | Graceful failure if target app unavailable |
-| C-05 | Implement popup/new-window handling | Planned | Links using new window do not fail silently | C-03 | Common with OAuth/social links |
-| C-06 | Implement Android back-button behavior | Planned | Back navigates history correctly and root behavior is predictable | C-01 | Must not exit unexpectedly |
-| C-07 | Define iOS navigation/back behavior | Planned | Web history and native gestures produce acceptable UX | C-01 | Validate WKWebView behavior |
-| C-08 | Implement loading state | Planned | User sees intentional loading UI before remote content is ready | B-03, C-01 | No blank screen |
-| C-09 | Implement server/error state | Planned | SSL/load/server errors show recoverable UI | B-03, C-01 | Include retry |
-| C-10 | Implement offline state and reconnect | Planned | Offline state shown; app can recover after network returns | C-01 | Test cold start + mid-session loss |
+| C-01 | Load approved ChatPalez origin as controlled web module | Testing | Web-backed modules consistently load approved origin | B-03, A-03 | No longer intended to be the complete app shell |
+| C-02 | Implement trusted-host policy | Testing | Only approved ChatPalez origin is internal | C-01 | URL policy tests exist |
+| C-03 | Implement external URL interception | Testing | External URLs leave app container | C-02 | Native Browser/AppLauncher bridge implemented |
+| C-04 | Handle `tel:` / `mailto:` / app links | Testing | Supported schemes hand off to OS | C-03 | Runtime acceptance pending |
+| C-05 | Handle popup/new-window flows | Testing | OAuth/external windows behave safely | C-03 | Runtime/OAuth testing pending |
+| C-06 | Implement Android back behavior | Testing | Back works across local/web navigation | B-03 | Must be retested once local navigation shell is introduced |
+| C-07 | Define iOS navigation/back behavior | Testing | Local/web history and swipe UX acceptable | B-03 | WKWebView swipe behavior implemented |
+| C-08 | Implement loading state | Testing | App controls loading UI | B-03 | Existing loading shell must wrap both local and web modules |
+| C-09 | Implement server/error state | Testing | Server failures are recoverable | B-03 | Local fallback exists |
+| C-10 | Implement offline/reconnect state | Testing | App recovers from connection loss | B-03 | Runtime acceptance pending |
 
 ---
 
@@ -86,28 +89,28 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| D-01 | Verify standard login in Android WebView | Planned | Login succeeds and lands on expected authenticated screen | C-01 | Use real test account |
-| D-02 | Verify standard login in iOS WKWebView | Planned | Login succeeds and lands on expected authenticated screen | C-01, B-05 | Requires iOS runtime |
-| D-03 | Verify session persistence after app restart | Planned | Authenticated user remains signed in as expected | D-01, D-02 | Review cookie/session behavior |
-| D-04 | Verify logout synchronization | Planned | Server logout clears mobile session correctly | D-01, D-02 | No stale authenticated WebView |
-| D-05 | Handle expired/invalid server session | Planned | User is redirected safely to login when session expires | D-03 | No redirect loops |
-| D-06 | Verify CSRF/session-token compatibility | Planned | Posting/forms/actions work without mobile-specific CSRF failures | D-01, D-02 | Backend fix if needed |
-| D-07 | Test enabled social/OAuth login flows | Planned | Enabled providers return correctly to app/session | C-05, D-01, D-02 | May require callback/deep-link work |
-| D-08 | Add official-mobile-shell detection mechanism | Planned | Backend/client can reliably distinguish official app context | Backend change if required | Useful for bridge and UI adjustments |
+| D-01 | Audit API authentication endpoints | Completed | Login/current-user/logout/session model documented | N-01 | Official audit and client contracts complete |
+| D-02 | Implement local/API-driven login UI | Testing | User can authenticate from local mobile screen | D-01, N-02 | Source complete; native/deployed acceptance pending |
+| D-03 | Design API ↔ retained-web session continuity | Testing | API-authenticated user can enter web-backed modules safely | D-01 | Existing isolated bridge requires Android/iOS validation |
+| D-04 | Verify logout synchronization | Testing | API/local/native/web identities all clear predictably | D-02,D-03 | Includes OneSignal identity logout; device validation pending |
+| D-05 | Handle expired/invalid auth | Testing | User returns safely to local login without loops | D-02,D-03 | Source complete; test expired-session scenarios on devices |
+| D-06 | Verify CSRF/token compatibility | Planned | API and retained web actions remain valid | D-03 | Minimal backend adjustment only if proven necessary |
+| D-07 | Test social/OAuth login flows | Planned | Enabled providers return correctly to app | C-05,D-02 | High-priority runtime case |
+| D-08 | Official mobile-shell compatibility support | Testing | Retained web modules can detect official app when needed | Backend integration | Backend bridge merged; new screens should not depend on template detection |
 
 ---
 
-# EPIC E — Native UI Integration
+# EPIC E — Native / Local UI Integration
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| E-01 | Configure splash screen | Planned | Correct splash displays on Android and iOS | A-06, B-04, B-05 | Use production branding |
-| E-02 | Configure app icons | Planned | Required Android/iOS icon sets generated and applied | A-06 | Store-ready sizes |
-| E-03 | Configure status bar | Planned | Status bar does not clash with app UI | B-04, B-05 | Test dark/light page contexts |
-| E-04 | Configure safe-area handling | Planned | Content avoids notches/home indicators | C-01 | Especially iOS |
-| E-05 | Configure keyboard behavior | Planned | Forms/messages remain usable when keyboard opens | C-01 | Test chat composer and login |
-| E-06 | Define orientation behavior | Planned | App orientation policy documented and configured | Product decision | Likely portrait-first unless calls/media require otherwise |
-| E-07 | Validate Android edge-to-edge behavior | Planned | No content clipping on current Android UI modes | B-04 | Device/emulator testing |
+| E-01 | Configure splash screen | Blocked | Correct final splash on Android/iOS | A-06 | Final artwork needed |
+| E-02 | Configure app icons | Blocked | Required native icon sets applied | A-06 | Final artwork needed |
+| E-03 | Configure status bar | Testing | Status bar matches local/web screens | B-04,B-05 | Runtime acceptance pending |
+| E-04 | Configure safe areas | Testing | Content avoids notches/home indicators | B-03 | Local shell must also use safe-area rules |
+| E-05 | Configure keyboard behavior | Testing | Forms/chat remain usable | B-03 | Capacitor Keyboard integrated |
+| E-06 | Define orientation behavior | Completed | Orientation policy documented | Product decision | Portrait + landscape retained for media/calls |
+| E-07 | Validate Android edge-to-edge | Planned | No clipping on current Android UI modes | B-04 | Device/emulator visual test |
 
 ---
 
@@ -115,13 +118,13 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| F-01 | Test profile/avatar upload on Android | Planned | Camera/gallery/file upload succeeds | D-01 | Existing HTML input first |
-| F-02 | Test profile/avatar upload on iOS | Planned | Camera/gallery upload succeeds | D-02 | WKWebView/photo permission behavior |
-| F-03 | Test feed/post media upload | Planned | Image/video upload works in social posting flow | F-01, F-02 | Validate large files |
-| F-04 | Test messaging attachments | Planned | Attachments can be selected and sent | F-01, F-02 | Chat flow regression |
-| F-05 | Add native camera/gallery bridge if required | Planned | Native fallback exists only if web input is insufficient | F-01–F-04 | Avoid unnecessary native complexity |
-| F-06 | Configure permission descriptions | Planned | Android/iOS declare accurate camera/photo/microphone reasons | F-01–F-05 | Required for store review |
-| F-07 | Implement download/file-open handling | Planned | Supported downloads can be accessed by the user | C-03 | Platform-specific handling may differ |
+| F-01 | Test profile/avatar upload on Android | Planned | Camera/gallery/file upload succeeds | Auth | Local/API profile may change path |
+| F-02 | Test profile/avatar upload on iOS | Planned | Camera/gallery upload succeeds | Auth | Local/API profile may change path |
+| F-03 | Test feed/post media upload | Planned | Image/video upload works | Feed decision | API or retained-web path |
+| F-04 | Test messaging attachments | Testing | Local photo can be selected, uploaded and sent through official API | Messaging | Runtime device validation pending; video/voice deferred |
+| F-05 | Add native camera/gallery bridge if required | Planned | Native fallback only where needed | F-01–F-04 | Avoid unnecessary plugin complexity |
+| F-06 | Configure permission descriptions | Testing | Camera/photo/mic reasons accurate | Native builds | Declarations committed |
+| F-07 | Implement download/file-open handling | Planned | Supported downloads usable | C-03 | Add only after real download flow audit |
 
 ---
 
@@ -129,17 +132,17 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| G-01 | Confirm/create OneSignal mobile app | Planned | Mobile OneSignal app/config available | Account access | Existing web push is not sufficient |
-| G-02 | Configure Android Firebase/FCM | Planned | Android push credentials accepted and test device registers | Firebase access, B-04 | Do not commit private credentials |
-| G-03 | Configure Apple APNs | Planned | APNs key/cert and capability setup valid | Apple Developer access, B-05 | Bundle ID must be final |
-| G-04 | Install OneSignal Capacitor SDK | Planned | SDK initializes on Android/iOS without runtime errors | G-01–G-03 | Shared integration |
-| G-05 | Implement notification permission UX | Planned | Permission request occurs at an appropriate time | G-04 | iOS and recent Android behavior differ |
-| G-06 | Associate device/subscription with logged-in user | Planned | Backend can target the correct ChatPalez user/device | D-08, G-04 | May require backend endpoint/change |
-| G-07 | Handle foreground notifications | Planned | Foreground notification behavior defined and tested | G-04 | Avoid disruptive duplicates |
-| G-08 | Handle background notifications | Planned | Background-delivered notifications work reliably | G-04 | Device testing required |
-| G-09 | Implement notification-click routing | Planned | Tap opens correct ChatPalez destination | G-04, C-01 | Key native value-add |
-| G-10 | Implement deep-link parsing/validation | Planned | Only valid/approved routes are opened | G-09, C-02 | Security-sensitive |
-| G-11 | Configure notification badges where applicable | Planned | Badge counts update/reset predictably | G-04 | Platform support differs |
+| G-01 | Confirm/create OneSignal mobile configuration | Blocked | OneSignal Android/iOS configured | OneSignal access | SDK integration exists |
+| G-02 | Configure Android Firebase/FCM | Blocked | Android device registers and receives push | Firebase access | External credential/config gate |
+| G-03 | Configure Apple APNs | Blocked | iOS push capability valid | Apple access | External gate |
+| G-04 | Install OneSignal Capacitor SDK | Testing | SDK initializes without runtime error | Native builds | Device configuration pending |
+| G-05 | Implement permission UX | Testing | Permission requested from user-controlled local settings | G-04 | Existing web setting can migrate into local Settings |
+| G-06 | Associate subscription with logged-in user | Testing | OneSignal identity tracks authenticated ChatPalez user | Auth,G-04 | Revisit against new API auth state |
+| G-07 | Handle foreground notifications | Testing | Foreground behavior defined | G-04 | Device test pending |
+| G-08 | Handle background notifications | Planned | Background push reliable | G-02,G-03 | Device test needed |
+| G-09 | Implement notification-click routing | Testing | OneSignal click accepts only trusted internal paths and enters protected web bridge | G-04,N-03 | Device test must validate foreground/background tap behavior |
+| G-10 | Implement deep-link parsing/validation | Testing | Only valid routes open | C-02 | Custom scheme exists; router integration remains |
+| G-11 | Configure badges | Planned | Badge behavior predictable | G-04 | Later polish |
 
 ---
 
@@ -147,24 +150,24 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| H-01 | Implement native share bridge | Planned | Supported ChatPalez content invokes OS share sheet | B-02, C-01 | Integrate only where useful |
-| H-02 | Validate phone/email/external-app intents | Planned | Intent links launch safely | C-04 | Android+iOS |
-| H-03 | Add haptic feedback selectively | Planned | Haptics used only for appropriate native interactions | B-02 | Optional polish, not overused |
+| H-01 | Implement native share | Testing | Supported content invokes OS share | B-02 | Bridge implemented |
+| H-02 | Validate phone/email/external intents | Testing | Intents launch safely | C-04 | Runtime acceptance pending |
+| H-03 | Add selective haptics | Testing | Haptics used sparingly | B-02 | Existing light/success feedback implemented |
 
 ---
 
-# EPIC I — Social Network Regression Testing
+# EPIC I — Social Network Regression / Migration
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| I-01 | Feed/home regression test | Planned | Feed loads, scrolls and refreshes without critical issues | C/D complete | Android+iOS |
-| I-02 | Post creation regression test | Planned | Text/media post flows work | F complete | Android+iOS |
-| I-03 | Reactions/comments regression test | Planned | Interaction controls function correctly | I-01 | Android+iOS |
-| I-04 | Profile/account regression test | Planned | Profile viewing/editing works | D/F complete | Android+iOS |
-| I-05 | Messaging regression test | Planned | Conversations, send/receive and composer behave correctly | D/E/F complete | High priority |
-| I-06 | Notifications screen regression test | Planned | In-app notification center works | D complete | Distinct from native push |
-| I-07 | Search/friends/groups/pages regression test | Planned | Primary discovery/community flows work | C/D complete | Based on enabled product features |
-| I-08 | Settings/privacy regression test | Planned | Key account/settings flows function | D complete | Include logout/deletion paths |
+| I-01 | Feed/home decision and regression | Testing | Retained-web v1 path selected; validate authenticated WebView feed | N-01 | Official audit found no timeline/post API; no custom endpoint authorized |
+| I-02 | Post creation regression | Planned | Text/media posting works through selected path | I-01,F | Web-backed acceptable for v1 |
+| I-03 | Reactions/comments regression | Planned | Interactions work | I-01 | Selected path |
+| I-04 | Profile/account regression | Testing | Local summary works; validate deeper profile/edit path through protected WebView | N-06 | Official API has no full profile-read/update contract |
+| I-05 | Messaging regression | Testing | Local conversations, contacts, history paging, send, photo upload, typing/seen and management work | Auth,F | Source complete; deployed/device validation pending |
+| I-06 | Notifications regression | Testing | Local notification list + push interactions work | N-05,G | Source complete; external push credentials/device delivery pending |
+| I-07 | Search/friends/groups/pages regression | Planned | Primary community flows work | Auth | Protected web-backed v1 path |
+| I-08 | Settings/privacy regression | Testing | Local settings shell + safety/account flows work | N-07 | Source complete; device validation pending |
 
 ---
 
@@ -172,12 +175,12 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| J-01 | Test audio playback and notification sounds | Planned | Audio plays predictably on both platforms | E complete | Check silent/background behavior |
-| J-02 | Test microphone permission/use | Planned | Voice/call features can request and use mic | F-06 | Android+iOS |
-| J-03 | Test camera use during calling | Planned | Video call camera can initialize if feature is enabled | F-06 | Android+iOS |
-| J-04 | Test existing Agora/WebRTC call flow | Planned | Incoming/outgoing call behavior assessed and documented | J-01–J-03 | Major uncertainty |
-| J-05 | Implement WebView-specific call fixes | Planned | Fixes applied if feasible inside initial architecture | J-04 | Scope depends on findings |
-| J-06 | Decide native-calling remediation if WebView is insufficient | Planned | Decision recorded; native rewrite deferred or scoped | J-04 | Can become post-v1 work |
+| J-01 | Test audio playback/notification sounds | Planned | Audio predictable on both platforms | E | Web-backed initially |
+| J-02 | Test microphone permission/use | Planned | Voice/call features can use mic | F-06 | Android+iOS |
+| J-03 | Test camera use during calling | Planned | Video camera initializes | F-06 | Android+iOS |
+| J-04 | Test existing Agora/WebRTC flow | Planned | Incoming/outgoing calls assessed | J-01–J-03 | Major uncertainty |
+| J-05 | Implement WebView-specific call fixes | Planned | Feasible fixes applied | J-04 | Scope depends on findings |
+| J-06 | Decide native-calling remediation | Planned | Native rewrite deferred or scoped | J-04 | Post-v1 if necessary |
 
 ---
 
@@ -185,12 +188,12 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| K-01 | Test cold start | Planned | App launches reliably from terminated state | Core build | Android+iOS |
-| K-02 | Test foreground/background transitions | Planned | App resumes without broken/duplicated state | Core build | Android+iOS |
-| K-03 | Test process/app restart | Planned | App returns to valid session/navigation state | D-03 | Android+iOS |
-| K-04 | Test connectivity loss during active session | Planned | User receives recoverable behavior | C-10 | Android+iOS |
-| K-05 | Test backend/server unavailable state | Planned | App does not remain blank or crash | C-09 | Android+iOS |
-| K-06 | Add production-safe logging/error diagnostics | Planned | Useful diagnostics without exposing sensitive data | Core build | No secrets/session leakage |
+| K-01 | Test cold start | Testing | App starts reliably | Core build | Re-test after progressive shell is active |
+| K-02 | Test foreground/background transitions | Planned | App resumes valid state | Core build | Must cover local + web modules |
+| K-03 | Test process/app restart | Planned | Auth/navigation restore valid | D-03 | Local router state included |
+| K-04 | Test connectivity loss | Planned | Recoverable UX | C-10 | Local shell controls failure state |
+| K-05 | Test server unavailable state | Planned | No blank/crash state | C-09 | Local shell owns fallback |
+| K-06 | Production-safe diagnostics | Completed | Useful bounded/redacted diagnostics | Core build | Sensitive-key/token/session redaction exists |
 
 ---
 
@@ -198,16 +201,16 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| L-01 | Review permissions for least privilege | Planned | Only required permissions remain | F/G/J complete | Store/security requirement |
-| L-02 | Review HTTPS and navigation restrictions | Planned | Production app does not allow unsafe/untrusted navigation | C complete | Security-critical |
-| L-03 | Review embedded config for secrets | Planned | Release bundle/repo contains no privileged secret | B/G complete | Security-critical |
-| L-04 | Verify content-reporting flow | Planned | User can report objectionable UGC | Backend feature | App Store UGC requirement |
-| L-05 | Verify user-blocking flow | Planned | User can block abusive users | Backend feature | App Store UGC requirement |
-| L-06 | Verify moderation/filtering capability | Planned | Existing moderation path documented/tested | Backend/admin | App Store UGC requirement |
-| L-07 | Verify support/contact information | Planned | User-accessible support/contact route exists | Client/backend | Store readiness |
-| L-08 | Verify privacy-policy route | Planned | Valid privacy policy accessible | Client/backend | Store metadata dependency |
-| L-09 | Verify account-deletion flow | Planned | Account deletion requirement is satisfied or remediation scoped | Backend feature | Apple policy-sensitive |
-| L-10 | Prepare privacy/data disclosure inventory | Planned | Collected data and device permissions mapped for store forms | L-01–L-09 | Google/Apple declarations |
+| L-01 | Review permissions for least privilege | Testing | Only required permissions remain | F/G/J | No location/broad storage permission |
+| L-02 | Review HTTPS/navigation restrictions | Testing | Unsafe/untrusted internal navigation prevented | C | Retained web modules only |
+| L-03 | Review embedded config/secrets | Testing | No privileged secret in app/repo | B/G/N | API auth storage must be reviewed when implemented |
+| L-04 | Verify content-reporting flow | Testing | User can report UGC | Backend feature | Runtime UI path still required |
+| L-05 | Verify user-blocking flow | Testing | User can block abusive users | Backend feature | Runtime UI path still required |
+| L-06 | Verify moderation/filtering | Testing | Moderation capability documented/tested | Backend/admin | Production admin handling pending |
+| L-07 | Verify support/contact information | Planned | Support route live/accessible | Client/backend | Store metadata dependency |
+| L-08 | Verify privacy-policy route | Planned | Privacy policy live/accessible | Client/backend | Store metadata dependency |
+| L-09 | Verify account deletion | Testing | In-app deletion requirement satisfied | Backend feature | Device test pending |
+| L-10 | Prepare privacy/data inventory | Completed | Data/device permissions mapped | L-01–L-09 | Inventory exists |
 
 ---
 
@@ -215,81 +218,109 @@
 
 | ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
 |---|---|---|---|---|---|
-| M-01 | Configure Android signing/release build | Planned | Release signing strategy configured securely | Google/client credentials | Do not commit keystore secrets |
-| M-02 | Produce Android AAB | Planned | Installable/store-ready AAB produced successfully | M-01, regression complete | Final build artifact |
-| M-03 | Configure iOS signing/team/capabilities | Planned | Xcode resolves signing and required capabilities | Apple Developer access | Push capability included |
-| M-04 | Produce iOS archive | Planned | Release archive builds without critical errors | M-03, regression complete | Requires macOS/Xcode |
-| M-05 | Prepare TestFlight build | Planned | Build uploads/validates for TestFlight | M-04, App Store Connect | External Apple processing may take time |
-| M-06 | Final Android/iOS regression pass | Planned | No unresolved release-blocking defect | All critical epics | Physical devices preferred |
-| M-07 | Prepare store-readiness checklist | Planned | Icons, privacy, permissions, descriptions and support links checked | L complete | Submission preparation |
-| M-08 | Tag/document initial release candidate | Planned | Release candidate version and commit recorded | M-02–M-07 | End of engineering phase |
+| M-01 | Configure Android signing/release | Blocked | Secure signing strategy configured | Play/signing access | Need existing versionCode/upload key |
+| M-02 | Produce Android AAB | Planned | Store-ready signed AAB produced | M-01, regression | Unsigned bundle was previously proven |
+| M-03 | Configure iOS signing/team/capabilities | Blocked | Xcode signing resolves | Apple access | External gate |
+| M-04 | Produce iOS archive | Planned | Release archive builds | M-03, regression | Requires Mac/Xcode/signing |
+| M-05 | Prepare TestFlight build | Planned | Upload validates | M-04 | App Store Connect required |
+| M-06 | Final Android/iOS regression | Planned | No release-blocking defects | All critical epics | Physical devices preferred |
+| M-07 | Prepare store-readiness checklist | Testing | Privacy/permissions/assets/support checked | L | Documents exist; external inputs remain |
+| M-08 | Tag/document initial release candidate | Planned | Candidate commit/version recorded | M-02–M-07 | Manual validation; GitHub Actions disabled |
+
+---
+
+# EPIC N — Progressive Hybrid / API Migration
+
+| ID | Task | Status | Acceptance / Definition of Done | Dependencies | Notes |
+|---|---|---|---|---|---|
+| N-01 | Audit existing Sngine/ChatPalez API coverage | Completed | Matrix documents confirmed/absent official contracts and v1 boundaries | Backend/API access | Feed/posts/comments/groups/pages/search/profile/social graph audit complete |
+| N-02 | Build typed API/service layer | Testing | Central API client, config, auth/error normalization and reusable services exist | N-01 | Source and contract suite complete; runtime API validation pending |
+| N-03 | Build local mobile navigation shell | Testing | App opens into local shell with mobile-first primary navigation | B-03 | Source complete; device validation pending |
+| N-04 | Implement local login/onboarding | Testing | Authentication occurs through local UI using supported API/auth model | D-01,N-02 | Source complete; runtime acceptance pending |
+| N-05 | Implement API-driven notifications screen | Testing | Local notification list/read state works | N-01,N-02,N-04 | Source complete; push/device validation pending |
+| N-06 | Implement API-driven profile/account summary | Testing | Local account identity/profile summary works | N-01,N-02,N-04 | Deeper profile remains web-backed |
+| N-07 | Implement local/API settings shell | Testing | Settings shell exposes native permissions + key account options | N-01,N-02,N-04 | Source complete; runtime validation pending |
+| N-08 | Create local↔web module router/session bridge | Testing | Users move between local and retained web modules without broken auth/navigation | D-03,N-03 | Existing isolated bridge; Android/iOS validation required |
+| N-09 | Decide whether feed migrates in v1 | Testing | Retained-web v1 decision documented and entry point implemented | N-01,N-08 | Official fresh API lacks feed/post contract; validate bridge on devices |
+
+---
+
+# First-Release Surface Map
+
+| Surface | Target for v1 |
+|---|---|
+| Splash/startup | Native/local |
+| Login/onboarding | API-driven local |
+| Main navigation | Local mobile shell |
+| Notifications | API-driven local |
+| Profile/account summary | API-driven local |
+| Settings shell | Local/API-driven |
+| Feed | Controlled retained web module; official API audit found no feed/post contract |
+| Post/media composer | Controlled retained web module; no official post contract |
+| Messaging | Retained web initially |
+| Groups/pages/search | Controlled retained web modules; no official API contracts |
+| Calls | Existing implementation first; remediate separately |
 
 ---
 
 # External Dependencies / Inputs Required
 
-These are not implementation tasks by themselves, but delays here can block implementation:
-
 | Dependency | Needed for | Current status |
 |---|---|---|
-| Final ChatPalez staging/production URL | Web container integration | Needed |
-| Android application ID | Native project/store identity | Needed |
-| iOS bundle ID | Native project/App Store identity | Needed |
-| Apple Developer Program access | iOS signing/APNs/TestFlight | Needed before release work |
-| App Store Connect access | TestFlight/submission | Needed before release work |
-| Firebase/FCM access | Android native push | Needed before push phase |
-| OneSignal access/new mobile app | Cross-platform native push | Needed before push phase |
-| Google Play Console access | Android publishing | Needed before submission |
-| App icon/source branding | Native branding | Needed before release packaging |
-| Privacy policy/support URL | Store compliance | Needed before submission |
+| Production ChatPalez URL | API/web-module integration | Verified: `https://chatpalez.com` |
+| Existing API documentation/coverage | Progressive hybrid implementation | Audit required under N-01 |
+| Android application ID | Existing Play identity | Verified `chatpalez.app.webview` |
+| Android version history | Play update | Need highest existing `versionCode` |
+| iOS bundle ID ownership | App Store identity | Awaiting Apple confirmation |
+| Apple Developer/App Store Connect | Signing/APNs/TestFlight | Blocked |
+| Firebase/FCM | Android push | Blocked |
+| OneSignal mobile configuration | Push | Blocked |
+| Google Play signing access | Android release | Blocked |
+| Final icon/splash assets | Branding | Blocked |
+| Privacy/support URLs | Store compliance | Verification pending |
 
 ---
 
-# Two-Week Execution View
+# Revised Two-Week Execution View
 
-## Days 1–2 — Foundation
+## Immediate — Progressive architecture foundation
 
-Primary backlog: A-03–A-07, B-01–B-08, C-01–C-03.
+N-01, D-01, N-02, N-03.
 
-Exit condition: both native platform projects exist, basic app container works and first builds are possible.
+Exit condition: API coverage is known, auth model selected, service layer established and app opens into a local navigation shell.
 
-## Days 3–4 — Core mobile behavior
+## Next — High-visibility local screens
 
-Primary backlog: C-04–C-10, D-01–D-08, E-01–E-07, initial F tasks.
+N-04, N-05, N-06, N-07, N-08.
 
-Exit condition: navigation, login/session, offline/error handling, keyboard/safe-area and core media-selection paths operate acceptably.
+Exit condition: login, notifications, profile/account and settings are visibly app-owned rather than Safari-equivalent.
 
-## Days 5–6 — Native integrations
+## Then — Retained web module integration
 
-Primary backlog: F completion, G-01–G-11, H-01–H-03.
+C/I/J tasks plus N-09.
 
-Exit condition: push/device registration and notification routing work in test environments, subject to external credentials being available.
+Exit condition: web-backed feed/messaging/groups/etc. open deliberately from the app shell and share authentication/navigation correctly.
 
-## Days 7–8 — Social-network regression
+## Final — Native/release acceptance
 
-Primary backlog: I-01–I-08, J-01–J-06, K-01–K-06.
+G/H/K/L/M tasks.
 
-Exit condition: major existing social functionality has been exercised on both platforms and critical WebView-specific defects are resolved or explicitly scoped.
-
-## Days 9–10 — Security, release and submission readiness
-
-Primary backlog: L-01–L-10, M-01–M-08.
-
-Exit condition: release artifacts can be produced and the application is engineering-ready for TestFlight/Google Play submission.
+Exit condition: native integrations, compliance, device regression and signing/release preparation are complete.
 
 ---
 
 # Risk Register
 
-| Risk | Probability | Impact | Mitigation / Tracking |
+| Risk | Probability | Impact | Mitigation |
 |---|---|---|---|
-| Existing web auth/OAuth redirects behave differently in WKWebView/Android WebView | Medium | High | Test early under Epic D |
-| Existing Agora/WebRTC calling is unstable in mobile WebViews | Medium–High | High | Investigate under Epic J; do not hide a native rewrite inside v1 scope |
-| Native push requires backend user-device association work | High | Medium–High | Track G-06 + backend changes explicitly |
-| Apple rejects a thin website wrapper | Medium | High | Deliver meaningful native integrations and verify social-network compliance |
-| Apple/Firebase/OneSignal access arrives late | Medium | High | Core app can progress, but push/release items become Blocked |
-| Existing mobile templates have WebView-specific layout/input defects | Medium | Medium | Fix only integration-critical backend/mobile CSS issues during v1 |
-| Store review extends beyond two-week engineering window | Medium | Medium | Define goal as submission-ready build, not guaranteed approval date |
+| Existing API is narrower than expected | Medium | High | N-01 audit first; keep complex modules web-backed; add only minimal proven API gaps |
+| API auth and retained web session do not interoperate cleanly | Medium | High | D-03/N-08 architecture before broad local migration |
+| Apple views app as repackaged website | Medium | High | Local shell + local login/notifications/profile/settings + native capabilities |
+| Full API rewrite threatens deadline | High | High | Explicitly prohibited for v1; progressive migration only |
+| Agora/WebRTC unstable in WebView | Medium–High | High | Test under J; native remediation separate |
+| Push credentials arrive late | High | High | SDK work already separated; external gates remain Blocked |
+| Existing website regressions caused by mobile backend edits | Medium | High | Prefer APIs/local UI; backend/template modifications now last resort |
+| Store review exceeds engineering window | Medium | Medium | Target submission-ready build, not guaranteed review completion |
 
 ---
 
@@ -297,4 +328,150 @@ Exit condition: release artifacts can be produced and the application is enginee
 
 | Date | Change |
 |---|---|
-| 2026-09-15 | Initial backlog created. Architecture review and architecture/scope document marked Completed. All implementation tasks initialized for the two-week delivery plan. |
+| 2026-09-15 | Initial Capacitor hybrid backlog created and platform architecture audited. |
+| 2026-09-15 | Android/iOS projects, native integrations, deep links, push scaffolding, compliance/release documentation and backend compatibility bridge implemented. |
+| 2026-09-15 | Backend mobile bridge merged to backend `master`; later architecture review clarified that new mobile presentation should avoid unnecessary backend-template dependency. |
+| 2026-09-15 | GitHub Actions disabled by project-owner instruction; workflow files removed from mobile and backend repositories. |
+| 2026-09-15 | **Architecture pivot approved:** adopted progressive hybrid architecture. Added Epic N for API audit/service layer/local shell/local login/notifications/profile/settings/session bridge. Existing web-backed modules are retained selectively rather than defining the entire app experience. |
+
+
+---
+
+## Change decision — API-first and upgrade-safe customization (2026-09-16)
+
+Before any further backend modification, complete an API-versus-custom audit against `sngine-fresh`. Reuse official Sngine APIs and business logic whenever sufficient. The mobile API adapter remains client-side only. Use official `POST /user/onesignal`; re-audit the notification adapter; retain feed/posts/groups/pages/search as web-backed v1 where official coverage remains unproven. A custom backend extension is admissible only for a documented, minimal security/session gap (server-only API-secret protection or JWT-to-standard-web-session transition). Preserve the stock theme; put app-only web presentation in a separately named duplicate theme selected only for official app requests. Maintain an upgrade-customization register for every retained extension.
+
+
+## Implementation update — native secure JWT storage (2026-09-16)
+
+The interim browser `sessionStorage` session has been replaced in source by in-memory state plus native protected persistence through Capacitor 8 secure storage. iOS uses a device-only unlocked Keychain item with iCloud sync disabled; Android uses Keystore-backed storage. Browser builds intentionally do not persist JWTs. Status: **Testing** pending dependency install, Capacitor sync, Android/iOS build and real-device cold-start/logout validation. No Sngine backend, API route, session bridge or theme modification was made.
+
+
+**Next implementation order revised:** validate the new native secure store, configure the public OneSignal App ID and native credentials, then perform Android/iOS notification identity/delivery validation. Continue the remaining official API audit. No backend modification is authorized by this mobile-only work.
+
+
+## Implementation update — official OneSignal lifecycle (2026-09-16)
+
+Native OneSignal integration is now **Testing**: optional public app-ID configuration, authenticated external-user login, existing official `POST /user/onesignal` synchronization, logout/deletion disassociation, and a user-initiated Settings permission control are implemented. It requires FCM/APNs + physical Android/iOS validation before acceptance. No custom backend route was created.
+
+
+## Implementation decision — feed API audit (2026-09-16)
+
+Fresh Sngine API modules were re-audited before further backend work. Only data/load?get=new_people supports discovery; the official API provides no feed/timeline, post CRUD, non-chat reactions/comments, groups, pages or social-search contract. I-01 and N-09 are now **Testing** with a deliberate protected retained-web v1 path. No custom backend API is authorized for these modules.
+
+
+## Implementation update — trusted notification taps (2026-09-16)
+
+OneSignal click events now accept only same-origin ChatPalez URLs (or relative internal paths), normalize them, and pass them through the existing authenticated POST session bridge. External, malformed, and alternate-port URLs are ignored. Unit coverage was added; physical Android/iOS notification-tap validation remains required.
+
+
+## Implementation decision — profile/social API audit (2026-09-16)
+
+The official user module audit is complete: it lacks profile-read/update and social-graph retrieval routes. N-01 is now **Completed** as an API capability audit. Deep profile editing and friends/followers remain protected retained-web modules for v1; no custom backend API is authorized.
+
+
+## Major milestone — local chat photo attachment (2026-09-16)
+
+Photo selection, multipart upload and send are implemented through official Sngine data/chat routes. This remains **Testing** until deployment and physical-device validation confirm upload permissions, server limits, message rendering and failure recovery.
+
+
+## Implementation update — safe chat photo rendering (2026-09-16)
+
+The local message thread now renders validated ChatPalez-hosted photo attachments and rejects unsafe media paths. F-04 remains **Testing** pending real API/device validation.
+
+
+## Major milestone — local conversation management (2026-09-16)
+
+Conversation leave/delete, message Like reaction, and own-message deletion are implemented through the existing official chat API. Runtime acceptance remains pending.
+
+
+## Implementation update — paged messaging service (2026-09-16)
+
+Conversation and contact services now retain official pagination metadata instead of discarding it. UI pagination remains the next client task.
+
+
+## Major milestone — conversation/contact Load More (2026-09-17)
+
+Local conversation and contact lists now page through the official API with explicit Load More controls. Runtime acceptance remains pending.
+
+
+## Implementation update — message history paging contract (2026-09-17)
+
+The local service now uses the official offset-history mode correctly by omitting an unused last-message cursor. Older-message UI remains the next shell task.
+
+
+---
+
+## Implementation update — feed/chrome screenshot audit (2026-09-22)
+
+Three real-device screenshots exposed four connected defects in the retained-web home surface: asymmetric feed width, insufficient author/content insets, desktop-header top-space leaking above the app header, and app-header/footer shortcuts re-entering authentication instead of handing off to local authenticated screens.
+
+Implemented:
+- Backend app theme: normalized mobile containers/rows/mainbar to the full viewport with one balanced 8–10px feed gutter; cards now own 100% of that lane.
+- Backend app theme: reinforced 12–14px author/text padding, avatar-to-copy separation, card/media width containment, and bottom-nav content clearance.
+- Backend app theme: removed inherited desktop `.main-wrapper` top spacing so the sticky app header sits directly below the device safe area.
+- Footer terminology changed from **Messages** to **Chat**.
+- Mobile shell: `chatpalez://open?native=messages|notifications` now resolves directly to the already-authenticated local shell rather than being normalized to a retained-web route.
+- Mobile shell: Messages UI terminology changed to **Chat**, including **New chat** and empty-state copy.
+
+Architecture decision: keep the feed server-rendered in `chatpalez_app` because the audited Sngine API still lacks the required feed/post contract. Keep Chat and Notifications app-owned/local because their supported API services already exist. The five-item web bottom bar remains the visual bridge on retained-web pages, while Chat/Notifications hand off to native/local screens.
+
+Acceptance still required on device after pulling both repositories: confirm 360px/390px widths, no right-side dead strip, avatar/text insets, no blank band above the header, notification opens local Notifications without login, Chat opens local Chat without login, Create still opens the publisher, and Home/Discover/Profile remain authenticated.
+
+
+### Navigation refinement — 2026-09-22
+Implemented the client-priority navigation change in the installed app theme:
+- Bottom navigation is now **Home · Reels · Create · Chat · Profile**.
+- **Discover** was removed from the bottom bar because global Search/Discover is already available from the header.
+- Added a dedicated **Groups** shortcut to the app header, between Search and Notifications, conditional on Groups being enabled.
+- Reels opens the existing `/reels` experience; Groups opens `/groups`.
+
+
+### Native profile + compliance navigation — 2026-09-22
+Implemented the next hybrid-shell milestone:
+- Native shell primary footer is now **Home · Reels · Create · Chat · Profile**.
+- Profile is now the app-owned account hub rather than merely a bridge to the web profile.
+- Native **Account & settings** retains API-backed blocked-user management, push notification controls, and password-confirmed account deletion through `POST user/delete`.
+- Added **Advanced profile** / **Advanced profile settings** as the explicit escape hatch to the full retained-web profile settings.
+- Added **Contact us**, **Privacy policy**, and **Account deletion information** to the native profile/support area.
+- Public account-deletion information remains available at `/account-deletion.php`; in-app destructive deletion remains API-backed.
+- Reels and Create deliberately bridge to retained-web experiences until dedicated API-driven screens are completed.
+- Device acceptance: verify five-tab safe-area layout, Reels route, Create publisher route, Contact/Privacy public routes, advanced profile web bridge, successful/failed password deletion flows, and post-deletion session cleanup.
+
+
+### Post-implementation audit — 2026-09-22
+Code/UI audit after native-profile milestone:
+- Fixed a regression where the native footer had five tabs but CSS still allocated four columns; it now uses five equal minmax columns with 44px minimum touch targets.
+- Fixed the retained-web Profile tab so it hands off to the app-owned native Profile/account hub, matching Chat and Notifications handoff behavior.
+- Native deep-link screen allowlist now includes `profile`.
+- iOS submission audit flags remaining release checks: on-device iOS validation; UGC filtering/report/block/contact verification; privacy-label/privacy-policy reconciliation; social-login equivalence/Sign in with Apple review if third-party login is exposed; account-deletion verification including user-generated content; age-rating/social-media questionnaire; App Review demo account; and IAP review if digital goods/subscriptions are sold in-app.
+
+
+### UGC actions, sharing, and media-picker audit — 2026-09-22
+- Confirmed retained feed already exposes **Report post** in each non-owned post's overflow menu, backed by the existing report modal/administration flow.
+- Confirmed other-user profiles already expose both **Report** and **Block** in the profile overflow menu; Block uses Sngine's `js_block-user` workflow.
+- Feed sharing was web-modal-first and felt non-native. Mobile-app feed Share actions are now marked for the ChatPalez bridge and invoke Capacitor's native OS share sheet; browser/web behavior retains the existing Sngine share modal (timeline/page/group/event + copy/social links).
+- Media upload remains a release concern: retained-web publisher/profile uploads use Sngine `js_x-uploader` file inputs, while native Chat uses a normal image file input/API upload. iOS already declares Photo Library and Camera purpose strings, but the installed WebView picker/gallery behavior still needs physical-device verification.
+- Recommended next media milestone: add an explicit app bridge/media-picker path for retained-web upload controls (Choose from Photos / Take Photo / Files) rather than relying solely on WebView file-input behavior.
+- UGC acceptance: verify Report post on feed, Report/Block on another user's profile, moderation submission, native OS share sheet, and photo/gallery/camera selection on both Android and iOS.
+
+
+### Share/repost + publisher picker refinement — 2026-09-22
+- Corrected the mobile Share behavior so native external sharing does not replace ChatPalez reposting.
+- Installed-app Share now opens a mobile action sheet with **Repost in ChatPalez** and **Share to other apps**.
+- Repost preserves Sngine's existing internal destinations (Timeline, Page, Group, Event where enabled/available) and message field.
+- External share continues through the Capacitor/OS share sheet.
+- Publisher **Upload Photos** now opens a mobile source chooser: **Choose from Photos**, **Take Photo**, **Choose File**, before handing selection into the existing Sngine uploader.
+- Physical-device acceptance remains required on Android/iOS for picker source behavior, multi-select, upload progress, cancellation, and post publication.
+- If a WebView/platform still ignores the requested source distinction, promote this chooser to a fully native Capacitor media-picker bridge rather than regressing to the opaque WebView picker.
+
+
+### Native Capacitor media bridge — 2026-09-22
+- Added `@capacitor/camera` and a typed `ChatPalezMobile.pickMedia()` bridge.
+- **Choose from Photos** now uses Capacitor's native photo picker; publisher multi-select requests up to 10 images.
+- **Take Photo** now uses Capacitor Camera.
+- Native selections are converted back to browser `File` objects and injected into Sngine's existing `.x-uploader` input, deliberately preserving Sngine's current chunk uploader, validation, upload endpoint, progress UI, attachment bookkeeping, and post controller.
+- **Choose File** intentionally remains the platform file/document input fallback.
+- No Sngine upload PHP controller rewrite was required.
+- Required local sync after pull: `npm install`, then `npm run cap:sync`.
+- Device acceptance: Android/iOS Photos permission/picker, camera permission, cancel path, one photo, multiple photos, HEIC/JPEG/PNG handling, upload progress, remove attachment, publish post, and file chooser.
