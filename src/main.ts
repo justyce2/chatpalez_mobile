@@ -10,6 +10,7 @@ import { ChatRealtimeService, RealtimeDeliveryUncertainError } from './chat-real
 import { NotificationsService } from './api/notifications';
 import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
+import { FriendsService } from './api/friends';
 import { UploadService } from './api/uploads';
 import { clearSession, getAuthToken, getSession, restoreSession, setSession, type AuthSession } from './auth/session';
 import { installPasswordRecovery } from './auth/password-recovery';
@@ -53,6 +54,7 @@ const chatRealtime = new ChatRealtimeService(config.chatSocketUrl);
 const notifications = new NotificationsService(api);
 const registration = new RegistrationService(api);
 const users = new UserService(api);
+const friends = new FriendsService(api);
 const uploads = new UploadService(api);
 
 function registrationOptions(): RegistrationOptions {
@@ -409,6 +411,10 @@ const shell = createAppShell(root, {
     logInfo('Native profile loaded', { userId: profile.user_id });
     return profile;
   },
+  onFriendsEnabled: () => friends.enabled(),
+  onLoadFriends: (view, offset) => friends.page(view, offset),
+  onSearchFriends: (query) => friends.search(query),
+  onConnectFriend: (id, action) => friends.connect(id, action),
   onLoadAccount: async () => users.getAccount(),
   onUpdateProfile: async (payload) => users.updateProfile(payload),
   onUpdateIdentity: async (payload) => users.updateIdentity(payload),

@@ -977,6 +977,8 @@ p { color: #64748b; line-height: 1.55; }
 }
 .native-profile-stat strong { font-size: 14px; }
 .native-profile-stat span { color: #6B7280; font-size: 10px; }
+.native-profile-stat:is(button) { width: 100%; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+.native-profile-stat:is(button):focus-visible { outline: 2px solid #0066B2; outline-offset: -3px; }
 .native-profile-details {
   gap: 0;
 }
@@ -1974,3 +1976,28 @@ p { color: #64748b; line-height: 1.55; }
   line-height: 1;
 }
 .chat-image-preview__save { margin: 0; width: 48px; min-height: 48px; padding: 0; border-radius: 50%; background: #FFFFFF; color: #005C9E; font-size: 28px; line-height: 1; }
+
+.friends-heading { margin: 8px 16px 14px; color: #173247; font-size: 24px; }
+.friends-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 0 16px 10px; scrollbar-width: none; }
+.friends-tabs::-webkit-scrollbar { display: none; }
+.friends-tab { flex: 0 0 auto; min-height: 40px; padding: 8px 13px; border: 1px solid #D6E3EF; border-radius: 999px; background: #FFF; color: #365168; font: inherit; font-weight: 600; }
+.friends-tab.is-active { border-color: #0066B2; background: #E7F3FC; color: #005C9E; }
+.friends-content { display: grid; align-content: start; gap: 10px; padding: 6px 16px 24px; }
+.friends-content > p { color: #617487; }
+.friends-content > .form-error { color: #A32220; }
+.friends-search { display: flex; gap: 8px; margin: 0 0 6px; }
+.friends-search input { flex: 1; min-width: 0; min-height: 44px; padding: 9px 12px; border: 1px solid #C9D8E6; border-radius: 12px; background: #FFF; font: inherit; }
+.friends-search button, .friends-more { min-height: 44px; padding: 9px 13px; border: 0; border-radius: 12px; background: #0066B2; color: #FFF; font: inherit; font-weight: 700; }
+.friends-more { justify-self: center; }
+.friends-person { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 11px; border: 1px solid #E1EAF2; border-radius: 16px; background: #FFF; }
+.friends-person__identity { display: flex; flex: 1 1 165px; align-items: center; gap: 10px; min-width: 0; padding: 0; border: 0; background: none; color: #173247; text-align: left; font: inherit; }
+.friends-person__avatar { display: grid; flex: 0 0 46px; place-items: center; width: 46px; height: 46px; border-radius: 50%; object-fit: cover; }
+.friends-person__avatar--fallback { background: #E4F1FA; color: #0066B2; font-weight: 800; }
+.friends-person__details { display: grid; min-width: 0; gap: 2px; }
+.friends-person__details strong, .friends-person__details small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friends-person__details small { color: #617487; }
+.friends-person__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.friends-action { min-height: 36px; padding: 7px 10px; border: 1px solid #C9D8E6; border-radius: 10px; background: #EFF6FC; color: #005C9E; font: inherit; font-size: 13px; font-weight: 700; }
+.friends-action--decline, .friends-action--cancel, .friends-action--remove { background: #FFF; color: #465B6D; }
+.friends-action:disabled { opacity: .55; }
+.friends-hint { font-size: 12px; }

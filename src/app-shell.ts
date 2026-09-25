@@ -1,9 +1,11 @@
 import type { ChatContact, ChatFeatures, Conversation, Message, MessagesResult } from './api/chat';
 import type { NotificationItem } from './api/notifications';
+import type { FriendAction, FriendPerson, FriendsView } from './api/friends';
 import type { BlockedUser, MobileAccount, ProfileUpdate, UserProfile } from './api/user';
 import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { FriendsScreen } from './screens/FriendsScreen';
 import { ChatScreen, type ChatDeliveryTransport } from './screens/ChatScreen';
 
 export type LoginCredentials = {
@@ -27,6 +29,10 @@ export type AppShellHandlers = {
   onChatSoundChange?: (enabled: boolean) => void;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
   onLoadProfile?: () => Promise<UserProfile>;
+  onFriendsEnabled?: () => Promise<boolean>;
+  onLoadFriends?: (view: FriendsView, offset: number) => Promise<PageResult<FriendPerson>>;
+  onSearchFriends?: (query: string) => Promise<FriendPerson[]>;
+  onConnectFriend?: (id: number | string, action: FriendAction) => Promise<void>;
   onLoadAccount?: () => Promise<MobileAccount>;
   onUpdateProfile?: (payload: ProfileUpdate) => Promise<void>;
   onUpdateIdentity?: (payload: { username: string; email: string; phone: string; password: string }) => Promise<void>;
@@ -327,7 +333,15 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onDeleteAccount: handlers.onDeleteAccount,
       onLogout: handlers.onLogout,
       onOpenPublicPage: handlers.onOpenPublicPage,
-      onOpenWebModule: handlers.onOpenWebModule
+      onOpenWebModule: handlers.onOpenWebModule,
+      onOpenFriends: () => { void showFriends(); }
+    });
+    const friendsScreen = new FriendsScreen(content, {
+      onEnabled: () => handlers.onFriendsEnabled?.() ?? Promise.resolve(false),
+      onPage: (view, offset) => handlers.onLoadFriends?.(view, offset) ?? Promise.resolve({ items: [], hasMore: false }),
+      onSearch: (query) => handlers.onSearchFriends?.(query) ?? Promise.resolve([]),
+      onConnect: (id, action) => handlers.onConnectFriend?.(id, action) ?? Promise.resolve(),
+      onOpenProfile: (username) => showRetainedModule(`/${encodeURIComponent(username)}`, 'Profile', 'profile', true, false, true)
     });
     const chatScreen = new ChatScreen(content, session, {
       onConversationModeChange: (active) => {
@@ -412,8 +426,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     });
 
     type ShellDestination =
-      | { kind: 'web'; path: string; title: string; activeTab: string; returnToChat?: boolean }
+      | { kind: 'web'; path: string; title: string; activeTab: string; returnToChat?: boolean; returnToFriends?: boolean }
       | { kind: 'local'; tab: 'messages' | 'notifications' | 'profile' }
+      | { kind: 'friends' }
       | { kind: 'chat-compose' }
       | { kind: 'chat-thread'; conversation: Conversation };
     const navigationStack: ShellDestination[] = [];
@@ -426,6 +441,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     const destinationKey = (destination: ShellDestination): string => {
       if (destination.kind === 'web') return `web:${destination.path}`;
       if (destination.kind === 'local') return `local:${destination.tab}`;
+      if (destination.kind === 'friends') return 'friends';
       if (destination.kind === 'chat-compose') return 'chat:compose';
       return `chat:thread:${destination.conversation.conversation_id}`;
     };
@@ -458,9 +474,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         await selectTab(destination.tab, record);
         return;
       }
+      if (destination.kind === 'friends') {
+        await showFriends(record);
+        return;
+      }
       const version = ++transitionVersion;
       chatScreen.deactivate();
       profileScreen.deactivate();
+      friendsScreen.deactivate();
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === 'messages');
       await handlers.onHideWebModule?.();
       if (version !== transitionVersion) return;
@@ -490,6 +511,14 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
         const thread = navigationStack.pop()!;
         currentDestination = thread;
         await renderDestination(thread, false);
+        updateBackButton();
+        return true;
+      }
+
+      if (currentDestination?.kind === 'web' && currentDestination.returnToFriends && navigationStack[navigationStack.length - 1]?.kind === 'friends') {
+        const friends = navigationStack.pop()!;
+        currentDestination = friends;
+        await renderDestination(friends, false);
         updateBackButton();
         return true;
       }
@@ -535,18 +564,33 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     };
 
 
-    function showRetainedModule(path: string, _titleText: string, activeTab: string, record = true, returnToChat = false): void {
+    function showRetainedModule(path: string, _titleText: string, activeTab: string, record = true, returnToChat = false, returnToFriends = false): void {
       ++transitionVersion;
       chatScreen.deactivate();
       profileScreen.deactivate();
+      friendsScreen.deactivate();
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === activeTab);
       content.classList.add('mobile-content--web-surface');
       content.replaceChildren();
-      if (record) recordDestination({ kind: 'web', path, title: _titleText, activeTab, returnToChat });
+      if (record) recordDestination({ kind: 'web', path, title: _titleText, activeTab, returnToChat, returnToFriends });
 
       // The shared Capacitor document keeps the app chrome resident while a
       // separate native WebView/WKWebView owns the remote ChatPalez page.
       handlers.onOpenWebModule(path);
+    }
+
+    async function showFriends(record = true): Promise<void> {
+      const version = ++transitionVersion;
+      chatScreen.deactivate();
+      profileScreen.deactivate();
+      friendsScreen.deactivate();
+      for (const [id, button] of buttons) button.classList.toggle('is-active', id === 'profile');
+      if (record) recordDestination({ kind: 'friends' });
+      content.classList.remove('mobile-content--retained', 'mobile-content--web-surface');
+      content.replaceChildren(paragraph('Loading friends…'));
+      await handlers.onHideWebModule?.();
+      if (version !== transitionVersion) return;
+      await friendsScreen.render();
     }
 
     async function showCreateSheet(): Promise<void> {
@@ -632,6 +676,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
       const version = ++transitionVersion;
       chatScreen.deactivate();
+      friendsScreen.deactivate();
       if (tab !== 'profile') profileScreen.deactivate();
       for (const [id, button] of buttons) button.classList.toggle('is-active', id === tab);
       if (record) {

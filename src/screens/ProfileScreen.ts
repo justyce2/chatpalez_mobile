@@ -20,6 +20,7 @@ export type ProfileScreenHandlers = {
   onDeleteAccount?: (password: string) => Promise<void>;
   onLogout: () => Promise<void>;
   onOpenPublicPage?: (path: string) => void;
+  onOpenFriends?: () => void;
   onOpenWebModule: (path: string, target?: string) => void;
 };
 
@@ -92,7 +93,14 @@ export class ProfileScreen {
       ['Friends', profile.friends_count], ['Followers', profile.followers_count], ['Following', profile.followings_count]
     ] as Array<[string, unknown]>) {
       if (value === null || value === undefined || value === '') continue;
-      const stat = element('div', 'native-profile-stat');
+      const stat = label === 'Friends' && this.handlers.onOpenFriends
+        ? document.createElement('button') : element('div', 'native-profile-stat');
+      stat.className = 'native-profile-stat';
+      if (stat instanceof HTMLButtonElement) {
+        stat.type = 'button';
+        stat.setAttribute('aria-label', `View friends, ${value}`);
+        stat.addEventListener('click', () => this.handlers.onOpenFriends?.());
+      }
       stat.append(elementWithText('strong', String(value)), elementWithText('span', label));
       stats.append(stat);
     }
@@ -117,6 +125,11 @@ export class ProfileScreen {
 
     const actions = element('section', 'settings-card profile-actions');
     actions.append(elementWithText('h3', 'Account & profile'));
+    if (this.handlers.onOpenFriends) {
+      const friends = secondaryButton('Friends & requests');
+      friends.addEventListener('click', () => this.handlers.onOpenFriends?.());
+      actions.append(friends);
+    }
     const settings = secondaryButton('Account & settings');
     settings.addEventListener('click', () => void this.renderSettings());
     actions.append(settings);
