@@ -11,6 +11,7 @@ import { chatMessageText } from '../chat-message-text';
 import type { MobileAccount } from '../api/user';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
+import { saveChatPhoto } from '../chat-photo-save';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
 export type ChatDeliveryTransport = 'realtime' | 'http';
@@ -928,11 +929,16 @@ export class ChatScreen {
       image.alt = 'Shared photo';
       image.loading = 'lazy';
       openPhoto.append(image);
-      openPhoto.addEventListener('click', () => this.openImagePreview(photoUrl));
-      // An image tap should not start the parent bubble's long-press actions.
-      for (const type of ['pointerdown', 'pointerup', 'contextmenu', 'keydown']) {
-        openPhoto.addEventListener(type, (event) => event.stopPropagation());
-      }
+      openPhoto.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (bubble.dataset.longPressHandled === '1') {
+          delete bubble.dataset.longPressHandled;
+          return;
+        }
+        this.openImagePreview(photoUrl);
+      });
+      // Pointer events reach the bubble so a photo has the same long-press menu.
+      openPhoto.addEventListener('keydown', (event) => event.stopPropagation());
       image.addEventListener('error', () => {
         openPhoto.replaceChildren(elementWithText('span', 'Photo unavailable'));
         openPhoto.disabled = true;
@@ -951,8 +957,8 @@ export class ChatScreen {
       const emoji = reactionChoices.find((choice) => choice.value === message.i_reaction)?.emoji;
       if (emoji) bubble.append(elementWithText('small', `${emoji} Your reaction`));
     }
-    if (message.message_id && (this.handlers.onReactToMessage || (mine && this.handlers.onDeleteMessage))) {
-      this.installMessageActions(bubble, message.message_id, Boolean(mine), refresh);
+    if (message.message_id) {
+      this.installMessageActions(bubble, message.message_id, Boolean(mine), refresh, body, photoUrl || undefined);
     }
     return bubble;
   }
@@ -963,29 +969,78 @@ export class ChatScreen {
     backdrop.setAttribute('role', 'dialog');
     backdrop.setAttribute('aria-modal', 'true');
     backdrop.setAttribute('aria-label', 'Chat photo preview');
-    const close = secondaryButton('Close');
+    const close = secondaryButton('×');
     close.className = 'chat-image-preview__close';
+    close.setAttribute('aria-label', 'Close image preview');
     const image = document.createElement('img');
     image.src = photoUrl;
     image.alt = 'Full-size shared photo';
     const viewport = element('div', 'chat-image-preview__viewport');
     viewport.append(image);
-    const actions = element('div', 'chat-image-preview__actions');
-    const zoom = secondaryButton('Zoom in');
-    zoom.addEventListener('click', () => {
-      const enlarged = viewport.classList.toggle('is-zoomed');
-      zoom.textContent = enlarged ? 'Zoom out' : 'Zoom in';
+    const save = secondaryButton('Save to Files');
+    save.className = 'chat-image-preview__save';
+    save.addEventListener('click', () => {
+      save.disabled = true;
+      void saveChatPhoto(photoUrl).catch((error: unknown) => {
+        if (!/cancel/i.test(error instanceof Error ? error.message : String(error))) {
+          window.alert(error instanceof Error ? error.message : 'Unable to save this photo.');
+        }
+      }).finally(() => { save.disabled = false; });
     });
-    const save = secondaryButton('Save or share');
-    save.addEventListener('click', () => void this.shareImage(photoUrl));
-    actions.append(zoom, save, close);
-    backdrop.append(viewport, actions);
+    backdrop.append(close, viewport, save);
     const dismiss = (): void => {
       backdrop.remove();
       document.removeEventListener('keydown', onKeydown);
       if (this.activeImagePreviewCleanup === dismiss) this.activeImagePreviewCleanup = null;
     };
     const onKeydown = (event: KeyboardEvent): void => { if (event.key === 'Escape') dismiss(); };
+    let scale = 1;
+    let startScale = 1;
+    let startDistance = 0;
+    let offsetX = 0;
+    let offsetY = 0;
+    let startX = 0;
+    let startY = 0;
+    const distance = (touches: TouchList): number => Math.hypot(
+      touches[0].clientX - touches[1].clientX,
+      touches[0].clientY - touches[1].clientY
+    );
+    const applyTransform = (): void => {
+      image.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+    };
+    viewport.addEventListener('touchstart', (event) => {
+      if (event.touches.length === 2) {
+        startDistance = distance(event.touches);
+        startScale = scale;
+      } else if (event.touches.length === 1) {
+        startX = event.touches[0].clientX - offsetX;
+        startY = event.touches[0].clientY - offsetY;
+      }
+    }, { passive: true });
+    viewport.addEventListener('touchmove', (event) => {
+      if (event.touches.length === 2 && startDistance > 0) {
+        event.preventDefault();
+        scale = Math.min(4, Math.max(.65, startScale * distance(event.touches) / startDistance));
+        applyTransform();
+      } else if (event.touches.length === 1 && scale > 1) {
+        event.preventDefault();
+        const limitX = (viewport.clientWidth * (scale - 1)) / 2;
+        const limitY = (viewport.clientHeight * (scale - 1)) / 2;
+        offsetX = Math.max(-limitX, Math.min(limitX, event.touches[0].clientX - startX));
+        offsetY = Math.max(-limitY, Math.min(limitY, event.touches[0].clientY - startY));
+        applyTransform();
+      }
+    }, { passive: false });
+    viewport.addEventListener('touchend', (event) => {
+      if (event.touches.length === 0) {
+        if (scale < .82) { dismiss(); return; }
+        if (scale < 1) { scale = 1; offsetX = 0; offsetY = 0; applyTransform(); }
+        startDistance = 0;
+      } else if (event.touches.length === 1) {
+        startX = event.touches[0].clientX - offsetX;
+        startY = event.touches[0].clientY - offsetY;
+      }
+    }, { passive: true });
     close.addEventListener('click', dismiss);
     backdrop.addEventListener('click', (event) => { if (event.target === backdrop) dismiss(); });
     document.addEventListener('keydown', onKeydown);
@@ -994,42 +1049,20 @@ export class ChatScreen {
     close.focus();
   }
 
-  private async shareImage(photoUrl: string): Promise<void> {
-    let nativeShareAttempted = false;
+  private async shareMessage(body: string, photoUrl?: string): Promise<void> {
     try {
-      const response = await fetch(photoUrl);
-      if (!response.ok) throw new Error('Unable to download photo.');
-      const blob = await response.blob();
-      if (!blob.type.startsWith('image/')) throw new Error('This photo is unavailable.');
-      const extension = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
-      const file = new File([blob], `chatpalez-photo.${extension}`, { type: blob.type });
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'ChatPalez photo' });
-        return;
-      }
       if (Capacitor.isNativePlatform()) {
-        nativeShareAttempted = true;
-        await Share.share({ title: 'ChatPalez photo', url: photoUrl });
-        return;
+        await Share.share({ title: 'ChatPalez message', text: body || undefined, url: photoUrl });
+      } else if (navigator.share) {
+        await navigator.share({ text: body || undefined, url: photoUrl });
+      } else {
+        await navigator.clipboard.writeText([body, photoUrl].filter(Boolean).join('\n'));
+        window.alert('Message copied. You can paste it into another app.');
       }
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = file.name;
-      document.body.append(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      if (nativeShareAttempted && /cancel/i.test(error instanceof Error ? error.message : String(error))) return;
-      if (Capacitor.isNativePlatform() && !nativeShareAttempted) {
-        try {
-          await Share.share({ title: 'ChatPalez photo', url: photoUrl });
-          return;
-        } catch { /* Show the original failure if the share sheet is unavailable. */ }
-      }
-      window.alert(error instanceof Error ? error.message : 'Unable to save this photo.');
+      if (/cancel/i.test(error instanceof Error ? error.message : String(error))) return;
+      window.alert(error instanceof Error ? error.message : 'Unable to share this message.');
     }
   }
 
@@ -1037,7 +1070,9 @@ export class ChatScreen {
     bubble: HTMLDivElement,
     messageId: number | string,
     mine: boolean,
-    refresh: () => Promise<void>
+    refresh: () => Promise<void>,
+    body: string,
+    photoUrl?: string
   ): void {
     bubble.tabIndex = 0;
     bubble.setAttribute('aria-label', 'Message. Long press for actions.');
@@ -1047,6 +1082,7 @@ export class ChatScreen {
     const cancel = (): void => { if (timer) window.clearTimeout(timer); timer = undefined; };
     const show = (): void => {
       cancel();
+      bubble.dataset.longPressHandled = '1';
       this.activeMessageActionsCleanup?.();
       const backdrop = element('div', 'message-actions-backdrop');
       const menu = element('div', 'message-actions-menu');
@@ -1073,6 +1109,9 @@ export class ChatScreen {
         });
         menu.append(button);
       }
+      const share = secondaryButton('Share');
+      share.addEventListener('click', () => { close(); void this.shareMessage(body, photoUrl); });
+      menu.append(share);
       if (mine && this.handlers.onDeleteMessage) {
         const remove = secondaryButton('Delete message');
         remove.classList.add('message-actions-menu__delete');
@@ -1102,9 +1141,16 @@ export class ChatScreen {
     bubble.addEventListener('pointermove', (event) => {
       if (Math.hypot(event.clientX - startX, event.clientY - startY) > 10) cancel();
     });
-    bubble.addEventListener('pointerup', cancel);
-    bubble.addEventListener('pointercancel', cancel);
-    bubble.addEventListener('pointerleave', cancel);
+    const finishPress = (): void => {
+      cancel();
+      // A click follows pointerup; keep the flag through it, then clear it.
+      if (bubble.dataset.longPressHandled === '1') {
+        window.setTimeout(() => { delete bubble.dataset.longPressHandled; }, 400);
+      }
+    };
+    bubble.addEventListener('pointerup', finishPress);
+    bubble.addEventListener('pointercancel', finishPress);
+    bubble.addEventListener('pointerleave', finishPress);
     bubble.addEventListener('contextmenu', (event) => { event.preventDefault(); show(); });
     bubble.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ' || (event.shiftKey && event.key === 'F10')) {

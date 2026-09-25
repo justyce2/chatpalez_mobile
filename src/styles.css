@@ -1472,12 +1472,15 @@ p { color: #64748b; line-height: 1.55; }
 .thread-topbar-identity__presence { color: #64748B; font-size: 12px; }
 .thread-topbar-more {
   margin-left: auto;
+  width: 44px;
   min-height: 44px;
   border: 0;
   background: transparent;
   color: #0066B2;
+  font-size: 28px;
   font-weight: 700;
-  padding: 10px 14px;
+  line-height: 1;
+  padding: 4px;
 }
 
 
@@ -1826,7 +1829,7 @@ p { color: #64748b; line-height: 1.55; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 12px;
   padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
   background: rgba(9, 20, 34, .96);
 }
@@ -1836,11 +1839,24 @@ p { color: #64748b; line-height: 1.55; }
   justify-content: center;
   width: 100%;
   max-height: 76dvh;
-  overflow: auto;
+  overflow: hidden;
+  touch-action: none;
 }
-.chat-image-preview__viewport img { max-width: 100%; max-height: 76dvh; object-fit: contain; touch-action: pinch-zoom; }
-.chat-image-preview__viewport.is-zoomed { display: block; }
-.chat-image-preview__viewport.is-zoomed img { width: 200%; max-width: none; max-height: none; }
-.chat-image-preview__actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-.chat-image-preview__actions button { margin: 0; min-height: 44px; }
-.chat-image-preview__close { background: #FFFFFF; }
+.chat-image-preview__viewport img { max-width: 100%; max-height: 76dvh; object-fit: contain; transform-origin: center; user-select: none; -webkit-user-drag: none; }
+.chat-image-preview__close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,.94);
+  color: #172A3A;
+  font-size: 28px;
+  line-height: 1;
+}
+.chat-image-preview__save { margin: 0; min-height: 44px; background: #FFFFFF; color: #005C9E; }

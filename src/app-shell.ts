@@ -224,7 +224,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     const actionRow = element('div', 'mobile-topbar__action-row');
     const threadMore = element('button', 'thread-topbar-more');
     threadMore.type = 'button';
-    threadMore.textContent = 'More';
+    threadMore.textContent = '⋮';
     threadMore.setAttribute('aria-label', 'Conversation options');
     threadMore.hidden = true;
     threadMore.addEventListener('click', () => chatScreen.openConversationActions());
