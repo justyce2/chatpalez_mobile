@@ -24,6 +24,12 @@ button { cursor: pointer; }
   justify-content: center;
   padding: max(28px, env(safe-area-inset-top)) 0 max(28px, env(safe-area-inset-bottom));
 }
+.auth-screen { position: relative; }
+.auth-screen__back {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 0;
+}
 
 .state-card { text-align: center; align-items: center; }
 .brand-mark {

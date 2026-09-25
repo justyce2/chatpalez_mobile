@@ -189,7 +189,19 @@ function continueAfterRegistration(options: RegistrationOptions, metadata: Regis
 }
 
 function renderActivation(options: RegistrationOptions, metadata: RegistrationMetadata, session: AuthSession): void {
-  const card = authCard('Activate your account', 'Enter the verification code sent by ChatPalez.');
+  const card = authCard(
+    'Activate your account',
+    'Enter the verification code sent to your email. Check your inbox and spam folder for the message from ChatPalez. If you sign in before verifying, you will return to this page.'
+  );
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'app-back-button auth-screen__back';
+  back.setAttribute('aria-label', 'Back to sign in');
+  const backGlyph = document.createElement('span');
+  backGlyph.className = 'app-back-button__glyph';
+  backGlyph.setAttribute('aria-hidden', 'true');
+  back.append(backGlyph);
+  back.addEventListener('click', options.onReturnToLogin);
   const form = document.createElement('form');
   form.className = 'auth-form';
   const code = input('text', 'Verification code');
@@ -225,7 +237,7 @@ function renderActivation(options: RegistrationOptions, metadata: RegistrationMe
       .catch((reason: unknown) => showError(error, reason, 'Unable to activate your account.'))
       .finally(() => setSubmitting(submit, false, 'Verify account'));
   });
-  card.append(form);
+  card.append(back, form);
   options.root.replaceChildren(card);
 }
 
