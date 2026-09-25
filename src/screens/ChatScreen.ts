@@ -4,6 +4,7 @@ import { CoalescedResync } from '../chat-resync';
 import { RealtimeDeliveryUncertainError } from '../chat-realtime';
 import { isChatSoundEnabled, playSentChatSound, setChatSoundEnabled, unlockChatAudio } from '../chat-sound';
 import { latestOutgoingReceipt } from '../chat-receipts';
+import { mergeChatHistory } from '../chat-history';
 import { chatProfilePath } from '../chat-profile-route';
 import type { MobileAccount } from '../api/user';
 
@@ -596,6 +597,10 @@ export class ChatScreen {
     text.addEventListener('blur', () => setTyping(false));
 
     let historyOffset = 0;
+    let hasMoreHistory = false;
+    let hasLoadedHistory = false;
+    let loadingOlder = false;
+    let renderedMessages: Message[] = [];
     let pendingBubble: HTMLDivElement | null = null;
     let lastMarkedIncomingId: string | null = null;
     let receiptMessageId: string | null = null;
@@ -608,6 +613,8 @@ export class ChatScreen {
       receipt.classList.toggle('is-seen', seen);
     };
     const refresh = async (older = false): Promise<void> => {
+      if (older && (loadingOlder || !hasMoreHistory)) return;
+      if (older) loadingOlder = true;
       try {
         const nextOffset = older ? historyOffset + 1 : 0;
         const result = await this.handlers.onLoadMessages!(conversationId, nextOffset);
@@ -619,28 +626,47 @@ export class ChatScreen {
           : result.user_last_seen ? `Last seen ${String(result.user_last_seen)}` : normalPresence;
         presence.textContent = result.typing_name_list ? `${result.typing_name_list} typing…` : normalPresence;
         updateHeaderPresence(presence.textContent);
-        loadOlder.hidden = !result.has_more;
-        if (!older) thread.replaceChildren();
-        if (!older && messages.length === 0) thread.append(paragraph('No messages yet.'));
+        if (older || !hasLoadedHistory) hasMoreHistory = Boolean(result.has_more);
+        loadOlder.hidden = !hasMoreHistory;
+
+        const stickToBottom = !hasLoadedHistory || (!older && thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80);
+        const topEdge = thread.getBoundingClientRect().top;
+        const anchor = !stickToBottom || older
+          ? [...thread.querySelectorAll<HTMLDivElement>('.message-bubble[data-message-id]')]
+            .find((bubble) => bubble.getBoundingClientRect().bottom > topEdge)
+          : undefined;
+        const anchorId = anchor?.dataset.messageId;
+        const anchorTop = anchor?.getBoundingClientRect().top;
+        const previousTop = thread.scrollTop;
+        const existing = new Map([...thread.querySelectorAll<HTMLDivElement>('.message-bubble[data-message-id]')]
+          .map((bubble) => [bubble.dataset.messageId!, bubble]));
+        renderedMessages = mergeChatHistory(renderedMessages, messages, older);
 
         const latestReceipt = !older ? latestOutgoingReceipt(messages, this.session.user.user_id, conversation, result.seen_name_list) : null;
         receiptMessageId = !older ? latestReceipt?.messageId ?? null : receiptMessageId;
-        const bubbles = messages.map((message) => this.messageBubble(message, refresh));
-        if (latestReceipt && bubbles.length) {
+        if (!older) thread.querySelector('.chat-message-receipt')?.remove();
+        const latestIds = new Set(messages.map((message) => String(message.message_id)));
+        const bubbles = renderedMessages.map((message) => {
+          const id = String(message.message_id);
+          return (!older && latestIds.has(id) ? undefined : existing.get(id)) ?? this.messageBubble(message, refresh);
+        });
+        if (latestReceipt) {
           const marker = element('small', 'chat-message-receipt');
-          bubbles.at(-1)!.append(marker);
+          bubbles.find((bubble) => bubble.dataset.messageId === latestReceipt.messageId)?.append(marker);
         }
-        if (older) {
-          const beforeHeight = thread.scrollHeight;
-          const beforeTop = thread.scrollTop;
-          thread.prepend(...bubbles);
-          thread.scrollTop = thread.scrollHeight - beforeHeight + beforeTop;
-        } else {
-          thread.append(...bubbles);
-          if (pendingBubble) thread.append(pendingBubble);
+        thread.replaceChildren(...bubbles);
+        if (!renderedMessages.length) thread.append(paragraph('No messages yet.'));
+        if (pendingBubble) thread.append(pendingBubble);
+        if (anchorId && anchorTop !== undefined) {
+          const newAnchor = bubbles.find((bubble) => bubble.dataset.messageId === anchorId);
+          thread.scrollTop = newAnchor ? previousTop + newAnchor.getBoundingClientRect().top - anchorTop : previousTop;
+        } else if (stickToBottom && !older) {
           thread.scrollTop = thread.scrollHeight;
+        } else {
+          thread.scrollTop = previousTop;
         }
-        historyOffset = nextOffset;
+        if (older) historyOffset = nextOffset;
+        hasLoadedHistory = true;
         if (!older) renderReceipt(String(result.seen_name_list ?? ''));
 
         const latestIncoming = [...messages].reverse().find((message) =>
@@ -652,10 +678,14 @@ export class ChatScreen {
         }
 
       } catch (error) {
-        if (!older) {
+        if (!older && !hasLoadedHistory) {
           thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
           if (pendingBubble) thread.append(pendingBubble);
+        } else if (version === this.viewVersion) {
+          deliveryStatus.textContent = error instanceof Error ? error.message : 'Unable to refresh messages.';
         }
+      } finally {
+        if (older) loadingOlder = false;
       }
     };
     const latestResync = new CoalescedResync(() => refresh(false));
@@ -784,6 +814,7 @@ export class ChatScreen {
 
   private messageBubble(message: Message, refresh: () => Promise<void>): HTMLDivElement {
     const bubble = element('div', 'message-bubble');
+    if (message.message_id != null) bubble.dataset.messageId = String(message.message_id);
     const senderId = String(message.user_id ?? message.sender_id ?? '');
     const mine = senderId && senderId === String(this.session.user.user_id ?? '');
     if (mine) bubble.classList.add('is-mine');
