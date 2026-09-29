@@ -2,7 +2,9 @@ import type { Message } from './api/chat';
 
 /** Keep fetched older pages while replacing the portion covered by a fresh latest page. */
 export function mergeChatHistory(current: Message[], page: Message[], older: boolean): Message[] {
-  if (!older && page.length === 0) return [];
+  // An empty incremental response means there are no new messages. Preserve the
+  // conversation already rendered instead of replacing it with an empty array.
+  if (!older && page.length === 0) return current;
 
   const firstLatestId = !older ? Number(page[0].message_id) : 0;
   const retained = older || !Number.isFinite(firstLatestId)
