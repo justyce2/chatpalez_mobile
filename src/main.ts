@@ -12,6 +12,7 @@ import { RegistrationService } from './api/registration';
 import { UserService } from './api/user';
 import { FriendsService } from './api/friends';
 import { UploadService } from './api/uploads';
+import { VoiceRecorder } from '@independo/capacitor-voice-recorder';
 import { clearSession, getAuthToken, getSession, restoreSession, setSession, type AuthSession } from './auth/session';
 import { installPasswordRecovery } from './auth/password-recovery';
 import { installRegistration, needsRegistrationCompletion, resumeRegistration, type RegistrationOptions } from './auth/registration';
@@ -58,6 +59,38 @@ const registration = new RegistrationService(api);
 const users = new UserService(api);
 const friends = new FriendsService(api);
 const uploads = new UploadService(api);
+
+async function recordVoiceNote(): Promise<File | null> {
+  const permission = await VoiceRecorder.requestAudioRecordingPermission();
+  if (!permission.value) throw new Error('Microphone permission was not granted.');
+  await VoiceRecorder.startRecording();
+  const overlay = document.createElement('div');
+  overlay.className = 'chat-voice-recording-sheet';
+  overlay.innerHTML = '<div class="chat-voice-recording-sheet__panel"><strong>Recording voice note</strong><span class="chat-voice-recording-sheet__timer">00:00</span><div class="chat-voice-recording-sheet__actions"><button type="button" class="secondary-button">Cancel</button><button type="button" class="primary-button">Stop & attach</button></div></div>';
+  document.body.append(overlay);
+  const timer = overlay.querySelector<HTMLElement>('.chat-voice-recording-sheet__timer')!;
+  const buttons = overlay.querySelectorAll<HTMLButtonElement>('button');
+  let seconds = 0;
+  const timerId = window.setInterval(() => { seconds += 1; timer.textContent = `${String(Math.floor(seconds / 60)).padStart(2,'0')}:${String(seconds % 60).padStart(2,'0')}`; }, 1000);
+  return await new Promise<File | null>((resolve, reject) => {
+    let settled = false;
+    const finish = (value: File | null, error?: unknown) => { if (settled) return; settled = true; window.clearInterval(timerId); overlay.remove(); error ? reject(error) : resolve(value); };
+    buttons[0].addEventListener('click', () => { void VoiceRecorder.stopRecording().then(() => finish(null)).catch(finish as any); });
+    buttons[1].addEventListener('click', () => {
+      void VoiceRecorder.stopRecording().then((result) => {
+        const data = result.value as { recordDataBase64?: string; msDuration?: number; mimeType?: string };
+        if (!data.recordDataBase64) throw new Error('Voice recording returned no audio data.');
+        const binary = atob(data.recordDataBase64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        const mime = data.mimeType || 'audio/aac';
+        const extension = mime.includes('mp4') ? 'm4a' : mime.includes('webm') ? 'webm' : 'aac';
+        finish(new File([bytes], `voice-${Date.now()}.${extension}`, { type: mime }));
+      }).catch((error) => finish(null, error));
+    });
+  });
+}
+
 
 function registrationOptions(): RegistrationOptions {
   return {
@@ -503,7 +536,8 @@ const shell = createAppShell(root, {
     });
     return result;
   },
-  onSendMessage: async (conversationId, message, photo, video, file, onProgress) => {
+  onRecordVoiceNote: async () => recordVoiceNote(),
+  onSendMessage: async (conversationId, message, photo, video, file, voice, onProgress) => {
     /*
      * Keep uploads on HTTP. Plain text may use Socket.IO when connected.
      * HTTP is selected when realtime is unavailable before submission; once a
@@ -540,9 +574,12 @@ const shell = createAppShell(root, {
       }
     }
     const photoSource = photo ? await uploads.uploadChatPhoto(photo, onProgress) : '';
-    const videoSource = video ? await uploads.uploadChatVideo(video, onProgress) : '';
+    const videoUpload = video ? await uploads.uploadChatVideo(video, onProgress) : { source: '', thumbnail: '' };
     const fileSource = file ? await uploads.uploadChatFile(file, onProgress) : '';
-    await chat.sendMessage(conversationId, message, photoSource, videoSource, fileSource);
+    const voiceSource = voice ? await uploads.uploadChatVoice(voice, onProgress) : '';
+    const videoSource = typeof videoUpload === 'string' ? videoUpload : JSON.stringify({ source: videoUpload.source, video_thumbnail: videoUpload.thumbnail || '' });
+    const finalMessage = message || (file ? file.name : '');
+    await chat.sendMessage(conversationId, finalMessage, photoSource, videoSource, fileSource, voiceSource);
     logInfo('Message sent through HTTP chat', { conversationId, hasPhoto: Boolean(photo), hasVideo: Boolean(video), hasFile: Boolean(file) });
     return 'http' as const;
   },
