@@ -142,9 +142,19 @@ function requestedWebPath(): string | null {
 }
 
 async function completeAuthenticatedSession(session: AuthSession): Promise<void> {
-  if (needsRegistrationCompletion(session)) {
+  const system = await auth.getSystemSettings();
+  logDebug('Mobile authentication requirements loaded', {
+    activationEnabled: system.activation_enabled === true || system.activation_enabled === 1 || system.activation_enabled === '1',
+    gettingStartedEnabled: system.getting_started === true || system.getting_started === 1 || system.getting_started === '1'
+  });
+
+  if (needsRegistrationCompletion(session, system)) {
     await setSession(session);
-    logInfo('Mobile account requires registration completion', { userId: session.user.user_id });
+    logInfo('Mobile account requires registration completion', {
+      userId: session.user.user_id,
+      activationEnabled: system.activation_enabled === true || system.activation_enabled === 1 || system.activation_enabled === '1',
+      gettingStartedEnabled: system.getting_started === true || system.getting_started === 1 || system.getting_started === '1'
+    });
     await resumeRegistration(registrationOptions(), session);
     return;
   }
