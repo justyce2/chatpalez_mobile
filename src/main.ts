@@ -31,11 +31,13 @@ import { installMobileBridge } from './bridge';
 import { bindWebBridgeEvents } from './web-bridge-events';
 import { webContentSurface } from './web-content-surface';
 import './styles.css';
+import { CHATPALEZ_BUILD_ID } from './build-info';
 
 const appRoot = document.querySelector<HTMLElement>('#app');
 if (!appRoot) throw new Error('ChatPalez app root was not found.');
 const root: HTMLElement = appRoot;
 
+document.documentElement.dataset.chatpalezBuild = CHATPALEZ_BUILD_ID;
 const config = getAppConfig();
 const mobileBridge = installMobileBridge(config);
 bindWebBridgeEvents(mobileBridge, config);
