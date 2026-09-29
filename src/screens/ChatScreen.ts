@@ -1,3 +1,19 @@
+function formatChatLastSeen(value: string): string {
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T') + (/[zZ]|[+-]\d\d:\d\d$/.test(value) ? '' : 'Z');
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDiff = Math.round((today.getTime() - target.getTime()) / 86400000);
+  const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(date);
+  if (dayDiff === 0) return `today at ${time}`;
+  if (dayDiff === 1) return `yesterday at ${time}`;
+  if (dayDiff > 1 && dayDiff < 7) return `${new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(date)} at ${time}`;
+  if (date.getFullYear() === now.getFullYear()) return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(date);
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
+}
+
 import type { ChatContact, ChatFeatures, Conversation, Message, MessagesResult } from '../api/chat';
 import type { AuthSession } from '../auth/session';
 import { CoalescedResync } from '../chat-resync';
@@ -355,6 +371,11 @@ export class ChatScreen {
       enabled.type = 'checkbox';
       enabled.checked = privacy.user_chat_enabled === true || privacy.user_chat_enabled === '1';
       enabledRow.append(elementWithText('span', 'Allow people to chat with me'), enabled);
+      const lastSeenRow = element('label', 'chat-settings-row');
+      const lastSeen = document.createElement('input');
+      lastSeen.type = 'checkbox';
+      lastSeen.checked = String(privacy.user_privacy_last_seen ?? 'public') !== 'me';
+      lastSeenRow.append(elementWithText('span', 'Show my last seen to others'), lastSeen);
       const audienceRow = element('label', 'chat-settings-row');
       audienceRow.append(elementWithText('span', 'Who can chat with me'));
       const audience = document.createElement('select');
@@ -372,12 +393,12 @@ export class ChatScreen {
         save.disabled = true;
         status.textContent = 'Saving…';
         void this.handlers.onSaveChatPrivacy!({
-          ...privacy, user_chat_enabled: enabled.checked, user_privacy_chat: audience.value
+          ...privacy, user_chat_enabled: enabled.checked, user_privacy_chat: audience.value, user_privacy_last_seen: lastSeen.checked ? 'public' : 'me'
         }).then(() => { status.textContent = 'Chat privacy saved.'; })
           .catch((error: unknown) => { status.textContent = error instanceof Error ? error.message : 'Unable to save chat privacy.'; })
           .finally(() => { save.disabled = false; });
       });
-      serverSettings.replaceChildren(enabledRow, audienceRow, save, status);
+      serverSettings.replaceChildren(enabledRow, lastSeenRow, audienceRow, save, status);
     } catch (error) {
       if (sheet.isConnected) serverSettings.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load chat privacy.'));
     }
@@ -808,7 +829,7 @@ export class ChatScreen {
         normalPresence = conversation.multiple_recipients
           ? `${conversation.recipients?.length ?? 0} participants`
           : result.user_is_online ? 'Online'
-          : result.user_last_seen ? `Last seen ${String(result.user_last_seen)}` : normalPresence;
+          : result.user_last_seen ? `Last seen ${formatChatLastSeen(String(result.user_last_seen))}` : normalPresence;
         presence.textContent = result.typing_name_list ? `${result.typing_name_list} typing…` : normalPresence;
         updateHeaderPresence(presence.textContent);
         if (older || !hasLoadedHistory) hasMoreHistory = Boolean(result.has_more);
@@ -913,7 +934,7 @@ export class ChatScreen {
       setPresence: (online, lastSeen) => {
         if (version !== this.viewVersion) return;
         if (conversation.multiple_recipients) return;
-        normalPresence = online ? 'Online' : lastSeen ? `Last seen ${lastSeen}` : '';
+        normalPresence = online ? 'Online' : lastSeen ? `Last seen ${formatChatLastSeen(String(lastSeen))}` : '';
         presence.textContent = normalPresence;
         updateHeaderPresence(presence.textContent);
       },
