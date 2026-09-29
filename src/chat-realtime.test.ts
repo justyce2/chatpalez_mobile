@@ -57,6 +57,7 @@ describe('ChatRealtimeService connection lifecycle', () => {
       'https://chatpalez.com/',
       expect.objectContaining({
         autoConnect: false,
+        tryAllTransports: true,
         path: '/socket.io',
         auth: { token: 'test-token' },
         transports: ['polling', 'websocket'],
