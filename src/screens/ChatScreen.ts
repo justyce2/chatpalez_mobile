@@ -13,6 +13,7 @@ import type { MobileAccount } from '../api/user';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { saveChatPhoto } from '../chat-photo-save';
+import { ChatPollingController } from '../chat-polling';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
 export type ChatDeliveryTransport = 'realtime' | 'http';
@@ -37,7 +38,7 @@ export type ChatScreenHandlers = {
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
   onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
-  onLoadMessages?: (conversationId: number | string, offset: number) => Promise<MessagesResult>;
+  onLoadMessages?: (conversationId: number | string, offset: number, lastMessageId?: number | string) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onLeaveConversation?: (conversationId: number | string) => Promise<void>;
@@ -683,6 +684,7 @@ export class ChatScreen {
     let hasLoadedHistory = false;
     let loadingOlder = false;
     let renderedMessages: Message[] = [];
+    let realtimeConnected = false;
     let pendingBubble: HTMLDivElement | null = null;
     let lastMarkedIncomingId: string | null = null;
     let receiptMessageId: string | null = null;
@@ -725,7 +727,7 @@ export class ChatScreen {
       if (older) loadingOlder = true;
       try {
         const nextOffset = older ? historyOffset + 1 : 0;
-        const result = await this.handlers.onLoadMessages!(conversationId, nextOffset);
+        const result = await this.handlers.onLoadMessages!(conversationId, nextOffset, lastMessageId);
         if (version !== this.viewVersion) return;
         const messages = result.messages ?? [];
         normalPresence = conversation.multiple_recipients
@@ -804,7 +806,13 @@ export class ChatScreen {
       }
     };
     const latestResync = new CoalescedResync(() => refresh(false));
-
+    const messagePolling = new ChatPollingController({
+      intervalMs: 3000,
+      isRealtimeConnected: () => realtimeConnected,
+      getLastMessageId: () => renderedMessages.at(-1)?.message_id,
+      isOnline: () => navigator.onLine !== false && document.visibilityState !== 'hidden',
+      poll: (lastMessageId) => refresh(false, lastMessageId)
+    });
 
     let threadClosed = false;
     const closeThread = (reason?: string): void => {
@@ -833,18 +841,22 @@ export class ChatScreen {
       },
       setRealtimeStatus: (connected) => {
         if (version !== this.viewVersion) return;
+        realtimeConnected = connected;
         realtimeStatus.textContent = connected ? 'Live chat connected' : 'Standard delivery';
         realtimeStatus.classList.toggle('is-live', connected);
+        messagePolling.setRealtimeConnected(connected);
       },
       close: closeThread
     };
     const stopRealtime = this.handlers.onOpenConversation?.(conversation, realtimeHandlers);
+    messagePolling.start();
 
     const leaveThread = (): void => {
       if (text.value || selectedPhoto) this.drafts.set(String(conversationId), { text: text.value, photo: selectedPhoto });
       else this.drafts.delete(String(conversationId));
       if (typingTimer) window.clearTimeout(typingTimer);
       setTyping(false);
+      messagePolling.stop();
       stopRealtime?.();
     };
     this.activeThreadCleanup = leaveThread;
