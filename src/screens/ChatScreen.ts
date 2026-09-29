@@ -866,11 +866,11 @@ export class ChatScreen {
         bubbles.forEach((bubble, index) => {
           const message = renderedMessages[index];
           if (!message || String(message.user_id ?? message.sender_id ?? '') !== String(this.session.user.user_id)) return;
-          const receipt = element('small', 'chat-message-receipt');
+          const receipt = bubble.querySelector<HTMLElement>('.chat-message-receipt') ?? element('small', 'chat-message-receipt');
           receipt.textContent = '✓';
           receipt.setAttribute('aria-label', 'Sent');
           receipt.title = 'Sent';
-          bubble.append(receipt);
+          if (!receipt.parentElement) bubble.append(receipt);
         });
         thread.replaceChildren(loadOlder, ...bubbles);
         if (this.selectedMessages.size) this.updateSelection();
