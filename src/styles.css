@@ -2401,3 +2401,5 @@ p { color: #64748b; line-height: 1.55; }
   font-weight: 700;
   text-decoration: underline;
 }
+
+.message-video-preview{display:block;width:min(240px,100%);max-height:220px;margin-top:6px;border-radius:12px;background:#000;object-fit:cover}.message-file-preview{padding:10px 12px;margin-top:6px;border:1px solid rgba(148,163,184,.35);border-radius:10px;font-weight:700}.message-voice-preview{display:block;width:min(260px,100%);margin-top:6px}
