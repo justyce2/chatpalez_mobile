@@ -3,7 +3,6 @@ import type { AuthSession } from '../auth/session';
 import { CoalescedResync } from '../chat-resync';
 import { RealtimeDeliveryUncertainError } from '../chat-realtime';
 import { isChatSoundEnabled, playSentChatSound, setChatSoundEnabled, unlockChatAudio } from '../chat-sound';
-import { latestOutgoingReceipt } from '../chat-receipts';
 import { mergeChatHistory } from '../chat-history';
 import { clearDirectChatHistory } from '../chat-clear';
 import { chatProfilePath } from '../chat-profile-route';
@@ -715,12 +714,13 @@ export class ChatScreen {
       }
     }, { passive: true });
     const renderReceipt = (seenNameList: string): void => {
-      const receipt = thread.querySelector<HTMLElement>('.chat-message-receipt');
-      if (!receipt || !receiptMessageId) return;
       const seen = !conversation.multiple_recipients && !conversation.node_id && Boolean(seenNameList.trim());
-      receipt.textContent = seen ? '✓✓ Seen' : '✓ Sent';
-      receipt.setAttribute('aria-label', seen ? `Seen by ${seenNameList}` : 'Sent');
-      receipt.classList.toggle('is-seen', seen);
+      thread.querySelectorAll<HTMLElement>('.chat-message-receipt').forEach((receipt) => {
+        receipt.textContent = seen ? '✓✓' : '✓';
+        receipt.setAttribute('aria-label', seen ? `Seen by ${seenNameList}` : 'Sent');
+        receipt.title = seen ? 'Seen' : 'Sent';
+        receipt.classList.toggle('is-seen', seen);
+      });
     };
     const refresh = async (older = false, lastMessageId?: number | string): Promise<void> => {
       if (older && (loadingOlder || !hasMoreHistory)) return;
@@ -752,18 +752,21 @@ export class ChatScreen {
           .map((bubble) => [bubble.dataset.messageId!, bubble]));
         renderedMessages = mergeChatHistory(renderedMessages, messages, older);
 
-        const latestReceipt = !older ? latestOutgoingReceipt(messages, this.session.user.user_id, conversation, result.seen_name_list) : null;
-        receiptMessageId = !older ? latestReceipt?.messageId ?? null : receiptMessageId;
-        if (!older) thread.querySelector('.chat-message-receipt')?.remove();
         const latestIds = new Set(messages.map((message) => String(message.message_id)));
         const bubbles = renderedMessages.map((message) => {
           const id = String(message.message_id);
           return (!older && latestIds.has(id) ? undefined : existing.get(id)) ?? this.messageBubble(message, refresh);
         });
-        if (latestReceipt) {
-          const marker = element('small', 'chat-message-receipt');
-          bubbles.find((bubble) => bubble.dataset.messageId === latestReceipt.messageId)?.append(marker);
-        }
+        // Delivery state belongs to each outgoing message, not just the latest one.
+        bubbles.forEach((bubble, index) => {
+          const message = renderedMessages[index];
+          if (!message || String(message.user_id ?? message.sender_id ?? '') !== String(this.session.user.user_id)) return;
+          const receipt = element('small', 'chat-message-receipt');
+          receipt.textContent = '✓';
+          receipt.setAttribute('aria-label', 'Sent');
+          receipt.title = 'Sent';
+          bubble.append(receipt);
+        });
         thread.replaceChildren(loadOlder, ...bubbles);
         if (this.selectedMessages.size) this.updateSelection();
         if (!renderedMessages.length) thread.append(paragraph('No messages yet.'));
