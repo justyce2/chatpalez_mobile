@@ -52,6 +52,7 @@ export type AppShellHandlers = {
   onLoadMessages?: (conversationId: number | string, offset: number, lastMessageId?: number | string) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, voice?: File, onProgress?: (percent: number) => void) => Promise<ChatDeliveryTransport>;
   onRecordVoiceNote?: (conversationId: number | string) => Promise<File | null>;
+  onDownloadChatMedia?: (source: string, onProgress?: (percent: number) => void) => Promise<string>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onLeaveConversation?: (conversationId: number | string) => Promise<void>;
   onDeleteConversation?: (conversationId: number | string) => Promise<void>;
@@ -422,6 +423,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onLoadMessages: handlers.onLoadMessages,
       onSendMessage: handlers.onSendMessage,
       onRecordVoiceNote: handlers.onRecordVoiceNote,
+      onDownloadChatMedia: handlers.onDownloadChatMedia,
       onTyping: handlers.onTyping,
       onLeaveConversation: handlers.onLeaveConversation,
       onDeleteConversation: handlers.onDeleteConversation,
