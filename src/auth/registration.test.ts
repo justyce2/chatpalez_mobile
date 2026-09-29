@@ -10,6 +10,7 @@ describe('registration completion policy', () => {
   it('does not require account verification when activation is disabled', () => {
     expect(needsRegistrationCompletion(session(false, true), {
       activation_enabled: 0,
+      activation_required: 0,
       getting_started: 0
     })).toBe(false);
   });
@@ -17,6 +18,7 @@ describe('registration completion policy', () => {
   it('still requires account verification when activation is enabled', () => {
     expect(needsRegistrationCompletion(session(false, true), {
       activation_enabled: 1,
+      activation_required: 1,
       getting_started: 0
     })).toBe(true);
   });
@@ -24,11 +26,13 @@ describe('registration completion policy', () => {
   it('requires getting started only when that feature is enabled', () => {
     expect(needsRegistrationCompletion(session(true, false), {
       activation_enabled: 0,
+      activation_required: 1,
       getting_started: 1
     })).toBe(true);
 
     expect(needsRegistrationCompletion(session(true, false), {
       activation_enabled: 0,
+      activation_required: 0,
       getting_started: 0
     })).toBe(false);
   });
