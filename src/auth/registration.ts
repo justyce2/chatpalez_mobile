@@ -24,9 +24,9 @@ export function installRegistration(options: RegistrationOptions): void {
 }
 
 export function needsRegistrationCompletion(session: AuthSession, system: Record<string, unknown> = {}): boolean {
-  const activationEnabled = enabled(system.activation_enabled);
+  const activationRequired = enabled(system.activation_enabled) && enabled(system.activation_required);
   const gettingStartedEnabled = enabled(system.getting_started);
-  return (activationEnabled && isFalseLike(session.user.user_activated))
+  return (activationRequired && isFalseLike(session.user.user_activated))
     || (gettingStartedEnabled && isFalseLike(session.user.user_started));
 }
 
@@ -180,7 +180,7 @@ function renderSignUpForm(options: RegistrationOptions, metadata: RegistrationMe
 }
 
 function continueAfterRegistration(options: RegistrationOptions, metadata: RegistrationMetadata, session: AuthSession): void {
-  if (enabled(metadata.system.activation_enabled) && isFalseLike(session.user.user_activated)) {
+  if (enabled(metadata.system.activation_enabled) && enabled(metadata.system.activation_required) && isFalseLike(session.user.user_activated)) {
     renderActivation(options, metadata, session);
     return;
   }
