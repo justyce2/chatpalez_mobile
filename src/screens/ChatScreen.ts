@@ -985,12 +985,25 @@ export class ChatScreen {
       if ((!message && !selectedPhoto && !selectedVideo && !selectedFile && !selectedVoice) || !this.handlers.onSendMessage) return;
       unlockChatAudio(this.session.user.user_id);
       pendingBubble = element('div', 'message-bubble is-mine is-pending');
-      if ((selectedPhoto || selectedVideo || selectedFile) && previewUrl) {
+      if (selectedVideo && previewUrl) {
+        const pendingVideo = document.createElement('video');
+        pendingVideo.className = 'message-video-preview';
+        pendingVideo.src = previewUrl;
+        pendingVideo.muted = true;
+        pendingVideo.playsInline = true;
+        pendingVideo.preload = 'metadata';
+        pendingVideo.setAttribute('aria-label', 'Video being sent');
+        pendingBubble.append(pendingVideo);
+      } else if (selectedPhoto && previewUrl) {
         const pendingImage = document.createElement('img');
         pendingImage.className = 'message-photo';
         pendingImage.src = previewUrl;
-        pendingImage.alt = selectedVideo ? 'Video being sent' : selectedFile ? 'File being sent' : 'Photo being sent';
+        pendingImage.alt = 'Photo being sent';
         pendingBubble.append(pendingImage);
+      } else if (selectedFile) {
+        const pendingFile = elementWithText('div', selectedFile.name || 'File attachment');
+        pendingFile.className = 'message-file-preview';
+        pendingBubble.append(pendingFile);
       }
       if (message) pendingBubble.append(elementWithText('div', message));
       const pendingProgress = (selectedPhoto || selectedVideo || selectedFile || selectedVoice) ? document.createElement('div') : null;
