@@ -1551,7 +1551,6 @@ export class ChatScreen {
     const videoThumbnail = this.handlers.resolveChatPhotoUrl?.(media.video_thumbnail?.source || '');
     const fileSource = media.file?.source || '';
     const voiceSource = typeof message.voice_note === 'string' ? message.voice_note : '';
-    const videoUrl = this.handlers.resolveChatPhotoUrl?.(videoSource || '');
     if (forwarded) {
       const label = elementWithText('small', 'Forwarded');
       label.className = 'message-forwarded-label';
