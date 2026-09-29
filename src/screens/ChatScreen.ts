@@ -686,7 +686,6 @@ export class ChatScreen {
     let realtimeConnected = false;
     let pendingBubble: HTMLDivElement | null = null;
     let lastMarkedIncomingId: string | null = null;
-    let receiptMessageId: string | null = null;
     let previousScrollTop = 0;
     let touchStartY = 0;
     let requestedHistory = false;
