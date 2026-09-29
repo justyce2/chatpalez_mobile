@@ -59,7 +59,7 @@ describe('ChatPollingController', () => {
     vi.useRealTimers();
   });
 
-  it('does not poll while offline or when the document is hidden', async () => {
+  it('does not poll while offline', async () => {
     let realtimeConnected = false;
     let online = false;
     const poll = vi.fn().mockResolvedValue(undefined);
