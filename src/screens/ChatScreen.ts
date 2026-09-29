@@ -39,7 +39,7 @@ export type ChatScreenHandlers = {
   onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
   onLoadMessages?: (conversationId: number | string, offset: number, lastMessageId?: number | string) => Promise<MessagesResult>;
-  onSendMessage?: (conversationId: number | string, message: string, photo?: File) => Promise<ChatDeliveryTransport>;
+  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onLeaveConversation?: (conversationId: number | string) => Promise<void>;
   onDeleteConversation?: (conversationId: number | string) => Promise<void>;
@@ -653,12 +653,16 @@ export class ChatScreen {
     document.body.append(attachmentSheet);
 
     let selectedPhoto: File | null = null;
+    let selectedVideo: File | null = null;
+    let selectedFile: File | null = null;
     let previewUrl: string | null = null;
     let photosAvailable = true;
     const clearAttachment = (): void => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       previewUrl = null;
       selectedPhoto = null;
+      selectedVideo = null;
+      selectedFile = null;
       photo.value = '';
       attachment.hidden = true;
       attachmentImage.hidden = false;
@@ -667,14 +671,16 @@ export class ChatScreen {
       send.setAttribute('aria-label', 'Send message');
     };
     const showAttachment = (file: File): void => {
-      if (!file.type.startsWith('image/')) { window.alert('Choose an image file to attach.'); return; }
-      if (file.size > 8 * 1024 * 1024) { window.alert('This photo is too large. Choose a smaller image.'); return; }
+      const kind = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : 'file';
+      if (kind === 'image' && file.size > 8 * 1024 * 1024) { window.alert('This photo is too large. Choose a smaller image.'); return; }
       clearAttachment();
-      selectedPhoto = file;
+      if (kind === 'image') selectedPhoto = file;
+      else if (kind === 'video') selectedVideo = file;
+      else selectedFile = file;
       previewUrl = URL.createObjectURL(file);
       attachmentImage.src = previewUrl;
       attachmentName.textContent = file.name;
-      attachmentHint.textContent = 'Add a caption below, or send the photo on its own.';
+      attachmentHint.textContent = kind === 'video' ? 'Video selected. Send when ready.' : kind === 'file' ? 'File selected. Send when ready.' : 'Add a caption below, or send the photo on its own.';
       attachment.hidden = false;
       text.placeholder = 'Add a caption (optional)…';
       send.setAttribute('aria-label', 'Send message and photo');
@@ -918,20 +924,20 @@ export class ChatScreen {
     composer.addEventListener('submit', (event) => {
       event.preventDefault();
       const message = text.value.trim();
-      if ((!message && !selectedPhoto) || !this.handlers.onSendMessage) return;
+      if ((!message && !selectedPhoto && !selectedVideo && !selectedFile) || !this.handlers.onSendMessage) return;
       unlockChatAudio(this.session.user.user_id);
       pendingBubble = element('div', 'message-bubble is-mine is-pending');
-      if (selectedPhoto && previewUrl) {
+      if ((selectedPhoto || selectedVideo || selectedFile) && previewUrl) {
         const pendingImage = document.createElement('img');
         pendingImage.className = 'message-photo';
         pendingImage.src = previewUrl;
-        pendingImage.alt = 'Photo being sent';
+        pendingImage.alt = selectedVideo ? 'Video being sent' : selectedFile ? 'File being sent' : 'Photo being sent';
         pendingBubble.append(pendingImage);
       }
       if (message) pendingBubble.append(elementWithText('div', message));
       pendingBubble.append(elementWithText('small', 'Sending…'));
       thread.append(pendingBubble);
-      if (selectedPhoto) attachment.hidden = true;
+      if (selectedPhoto || selectedVideo || selectedFile) attachment.hidden = true;
       thread.scrollTop = thread.scrollHeight;
       send.disabled = true;
       attach.disabled = true;
@@ -939,7 +945,7 @@ export class ChatScreen {
       send.classList.add('is-sending');
       send.setAttribute('aria-label', 'Sending message');
       setTyping(false);
-      void this.handlers.onSendMessage(conversationId, message, selectedPhoto ?? undefined)
+      void this.handlers.onSendMessage(conversationId, message, selectedPhoto ?? undefined, selectedVideo ?? undefined, selectedFile ?? undefined)
         .then(async () => {
           pendingBubble?.remove();
           pendingBubble = null;
@@ -953,7 +959,7 @@ export class ChatScreen {
         .catch(async (error: unknown) => {
           pendingBubble?.remove();
           pendingBubble = null;
-          if (selectedPhoto) attachment.hidden = false;
+          if (selectedPhoto || selectedVideo || selectedFile) attachment.hidden = false;
           if (error instanceof RealtimeDeliveryUncertainError) {
             await latestResync.request().catch(() => undefined);
             window.alert('Delivery could not be confirmed. The conversation was refreshed; check whether your message appears before retrying.');
@@ -963,7 +969,7 @@ export class ChatScreen {
         })
         .finally(() => {
           send.disabled = false;
-          attach.disabled = !photosAvailable;
+          attach.disabled = false;
           text.disabled = false;
           send.classList.remove('is-sending');
           send.setAttribute('aria-label', 'Send message');
