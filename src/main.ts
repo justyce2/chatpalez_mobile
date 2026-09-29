@@ -147,6 +147,7 @@ async function completeAuthenticatedSession(session: AuthSession): Promise<void>
   const system = await auth.getSystemSettings();
   logDebug('Mobile authentication requirements loaded', {
     activationEnabled: system.activation_enabled === true || system.activation_enabled === 1 || system.activation_enabled === '1',
+    activationRequired: system.activation_required === true || system.activation_required === 1 || system.activation_required === '1',
     gettingStartedEnabled: system.getting_started === true || system.getting_started === 1 || system.getting_started === '1'
   });
 
