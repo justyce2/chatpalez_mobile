@@ -2001,3 +2001,73 @@ p { color: #64748b; line-height: 1.55; }
 .friends-action--decline, .friends-action--cancel, .friends-action--remove { background: #FFF; color: #465B6D; }
 .friends-action:disabled { opacity: .55; }
 .friends-hint { font-size: 12px; }
+
+
+/* Circular attachment progress overlay */
+.chat-message-receipt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 18px;
+  margin-top: 4px;
+  color: rgba(255,255,255,.72);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.message-bubble:not(.is-mine) .chat-message-receipt { color: #52657A; }
+.chat-message-receipt.is-seen { color: #7DD3FC; }
+.message-bubble:not(.is-mine) .chat-message-receipt.is-seen { color: #0066B2; }
+
+.chat-circular-progress {
+  --chat-progress: 0%;
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 52px;
+  height: 52px;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(#FFFFFF var(--chat-progress), rgba(255,255,255,.34) 0);
+  padding: 4px;
+  box-sizing: border-box;
+  z-index: 3;
+  filter: drop-shadow(0 2px 7px rgba(0,0,0,.24));
+}
+.chat-circular-progress::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: rgba(15,23,42,.72);
+}
+.chat-circular-progress__icon {
+  position: relative;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,.52);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  animation: chat-progress-spin .75s linear infinite;
+}
+.chat-circular-progress.is-complete .chat-circular-progress__icon {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  animation: none;
+}
+.chat-circular-progress.is-complete .chat-circular-progress__icon::after {
+  content: "✓";
+  display: block;
+  color: #FFFFFF;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+@keyframes chat-progress-spin {
+  to { transform: rotate(360deg); }
+}
