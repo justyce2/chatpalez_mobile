@@ -46,6 +46,11 @@ export type ChatFeatures = {
   typing: boolean;
   seen: boolean;
   realtime: boolean;
+  videos: boolean;
+  files: boolean;
+  voiceNotes: boolean;
+  videoMaxBytes?: number;
+  fileMaxBytes?: number;
 };
 
 export type Message = {
@@ -82,7 +87,12 @@ export class ChatService {
       photos: enabled(system.chat_photos_enabled),
       typing: enabled(system.chat_typing_enabled),
       seen: enabled(system.chat_seen_enabled),
-      realtime: enabled(system.chat_socket_enabled)
+      realtime: enabled(system.chat_socket_enabled),
+      videos: enabled(system.chat_videos_enabled),
+      files: Boolean(system.file_extensions || system.max_file_size),
+      voiceNotes: enabled(system.voice_notes_chat_enabled),
+      videoMaxBytes: Number(system.max_video_size || 0) * 1024 * 1024,
+      fileMaxBytes: Number(system.max_file_size || 0) * 1024 * 1024
     };
   }
 
@@ -119,13 +129,14 @@ export class ChatService {
     });
   }
 
-  async sendMessage(conversationId: number | string, message: string, photo = ''): Promise<Conversation> {
+  async sendMessage(conversationId: number | string, message: string, photo = '', video = '', file = ''): Promise<Conversation> {
     return this.api.post<Conversation>('chat/message', {
       conversation_id: conversationId,
       message,
       photo,
-      video: '',
+      video,
       voice_note: '',
+      file,
       recipients: ''
     });
   }
