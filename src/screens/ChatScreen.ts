@@ -30,6 +30,7 @@ export type ChatScreenHandlers = {
   resolveChatPhotoUrl?: (source: string) => string | null;
   onPickChatPhoto?: () => Promise<File | null>;
   onPickChatAttachment?: (kind: 'image' | 'video' | 'file') => Promise<File | null>;
+  onRecordVoiceNote?: (conversationId: number | string) => Promise<File | null>;
   onChatSoundChange?: (enabled: boolean) => void;
   onLoadChatAccount?: () => Promise<MobileAccount>;
   onSaveChatPrivacy?: (privacy: Record<string, string | boolean>) => Promise<void>;
@@ -39,7 +40,7 @@ export type ChatScreenHandlers = {
   onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
   onLoadMessages?: (conversationId: number | string, offset: number, lastMessageId?: number | string) => Promise<MessagesResult>;
-  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, onProgress?: (percent: number) => void) => Promise<ChatDeliveryTransport>;
+  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, voice?: File, onProgress?: (percent: number) => void) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onLeaveConversation?: (conversationId: number | string) => Promise<void>;
   onDeleteConversation?: (conversationId: number | string) => Promise<void>;
@@ -628,7 +629,13 @@ export class ChatScreen {
       option.addEventListener('click', () => {
         attachmentSheet.hidden = true;
         if (kind === 'voice') {
-          window.dispatchEvent(new CustomEvent('chatpalez:start-voice-note', { detail: { conversationId } }));
+          if (!this.handlers.onRecordVoiceNote) return;
+          option.disabled = true;
+          void this.handlers.onRecordVoiceNote(conversationId).then((file) => {
+            if (file && version === this.viewVersion) showVoiceAttachment(file);
+          }).catch((error: unknown) => {
+            if (version === this.viewVersion && error instanceof Error && !/cancel|dismiss/i.test(error.message)) window.alert(error.message);
+          }).finally(() => { option.disabled = false; });
           return;
         }
         if (this.handlers.onPickChatAttachment) {
@@ -655,6 +662,7 @@ export class ChatScreen {
     let selectedPhoto: File | null = null;
     let selectedVideo: File | null = null;
     let selectedFile: File | null = null;
+    let selectedVoice: File | null = null;
     let previewUrl: string | null = null;
     let photosAvailable = true;
     const clearAttachment = (): void => {
@@ -663,12 +671,25 @@ export class ChatScreen {
       selectedPhoto = null;
       selectedVideo = null;
       selectedFile = null;
+      selectedVoice = null;
       photo.value = '';
       attachment.hidden = true;
       attachmentImage.hidden = false;
       attachmentImage.removeAttribute('src');
       text.placeholder = 'Write a message…';
       send.setAttribute('aria-label', 'Send message');
+    };
+    const showVoiceAttachment = (file: File): void => {
+      clearAttachment();
+      selectedVoice = file;
+      previewUrl = URL.createObjectURL(file);
+      attachmentImage.hidden = true;
+      attachmentImage.removeAttribute('src');
+      attachmentName.textContent = file.name || 'Voice note';
+      attachmentHint.textContent = 'Voice note recorded. Send when ready.';
+      attachment.hidden = false;
+      text.placeholder = 'Add a caption (optional)…';
+      send.setAttribute('aria-label', 'Send voice note');
     };
     const showAttachment = (file: File): void => {
       const kind = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : 'file';
@@ -924,7 +945,7 @@ export class ChatScreen {
     composer.addEventListener('submit', (event) => {
       event.preventDefault();
       const message = text.value.trim();
-      if ((!message && !selectedPhoto && !selectedVideo && !selectedFile) || !this.handlers.onSendMessage) return;
+      if ((!message && !selectedPhoto && !selectedVideo && !selectedFile && !selectedVoice) || !this.handlers.onSendMessage) return;
       unlockChatAudio(this.session.user.user_id);
       pendingBubble = element('div', 'message-bubble is-mine is-pending');
       if ((selectedPhoto || selectedVideo || selectedFile) && previewUrl) {
@@ -935,7 +956,7 @@ export class ChatScreen {
         pendingBubble.append(pendingImage);
       }
       if (message) pendingBubble.append(elementWithText('div', message));
-      const pendingProgress = (selectedPhoto || selectedVideo || selectedFile) ? document.createElement('div') : null;
+      const pendingProgress = (selectedPhoto || selectedVideo || selectedFile || selectedVoice) ? document.createElement('div') : null;
       if (pendingProgress) {
         pendingProgress.className = 'chat-circular-progress';
         pendingProgress.style.setProperty('--chat-progress', '0%');
@@ -945,7 +966,7 @@ export class ChatScreen {
         pendingBubble.append(elementWithText('small', 'Sending…'));
       }
       thread.append(pendingBubble);
-      if (selectedPhoto || selectedVideo || selectedFile) attachment.hidden = true;
+      if (selectedPhoto || selectedVideo || selectedFile || selectedVoice) attachment.hidden = true;
       thread.scrollTop = thread.scrollHeight;
       send.disabled = true;
       attach.disabled = true;
@@ -953,7 +974,7 @@ export class ChatScreen {
       send.classList.add('is-sending');
       send.setAttribute('aria-label', 'Sending message');
       setTyping(false);
-      void this.handlers.onSendMessage(conversationId, message, selectedPhoto ?? undefined, selectedVideo ?? undefined, selectedFile ?? undefined, (percent) => {
+      void this.handlers.onSendMessage(conversationId, message, selectedPhoto ?? undefined, selectedVideo ?? undefined, selectedFile ?? undefined, selectedVoice ?? undefined, (percent) => {
         if (pendingProgress) pendingProgress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
       })
         .then(async () => {
@@ -969,7 +990,7 @@ export class ChatScreen {
         .catch(async (error: unknown) => {
           pendingBubble?.remove();
           pendingBubble = null;
-          if (selectedPhoto || selectedVideo || selectedFile) attachment.hidden = false;
+          if (selectedPhoto || selectedVideo || selectedFile || selectedVoice) attachment.hidden = false;
           if (error instanceof RealtimeDeliveryUncertainError) {
             await latestResync.request().catch(() => undefined);
             window.alert('Delivery could not be confirmed. The conversation was refreshed; check whether your message appears before retrying.');
