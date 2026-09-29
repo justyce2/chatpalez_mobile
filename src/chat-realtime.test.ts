@@ -60,8 +60,7 @@ describe('ChatRealtimeService connection lifecycle', () => {
         tryAllTransports: true,
         path: '/socket.io',
         auth: { token: 'test-token' },
-        transports: ['polling', 'websocket'],
-        tryAllTransports: true
+        transports: ['polling', 'websocket']
       })
     );
     expect(socket.connect).toHaveBeenCalledTimes(1);
