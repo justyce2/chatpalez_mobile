@@ -67,4 +67,12 @@ describe('AuthService', () => {
       confirm: 'new-password'
     });
   });
+  it('loads system authentication requirements from the public app settings endpoint', async () => {
+    const get = vi.fn().mockResolvedValue({ system: { activation_enabled: 0, getting_started: 1 } });
+    const auth = new AuthService({ get } as unknown as ChatPalezApiClient);
+
+    await expect(auth.getSystemSettings()).resolves.toEqual({ activation_enabled: 0, getting_started: 1 });
+    expect(get).toHaveBeenCalledWith('app/settings');
+  });
+
 });
