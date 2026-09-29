@@ -18,7 +18,7 @@ import { installPasswordRecovery } from './auth/password-recovery';
 import { installRegistration, needsRegistrationCompletion, resumeRegistration, type RegistrationOptions } from './auth/registration';
 import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
-import { getChatPhotoUrl } from './media';
+import { getChatMediaUrl, getChatPhotoUrl } from './media';
 import { pickNativeChatPhoto } from './chat-photo-picker';
 import { isChatSoundEnabled, playReceivedChatSound, unlockChatAudio } from './chat-sound';
 import {
@@ -537,6 +537,12 @@ const shell = createAppShell(root, {
     return result;
   },
   onRecordVoiceNote: async () => recordVoiceNote(),
+  onDownloadChatMedia: async (source, onProgress) => {
+    const url = getChatMediaUrl(config.origin, source);
+    if (!url) throw new Error('This attachment URL is not allowed.');
+    const blob = await api.downloadWithProgress(url, (loaded, total) => { if (total) onProgress?.(Math.round((loaded / total) * 100)); });
+    return URL.createObjectURL(blob);
+  },
   onSendMessage: async (conversationId, message, photo, video, file, voice, onProgress) => {
     /*
      * Keep uploads on HTTP. Plain text may use Socket.IO when connected.
