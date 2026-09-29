@@ -39,7 +39,7 @@ export type ChatScreenHandlers = {
   onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
   onLoadMessages?: (conversationId: number | string, offset: number, lastMessageId?: number | string) => Promise<MessagesResult>;
-  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File) => Promise<ChatDeliveryTransport>;
+  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, onProgress?: (percent: number) => void) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onLeaveConversation?: (conversationId: number | string) => Promise<void>;
   onDeleteConversation?: (conversationId: number | string) => Promise<void>;
@@ -935,7 +935,15 @@ export class ChatScreen {
         pendingBubble.append(pendingImage);
       }
       if (message) pendingBubble.append(elementWithText('div', message));
-      pendingBubble.append(elementWithText('small', 'Sending…'));
+      const pendingProgress = (selectedPhoto || selectedVideo || selectedFile) ? document.createElement('div') : null;
+      if (pendingProgress) {
+        pendingProgress.className = 'chat-circular-progress';
+        pendingProgress.style.setProperty('--chat-progress', '0%');
+        pendingProgress.innerHTML = '<span class="chat-circular-progress__icon" aria-hidden="true"></span>';
+        pendingBubble.append(pendingProgress);
+      } else {
+        pendingBubble.append(elementWithText('small', 'Sending…'));
+      }
       thread.append(pendingBubble);
       if (selectedPhoto || selectedVideo || selectedFile) attachment.hidden = true;
       thread.scrollTop = thread.scrollHeight;
@@ -945,7 +953,9 @@ export class ChatScreen {
       send.classList.add('is-sending');
       send.setAttribute('aria-label', 'Sending message');
       setTyping(false);
-      void this.handlers.onSendMessage(conversationId, message, selectedPhoto ?? undefined, selectedVideo ?? undefined, selectedFile ?? undefined)
+      void this.handlers.onSendMessage(conversationId, message, selectedPhoto ?? undefined, selectedVideo ?? undefined, selectedFile ?? undefined, (percent) => {
+        if (pendingProgress) pendingProgress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
+      })
         .then(async () => {
           pendingBubble?.remove();
           pendingBubble = null;
