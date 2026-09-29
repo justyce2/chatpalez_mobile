@@ -23,6 +23,11 @@ type SignInResponse = {
   method?: string;
 };
 
+type AppSettingsResponse = {
+  system?: Record<string, unknown>;
+  user?: ChatPalezUser;
+};
+
 export class AuthService {
   constructor(private readonly api: ChatPalezApiClient) {}
 
@@ -49,6 +54,11 @@ export class AuthService {
       token: data.token,
       user: data.user
     };
+  }
+
+  async getSystemSettings(): Promise<Record<string, unknown>> {
+    const data = await this.api.get<AppSettingsResponse>('app/settings');
+    return data?.system ?? {};
   }
 
   async completeTwoFactor(userId: number | string, key: string): Promise<AuthSession> {
