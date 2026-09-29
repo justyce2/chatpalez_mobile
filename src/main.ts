@@ -549,7 +549,7 @@ const shell = createAppShell(root, {
      * HTTP is selected when realtime is unavailable before submission; once a
      * realtime send is attempted, ambiguous delivery is never blindly retried.
      */
-    if (!photo && chatRealtime.isConnected()) {
+    if (!photo && !video && !file && !voice && chatRealtime.isConnected()) {
       try {
         await chatRealtime.sendMessage(conversationId, message);
         logInfo('Message sent through realtime chat', { conversationId });
