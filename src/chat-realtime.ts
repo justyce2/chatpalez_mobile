@@ -67,6 +67,7 @@ export class ChatRealtimeService {
       path: '/socket.io',
       auth: { token },
       transports: ['websocket', 'polling'],
+      tryAllTransports: true,
       reconnection: true,
       reconnectionAttempts: Infinity,
       timeout: 10000,
