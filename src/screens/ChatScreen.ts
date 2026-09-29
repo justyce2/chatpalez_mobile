@@ -687,6 +687,8 @@ export class ChatScreen {
     let selectedVoice: File | null = null;
     let previewUrl: string | null = null;
     let photosAvailable = true;
+    let videoMaxBytes = 0;
+    let fileMaxBytes = 0;
     const clearAttachment = (): void => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       previewUrl = null;
@@ -716,6 +718,8 @@ export class ChatScreen {
     const showAttachment = (file: File): void => {
       const kind = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : 'file';
       if (kind === 'image' && file.size > 8 * 1024 * 1024) { window.alert('This photo is too large. Choose a smaller image.'); return; }
+      if (kind === 'video' && videoMaxBytes > 0 && file.size > videoMaxBytes) { window.alert('This video is larger than the site limit. Choose a smaller video.'); return; }
+      if (kind === 'file' && fileMaxBytes > 0 && file.size > fileMaxBytes) { window.alert('This file is larger than the site limit. Choose a smaller file.'); return; }
       clearAttachment();
       if (kind === 'image') selectedPhoto = file;
       else if (kind === 'video') selectedVideo = file;
@@ -753,11 +757,16 @@ export class ChatScreen {
     if (savedDraft?.photo) showAttachment(savedDraft.photo);
     if (this.handlers.onLoadChatFeatures) {
       void this.handlers.onLoadChatFeatures().then((features) => {
-        if (version !== this.viewVersion || features.photos) return;
-        photosAvailable = false;
-        attach.disabled = true;
-        attach.title = 'Photo messages are disabled by site settings.';
-        if (selectedPhoto) clearAttachment();
+        if (version !== this.viewVersion) return;
+        videoMaxBytes = Number(features.videoMaxBytes || 0);
+        fileMaxBytes = Number(features.fileMaxBytes || 0);
+        const options = Array.from(attachmentSheetOptions.querySelectorAll<HTMLButtonElement>('.chat-attachment-option'));
+        const labels = options.map((option) => option.textContent?.trim().toLowerCase());
+        const setOption = (label: string, enabled: boolean) => { const index = labels.indexOf(label); if (index >= 0 && options[index]) options[index].disabled = !enabled; };
+        setOption('image', features.photos); setOption('video', features.videos); setOption('file', features.files); setOption('voice note', features.voiceNotes);
+        if (!features.photos) { photosAvailable = false; if (selectedPhoto) clearAttachment(); }
+        attach.disabled = !(features.photos || features.videos || features.files || features.voiceNotes);
+        attach.title = attach.disabled ? 'Attachments are disabled by site settings.' : '';
       }).catch(() => undefined);
     }
 
