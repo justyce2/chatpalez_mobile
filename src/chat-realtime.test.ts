@@ -58,7 +58,9 @@ describe('ChatRealtimeService connection lifecycle', () => {
       expect.objectContaining({
         autoConnect: false,
         path: '/socket.io',
-        auth: { token: 'test-token' }
+        auth: { token: 'test-token' },
+        transports: ['polling', 'websocket'],
+        tryAllTransports: true
       })
     );
     expect(socket.connect).toHaveBeenCalledTimes(1);
