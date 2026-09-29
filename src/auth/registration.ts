@@ -23,8 +23,11 @@ export function installRegistration(options: RegistrationOptions): void {
   form.append(button);
 }
 
-export function needsRegistrationCompletion(session: AuthSession): boolean {
-  return isFalseLike(session.user.user_activated) || isFalseLike(session.user.user_started);
+export function needsRegistrationCompletion(session: AuthSession, system: Record<string, unknown> = {}): boolean {
+  const activationEnabled = enabled(system.activation_enabled);
+  const gettingStartedEnabled = enabled(system.getting_started);
+  return (activationEnabled && isFalseLike(session.user.user_activated))
+    || (gettingStartedEnabled && isFalseLike(session.user.user_started));
 }
 
 export async function resumeRegistration(options: RegistrationOptions, session: AuthSession): Promise<void> {
@@ -177,11 +180,11 @@ function renderSignUpForm(options: RegistrationOptions, metadata: RegistrationMe
 }
 
 function continueAfterRegistration(options: RegistrationOptions, metadata: RegistrationMetadata, session: AuthSession): void {
-  if (isFalseLike(session.user.user_activated)) {
+  if (enabled(metadata.system.activation_enabled) && isFalseLike(session.user.user_activated)) {
     renderActivation(options, metadata, session);
     return;
   }
-  if (isFalseLike(session.user.user_started)) {
+  if (enabled(metadata.system.getting_started) && isFalseLike(session.user.user_started)) {
     renderGettingStarted(options, metadata, session);
     return;
   }
