@@ -29,6 +29,7 @@ export type ChatScreenHandlers = {
   onSelectionChange?: (selection: ChatSelectionState | null) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
   onPickChatPhoto?: () => Promise<File | null>;
+  onPickChatAttachment?: (kind: 'image' | 'video' | 'file') => Promise<File | null>;
   onChatSoundChange?: (enabled: boolean) => void;
   onLoadChatAccount?: () => Promise<MobileAccount>;
   onSaveChatPrivacy?: (privacy: Record<string, string | boolean>) => Promise<void>;
@@ -572,8 +573,12 @@ export class ChatScreen {
 
     const composer = document.createElement('form');
     composer.className = 'message-composer';
-    const attach = secondaryButton('Photo');
-    attach.classList.add('compact-button', 'attach-button');
+    const attach = document.createElement('button');
+    attach.type = 'button';
+    attach.className = 'chat-attachment-button';
+    attach.setAttribute('aria-label', 'Add attachment');
+    attach.setAttribute('title', 'Add attachment');
+    attach.innerHTML = '<span class="chat-attachment-button__icon" aria-hidden="true"></span>';
     const photo = document.createElement('input');
     photo.type = 'file';
     photo.accept = 'image/*';
@@ -594,6 +599,59 @@ export class ChatScreen {
     const removeAttachment = secondaryButton('Remove');
     removeAttachment.type = 'button';
     attachment.append(attachmentImage, attachmentDetails, removeAttachment);
+    const attachmentSheet = element('div', 'chat-attachment-sheet');
+    attachmentSheet.hidden = true;
+    attachmentSheet.setAttribute('role', 'dialog');
+    attachmentSheet.setAttribute('aria-modal', 'true');
+    attachmentSheet.setAttribute('aria-label', 'Add attachment');
+    const attachmentSheetPanel = element('div', 'chat-attachment-sheet__panel');
+    const attachmentSheetHeader = element('div', 'chat-attachment-sheet__header');
+    attachmentSheetHeader.append(
+      elementWithText('strong', 'Add attachment'),
+      (() => {
+        const close = elementWithText('button', '×') as HTMLButtonElement;
+        close.type = 'button';
+        close.className = 'chat-attachment-sheet__close';
+        close.setAttribute('aria-label', 'Close attachment options');
+        close.addEventListener('click', () => { attachmentSheet.hidden = true; });
+        return close;
+      })()
+    );
+    const attachmentSheetOptions = element('div', 'chat-attachment-sheet__options');
+    const attachmentIcon = (type: string): string => `<span class="chat-attachment-option__icon chat-attachment-option__icon--${type}" aria-hidden="true"></span>`;
+    const addOption = (kind: 'image' | 'video' | 'file' | 'voice', label: string, enabled = true): void => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'chat-attachment-option';
+      option.disabled = !enabled;
+      option.innerHTML = `${attachmentIcon(kind)}<span>${label}</span>`;
+      option.addEventListener('click', () => {
+        attachmentSheet.hidden = true;
+        if (kind === 'voice') {
+          window.dispatchEvent(new CustomEvent('chatpalez:start-voice-note', { detail: { conversationId } }));
+          return;
+        }
+        if (this.handlers.onPickChatAttachment) {
+          option.disabled = true;
+          void this.handlers.onPickChatAttachment(kind).then((file) => {
+            if (file && version === this.viewVersion) showAttachment(file);
+          }).catch((error: unknown) => {
+            if (version === this.viewVersion && error instanceof Error && !/cancel|dismiss/i.test(error.message)) window.alert(error.message);
+          }).finally(() => { option.disabled = !enabled; });
+        } else if (kind === 'image') {
+          photo.click();
+        }
+      });
+      attachmentSheetOptions.append(option);
+    };
+    addOption('image', 'Image', true);
+    addOption('video', 'Video', true);
+    addOption('file', 'File', true);
+    addOption('voice', 'Voice note', true);
+    attachmentSheetPanel.append(attachmentSheetHeader, attachmentSheetOptions);
+    attachmentSheet.append(attachmentSheetPanel);
+    document.body.append(attachmentSheet);
+
     let selectedPhoto: File | null = null;
     let previewUrl: string | null = null;
     let photosAvailable = true;
@@ -621,24 +679,14 @@ export class ChatScreen {
       text.placeholder = 'Add a caption (optional)…';
       send.setAttribute('aria-label', 'Send message and photo');
     };
-    this.attachmentCleanup = clearAttachment;
+    this.attachmentCleanup = (): void => {
+      clearAttachment();
+      attachmentSheet.remove();
+    };
     removeAttachment.addEventListener('click', clearAttachment);
     photo.addEventListener('change', () => { const file = photo.files?.[0]; if (file) showAttachment(file); });
     attach.addEventListener('click', () => {
-      if (!this.handlers.onPickChatPhoto) { photo.click(); return; }
-      attach.disabled = true;
-      attach.textContent = 'Preparing…';
-      void this.handlers.onPickChatPhoto()
-        .then((file) => { if (file && version === this.viewVersion && photosAvailable) showAttachment(file); })
-        .catch((error: unknown) => {
-          const message = error instanceof Error ? error.message : String(error);
-          if (!/cancel|OS-PLUG-CAMR-0020/i.test(message)) window.alert(message || 'Unable to select a photo.');
-        }).finally(() => {
-          if (version === this.viewVersion) {
-            attach.textContent = 'Photo';
-            attach.disabled = !photosAvailable;
-          }
-        });
+      attachmentSheet.hidden = false;
     });
     const text = document.createElement('textarea');
     text.rows = 2;
