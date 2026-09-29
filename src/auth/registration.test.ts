@@ -23,6 +23,15 @@ describe('registration completion policy', () => {
     })).toBe(true);
   });
 
+  it('does not require verification when activation exists but is not required', () => {
+    expect(needsRegistrationCompletion(session(false, true), {
+      activation_enabled: 1,
+      activation_required: 0,
+      getting_started: 0
+    })).toBe(false);
+  });
+
+
   it('requires getting started only when that feature is enabled', () => {
     expect(needsRegistrationCompletion(session(true, false), {
       activation_enabled: 0,
