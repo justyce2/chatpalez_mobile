@@ -11,7 +11,7 @@ export class UploadService {
     return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
   }
 
-  private async upload(file: File, type: 'photos' | 'videos' | 'files', onProgress?: (percent: number) => void): Promise<string> {
+  private async upload(file: File, type: 'photos' | 'videos' | 'files' | 'audio', onProgress?: (percent: number) => void, chatThumbnail = false): Promise<unknown> {
     const form = new FormData();
     form.append('file', file, file.name);
     form.append('name', file.name);
@@ -22,6 +22,7 @@ export class UploadService {
     form.append('blur', 'false');
     form.append('chunkIndex', '0');
     form.append('totalChunks', '1');
+    if (chatThumbnail) form.append('chat_thumbnail', '1');
     return this.api.postFormWithProgress<string>('data/upload', form, (loaded, total) => {
       if (total && total > 0) onProgress?.(Math.round((loaded / total) * 100));
     });
@@ -29,15 +30,20 @@ export class UploadService {
 
   async uploadChatPhoto(file: File, onProgress?: (percent: number) => void): Promise<string> {
     if (!file.type.startsWith('image/')) throw new Error('Choose an image file to attach.');
-    return this.upload(file, 'photos', onProgress);
+    return this.upload(file, 'photos', onProgress) as Promise<string>;
   }
 
-  async uploadChatVideo(file: File, onProgress?: (percent: number) => void): Promise<string> {
+  async uploadChatVideo(file: File, onProgress?: (percent: number) => void): Promise<{ source: string; thumbnail: string }> {
     if (!file.type.startsWith('video/')) throw new Error('Choose a video file to attach.');
-    return this.upload(file, 'videos', onProgress);
+    const result = await this.upload(file, 'videos', onProgress, true) as string | { source?: string; thumbnail?: string };
+    return typeof result === 'string' ? { source: result, thumbnail: '' } : { source: String(result.source || ''), thumbnail: String(result.thumbnail || '') };
   }
 
   async uploadChatFile(file: File, onProgress?: (percent: number) => void): Promise<string> {
-    return this.upload(file, 'files', onProgress);
+    return this.upload(file, 'files', onProgress) as Promise<string>;
+  }
+  async uploadChatVoice(file: File, onProgress?: (percent: number) => void): Promise<string> {
+    if (!file.type.startsWith('audio/')) throw new Error('Choose an audio recording to attach.');
+    return this.upload(file, 'audio', onProgress) as Promise<string>;
   }
 }
