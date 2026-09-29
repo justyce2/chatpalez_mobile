@@ -377,6 +377,15 @@ export class ChatScreen {
       lastSeen.type = 'checkbox';
       lastSeen.checked = String(privacy.user_privacy_last_seen ?? 'public') !== 'me';
       lastSeenRow.append(elementWithText('span', 'Show my last seen to others'), lastSeen);
+      const lastSeenRow = element('label', 'chat-settings-row');
+      lastSeenRow.append(elementWithText('span', 'Show my last seen to others'));
+      const lastSeen = document.createElement('select');
+      const lastSeenOptions = [['public', 'Show last seen'], ['me', 'Hide last seen']];
+      for (const [value, label] of lastSeenOptions) {
+        const option = document.createElement('option'); option.value = value; option.textContent = label; lastSeen.append(option);
+      }
+      lastSeen.value = String(privacy.user_privacy_last_seen || 'public');
+      lastSeenRow.append(lastSeen);
       const audienceRow = element('label', 'chat-settings-row');
       audienceRow.append(elementWithText('span', 'Who can chat with me'));
       const audience = document.createElement('select');
