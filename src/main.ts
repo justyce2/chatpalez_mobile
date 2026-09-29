@@ -429,6 +429,17 @@ const shell = createAppShell(root, {
   onOpenPublicPage: openPublicModule,
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source, config.allowedHosts, config.uploadsBaseUrl),
   onPickChatPhoto: Capacitor.isNativePlatform() ? pickNativeChatPhoto : undefined,
+  onPickChatAttachment: async (kind) => {
+    if (kind === 'image' && Capacitor.isNativePlatform()) return pickNativeChatPhoto();
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = kind === 'video' ? 'video/*' : kind === 'image' ? 'image/*' : '*/*';
+    input.multiple = false;
+    return new Promise<File | null>((resolve) => {
+      input.addEventListener('change', () => resolve(input.files?.[0] ?? null), { once: true });
+      input.click();
+    });
+  },
   onChatSoundChange: (enabled) => {
     void webContentSurface.setChatSoundEnabled(enabled).catch((error) => {
       logWarn('Web chat sound preference could not be synchronized', {
