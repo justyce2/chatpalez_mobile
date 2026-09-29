@@ -64,6 +64,49 @@ export class ChatPalezApiClient {
     return this.request<T>(url, { method: 'POST', body });
   }
 
+  async postFormWithProgress<T>(
+    path: string,
+    body: FormData,
+    onProgress?: (loaded: number, total: number | null) => void
+  ): Promise<T> {
+    const url = this.buildUrl(path);
+    const token = this.getAuthToken();
+
+    return new Promise<T>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url.toString(), true);
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.setRequestHeader('x-mobile-client', 'chatpalez-mobile-v1');
+      if (token) xhr.setRequestHeader('x-auth-token', token);
+
+      xhr.upload.addEventListener('progress', (event) => {
+        onProgress?.(event.loaded, event.lengthComputable ? event.total : null);
+      });
+
+      xhr.addEventListener('error', () => reject(new ApiError('Unable to reach ChatPalez. Check your connection and try again.', 0)));
+      xhr.addEventListener('abort', () => reject(new ApiError('The upload was cancelled.', 0)));
+      xhr.addEventListener('load', () => {
+        let envelope: ApiEnvelope<T> | null = null;
+        try {
+          envelope = JSON.parse(xhr.responseText) as ApiEnvelope<T>;
+        } catch {
+          // Normalize below.
+        }
+        if (xhr.status === 401 && token) this.onUnauthorized?.();
+        if (xhr.status < 200 || xhr.status >= 300 || envelope?.status === 'error') {
+          reject(new ApiError(envelope?.message || `ChatPalez request failed (${xhr.status}).`, xhr.status));
+          return;
+        }
+        if (!envelope || envelope.status !== 'success') {
+          reject(new ApiError('ChatPalez returned an unexpected response.', xhr.status));
+          return;
+        }
+        resolve(envelope.data as T);
+      });
+      xhr.send(body);
+    });
+  }
+
   async delete<T>(path: string): Promise<T> {
     const url = this.buildUrl(path);
     return this.request<T>(url, { method: 'DELETE' });
