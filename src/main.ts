@@ -548,12 +548,12 @@ const shell = createAppShell(root, {
     const activeSession = getSession();
     if (activeSession) unlockChatAudio(activeSession.user.user_id);
     const conversationId = conversation.conversation_id;
-    chatRealtime.openConversation(conversationId);
-    events.setRealtimeStatus(chatRealtime.isConnected());
     const currentConversationId = String(conversationId);
     const participantIds = new Set(
       (conversation.recipients ?? []).map((recipient) => String(recipient.user_id))
     );
+    // Register handlers before opening the conversation so an immediate
+    // connection/reconnection cannot be missed by the active chat screen.
     const stop = chatRealtime.subscribe({
       onMessage: (event) => {
         if (String(event.conversation?.conversation_id ?? '') === currentConversationId) {
@@ -592,6 +592,8 @@ const shell = createAppShell(root, {
       onDisconnect: () => events.setRealtimeStatus(false),
       onError: (message) => logWarn('Realtime chat event failed; HTTP chat remains available', { message })
     });
+    events.setRealtimeStatus(chatRealtime.isConnected());
+    chatRealtime.openConversation(conversationId);
     return () => {
       stop();
       chatRealtime.closeConversation(conversationId);

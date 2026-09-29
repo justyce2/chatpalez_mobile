@@ -69,7 +69,10 @@ export class ChatRealtimeService {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
-      timeout: 10000
+      timeout: 10000,
+      // Attach listeners before the first connection attempt so a fast
+      // native connection cannot be missed.
+      autoConnect: false
     });
     this.socket = socket;
 
@@ -103,6 +106,9 @@ export class ChatRealtimeService {
     socket.on('event_server_leave_conversation', (data: { conversation_id: number | string }) => {
       this.emit((handler) => handler.onConversationLeft?.(data));
     });
+
+    // Start only after every listener above has been attached.
+    socket.connect();
   }
 
   disconnect(): void {
@@ -120,6 +126,14 @@ export class ChatRealtimeService {
   openConversation(conversationId: number | string): void {
     const id = String(conversationId);
     this.activeConversations.add(id);
+
+    // A thread can open while the socket is still connecting. Ensure the
+    // handshake happens; the connect handler will join all active threads.
+    if (this.socket && !this.socket.connected) {
+      this.socket.connect();
+      return;
+    }
+
     this.joinConversation(id);
   }
 
