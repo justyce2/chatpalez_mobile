@@ -412,6 +412,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       },
       resolveChatPhotoUrl: handlers.resolveChatPhotoUrl,
       onPickChatPhoto: handlers.onPickChatPhoto,
+      onPickChatAttachment: handlers.onPickChatAttachment,
       onChatSoundChange: handlers.onChatSoundChange,
       onLoadChatAccount: handlers.onLoadAccount,
       onSaveChatPrivacy: handlers.onUpdatePrivacy,
