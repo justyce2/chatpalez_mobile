@@ -849,7 +849,6 @@ export class ChatScreen {
       close: closeThread
     };
     const stopRealtime = this.handlers.onOpenConversation?.(conversation, realtimeHandlers);
-    messagePolling.start();
 
     const leaveThread = (): void => {
       if (text.value || selectedPhoto) this.drafts.set(String(conversationId), { text: text.value, photo: selectedPhoto });
@@ -923,6 +922,7 @@ export class ChatScreen {
     });
 
     await refresh();
+    if (version === this.viewVersion) messagePolling.start();
   }
 
 
