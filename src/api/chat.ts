@@ -64,6 +64,9 @@ export type Message = {
   time?: string;
   photo?: string;
   image?: string;
+  video?: string;
+  voice_note?: string;
+  attachments?: { file?: { source?: string } | null; video_thumbnail?: { source?: string } | null };
   [key: string]: unknown;
 };
 
@@ -129,13 +132,13 @@ export class ChatService {
     });
   }
 
-  async sendMessage(conversationId: number | string, message: string, photo = '', video = '', file = ''): Promise<Conversation> {
+  async sendMessage(conversationId: number | string, message: string, photo = '', video = '', file = '', voiceNote = ''): Promise<Conversation> {
     return this.api.post<Conversation>('chat/message', {
       conversation_id: conversationId,
       message,
       photo,
       video,
-      voice_note: '',
+      voice_note: voiceNote,
       file,
       recipients: ''
     });
