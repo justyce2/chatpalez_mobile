@@ -91,8 +91,8 @@ export class ChatService {
       videos: enabled(system.chat_videos_enabled),
       files: Boolean(system.file_extensions || system.max_file_size),
       voiceNotes: enabled(system.voice_notes_chat_enabled),
-      videoMaxBytes: Number(system.max_video_size || 0) * 1024 * 1024,
-      fileMaxBytes: Number(system.max_file_size || 0) * 1024 * 1024
+      videoMaxBytes: Number(system.max_video_size || 0) * 1024,
+      fileMaxBytes: Number(system.max_file_size || 0) * 1024
     };
   }
 
