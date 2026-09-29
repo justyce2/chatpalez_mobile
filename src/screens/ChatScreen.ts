@@ -722,7 +722,7 @@ export class ChatScreen {
       receipt.setAttribute('aria-label', seen ? `Seen by ${seenNameList}` : 'Sent');
       receipt.classList.toggle('is-seen', seen);
     };
-    const refresh = async (older = false): Promise<void> => {
+    const refresh = async (older = false, lastMessageId?: number | string): Promise<void> => {
       if (older && (loadingOlder || !hasMoreHistory)) return;
       if (older) loadingOlder = true;
       try {
@@ -809,7 +809,7 @@ export class ChatScreen {
     const messagePolling = new ChatPollingController({
       intervalMs: 3000,
       isRealtimeConnected: () => realtimeConnected,
-      getLastMessageId: () => renderedMessages.at(-1)?.message_id,
+      getLastMessageId: () => renderedMessages.length ? renderedMessages[renderedMessages.length - 1]?.message_id : undefined,
       isOnline: () => navigator.onLine !== false && document.visibilityState !== 'hidden',
       poll: (lastMessageId) => refresh(false, lastMessageId)
     });
