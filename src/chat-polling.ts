@@ -7,7 +7,7 @@ export type ChatPollingOptions = {
 };
 
 export class ChatPollingController {
-  private timer: number | undefined;
+  private timer: ReturnType<typeof setInterval> | undefined;
   private active = false;
   private pollInFlight = false;
 
@@ -36,14 +36,14 @@ export class ChatPollingController {
     if (!this.active || this.options.isRealtimeConnected()) return;
 
     const intervalMs = Math.max(1000, this.options.intervalMs ?? 3000);
-    this.timer = window.setInterval(() => {
+    this.timer = setInterval(() => {
       void this.tick();
     }, intervalMs);
   }
 
   private clearTimer(): void {
     if (this.timer !== undefined) {
-      window.clearInterval(this.timer);
+      clearInterval(this.timer);
       this.timer = undefined;
     }
   }
