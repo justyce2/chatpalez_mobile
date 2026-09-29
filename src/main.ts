@@ -503,7 +503,7 @@ const shell = createAppShell(root, {
     });
     return result;
   },
-  onSendMessage: async (conversationId, message, photo) => {
+  onSendMessage: async (conversationId, message, photo, video, file, onProgress) => {
     /*
      * Keep uploads on HTTP. Plain text may use Socket.IO when connected.
      * HTTP is selected when realtime is unavailable before submission; once a
@@ -539,9 +539,11 @@ const shell = createAppShell(root, {
         });
       }
     }
-    const photoSource = photo ? await uploads.uploadChatPhoto(photo) : '';
-    await chat.sendMessage(conversationId, message, photoSource);
-    logInfo('Message sent through HTTP chat', { conversationId });
+    const photoSource = photo ? await uploads.uploadChatPhoto(photo, onProgress) : '';
+    const videoSource = video ? await uploads.uploadChatVideo(video, onProgress) : '';
+    const fileSource = file ? await uploads.uploadChatFile(file, onProgress) : '';
+    await chat.sendMessage(conversationId, message, photoSource, videoSource, fileSource);
+    logInfo('Message sent through HTTP chat', { conversationId, hasPhoto: Boolean(photo), hasVideo: Boolean(video), hasFile: Boolean(file) });
     return 'http' as const;
   },
   onTyping: async (conversationId, isTyping) => {
