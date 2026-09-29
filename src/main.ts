@@ -470,8 +470,8 @@ const shell = createAppShell(root, {
       : chat.startConversation(target.recipientId!, message, photo);
   },
   onLoadChatFeatures: () => chat.getFeatures(),
-  onLoadMessages: async (conversationId, offset) => {
-    const result = await chat.getMessages(conversationId, offset);
+  onLoadMessages: async (conversationId, offset, lastMessageId) => {
+    const result = await chat.getMessages(conversationId, offset, lastMessageId);
     logDebug('Conversation messages loaded', {
       conversationId,
       offset,
