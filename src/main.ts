@@ -75,7 +75,7 @@ async function recordVoiceNote(): Promise<File | null> {
   return await new Promise<File | null>((resolve, reject) => {
     let settled = false;
     const finish = (value: File | null, error?: unknown) => { if (settled) return; settled = true; window.clearInterval(timerId); overlay.remove(); error ? reject(error) : resolve(value); };
-    buttons[0].addEventListener('click', () => { void VoiceRecorder.stopRecording().then(() => finish(null)).catch(finish as any); });
+    buttons[0].addEventListener('click', () => { void VoiceRecorder.stopRecording().then(() => finish(null)).catch((error) => finish(null, error)); });
     buttons[1].addEventListener('click', () => {
       void VoiceRecorder.stopRecording().then((result) => {
         const data = result.value as { recordDataBase64?: string; msDuration?: number; mimeType?: string };
