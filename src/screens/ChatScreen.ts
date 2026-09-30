@@ -1060,6 +1060,8 @@ export class ChatScreen {
       }
       delivery.bubble.classList.remove('is-pending');
       delivery.bubble.classList.add('is-failed');
+      const progress = delivery.bubble.querySelector<HTMLElement>('.chat-circular-progress');
+      if (progress) progress.hidden = true;
       const status = delivery.bubble.querySelector<HTMLElement>('.chat-delivery-state') ?? element('small', 'chat-delivery-state');
       status.textContent = error instanceof RealtimeDeliveryUncertainError ? 'Delivery uncertain. Check the chat before retrying.' : (error instanceof Error ? error.message : 'Unable to send message.');
       status.setAttribute('role', 'status');
@@ -1131,7 +1133,10 @@ export class ChatScreen {
       clearAttachment();
       text.value = '';
       this.drafts.delete(String(conversationId));
-      send.classList.add('is-sending');
+      // Delivery state belongs to the message bubble. The composer must be
+      // immediately reusable while HTTP upload/realtime delivery continues.
+      send.disabled = false;
+      send.classList.remove('is-sending');
       setTyping(false);
 
       void this.handlers.onSendMessage(conversationId, message, files.photo ?? undefined, files.video ?? undefined, files.file ?? undefined, files.voice ?? undefined, (percent) => {
@@ -1150,6 +1155,7 @@ export class ChatScreen {
         }).catch(() => undefined);
         finishDelivery(localId, false, error);
       }).finally(() => {
+        send.disabled = false;
         send.classList.remove('is-sending');
         send.setAttribute('aria-label', 'Send message');
         send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
