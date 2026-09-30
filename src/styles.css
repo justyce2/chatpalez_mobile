@@ -1695,18 +1695,6 @@ p { color: #64748b; line-height: 1.55; }
   opacity: .55;
   box-shadow: none;
 }
-.mobile-layout.is-active-conversation .message-send-button.is-sending .message-send-button__icon {
-  width: 17px;
-  height: 17px;
-  border: 2px solid rgba(255,255,255,.45);
-  border-top-color: #FFFFFF;
-  border-radius: 50%;
-  transform: none;
-  animation: chat-send-spin .7s linear infinite;
-}
-@keyframes chat-send-spin {
-  to { transform: rotate(360deg); }
-}
 
 /* Auth selects share the same field treatment as text controls. */
 .field select {
