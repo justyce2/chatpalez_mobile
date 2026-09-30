@@ -67,7 +67,8 @@ export class ChatPalezApiClient {
   async postFormWithProgress<T>(
     path: string,
     body: FormData,
-    onProgress?: (loaded: number, total: number | null) => void
+    onProgress?: (loaded: number, total: number | null) => void,
+    timeoutMs = 120000
   ): Promise<T> {
     const url = this.buildUrl(path);
     const token = this.getAuthToken();
@@ -76,7 +77,9 @@ export class ChatPalezApiClient {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url.toString(), true);
       xhr.setRequestHeader('Accept', 'application/json');
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
       xhr.setRequestHeader('x-mobile-client', 'chatpalez-mobile-v1');
+      xhr.timeout = timeoutMs;
       if (token) xhr.setRequestHeader('x-auth-token', token);
 
       xhr.upload.addEventListener('progress', (event) => {
@@ -84,6 +87,7 @@ export class ChatPalezApiClient {
       });
 
       xhr.addEventListener('error', () => reject(new ApiError('Unable to reach ChatPalez. Check your connection and try again.', 0)));
+      xhr.addEventListener('timeout', () => reject(new ApiError('The attachment upload timed out. Check your connection and try again.', 408)));
       xhr.addEventListener('abort', () => reject(new ApiError('The upload was cancelled.', 0)));
       xhr.addEventListener('load', () => {
         let envelope: ApiEnvelope<T> | null = null;
