@@ -808,7 +808,7 @@ export class ChatScreen {
     let loadingOlder = false;
     let renderedMessages: Message[] = [];
     let realtimeConnected = false;
-    let pendingBubble: HTMLDivElement | null = null;
+    const pendingDeliveries = new Map<string, { bubble: HTMLDivElement; previewUrl: string | null }>();
     let lastMarkedIncomingId: string | null = null;
     let previousScrollTop = 0;
     let touchStartY = 0;
@@ -893,7 +893,7 @@ export class ChatScreen {
         thread.replaceChildren(loadOlder, ...bubbles);
         if (this.selectedMessages.size) this.updateSelection();
         if (!renderedMessages.length) thread.append(paragraph('No messages yet.'));
-        if (pendingBubble) thread.append(pendingBubble);
+        pendingDeliveries.forEach(({ bubble }) => { if (!bubble.isConnected) thread.append(bubble); });
         if (anchorId && anchorTop !== undefined) {
           const newAnchor = bubbles.find((bubble) => bubble.dataset.messageId === anchorId);
           thread.scrollTop = newAnchor ? previousTop + newAnchor.getBoundingClientRect().top - anchorTop : previousTop;
@@ -920,7 +920,7 @@ export class ChatScreen {
       } catch (error) {
         if (!older && !hasLoadedHistory) {
           thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
-          if (pendingBubble) thread.append(pendingBubble);
+          pendingDeliveries.forEach(({ bubble }) => { if (!bubble.isConnected) thread.append(bubble); });
         } else if (version === this.viewVersion) {
           deliveryStatus.textContent = error instanceof Error ? error.message : 'Unable to refresh messages.';
         }
@@ -991,83 +991,127 @@ export class ChatScreen {
       updateHistoryControl();
       void refresh(true);
     });
-    composer.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const message = text.value.trim();
-      if ((!message && !selectedPhoto && !selectedVideo && !selectedFile && !selectedVoice) || !this.handlers.onSendMessage) return;
-      unlockChatAudio(this.session.user.user_id);
-      pendingBubble = element('div', 'message-bubble is-mine is-pending');
-      if (selectedVideo && previewUrl) {
+    const createDeliveryBubble = (message: string, files: { photo: File | null; video: File | null; file: File | null; voice: File | null }, previewSource: string | null, localId: string): { bubble: HTMLDivElement; progress: HTMLDivElement | null } => {
+      const bubble = element('div', 'message-bubble is-mine is-pending') as HTMLDivElement;
+      bubble.dataset.localMessageId = localId;
+      if (files.video && previewSource) {
         const pendingVideo = document.createElement('video');
         pendingVideo.className = 'message-video-preview';
-        pendingVideo.src = previewUrl;
+        pendingVideo.src = previewSource;
         pendingVideo.muted = true;
         pendingVideo.playsInline = true;
         pendingVideo.preload = 'metadata';
         pendingVideo.setAttribute('aria-label', 'Video being sent');
-        pendingBubble.append(pendingVideo);
-      } else if (selectedPhoto && previewUrl) {
+        bubble.append(pendingVideo);
+      } else if (files.photo && previewSource) {
         const pendingImage = document.createElement('img');
         pendingImage.className = 'message-photo';
-        pendingImage.src = previewUrl;
+        pendingImage.src = previewSource;
         pendingImage.alt = 'Photo being sent';
-        pendingBubble.append(pendingImage);
-      } else if (selectedFile) {
-        const pendingFile = elementWithText('div', selectedFile.name || 'File attachment');
+        bubble.append(pendingImage);
+      } else if (files.file || files.voice) {
+        const pendingFile = elementWithText('div', files.voice ? (files.voice.name || 'Voice note') : (files.file?.name || 'File attachment'));
         pendingFile.className = 'message-file-preview';
-        pendingBubble.append(pendingFile);
+        bubble.append(pendingFile);
       }
-      if (message) pendingBubble.append(elementWithText('div', message));
-      const pendingProgress = (selectedPhoto || selectedVideo || selectedFile || selectedVoice) ? document.createElement('div') : null;
-      if (pendingProgress) {
-        pendingProgress.className = 'chat-circular-progress';
-        pendingProgress.style.setProperty('--chat-progress', '0%');
-        pendingProgress.innerHTML = '<span class="chat-circular-progress__icon" aria-hidden="true"></span>';
-        pendingBubble.append(pendingProgress);
+      if (message) bubble.append(elementWithText('div', message));
+      const progress = (files.photo || files.video || files.file || files.voice) ? document.createElement('div') : null;
+      if (progress) {
+        progress.className = 'chat-circular-progress';
+        progress.style.setProperty('--chat-progress', '0%');
+        progress.innerHTML = '<span class="chat-circular-progress__icon" aria-hidden="true"></span>';
+        bubble.append(progress);
       } else {
-        pendingBubble.append(elementWithText('small', 'Sending…'));
+        bubble.append(elementWithText('small', 'Sending…'));
       }
-      thread.append(pendingBubble);
-      if (selectedPhoto || selectedVideo || selectedFile || selectedVoice) attachment.hidden = true;
-      thread.scrollTop = thread.scrollHeight;
-      send.disabled = true;
-      attach.disabled = true;
-      text.disabled = true;
-      send.classList.add('is-sending');
-      send.setAttribute('aria-label', 'Sending message');
-      setTyping(false);
-      void this.handlers.onSendMessage(conversationId, message, selectedPhoto ?? undefined, selectedVideo ?? undefined, selectedFile ?? undefined, selectedVoice ?? undefined, (percent) => {
-        if (pendingProgress) pendingProgress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
-      })
-        .then(async () => {
-          pendingBubble?.remove();
-          pendingBubble = null;
-          deliveryStatus.textContent = '';
-          text.value = '';
-          clearAttachment();
-          this.drafts.delete(String(conversationId));
-          playSentChatSound(this.session.user.user_id);
-          await refresh();
-        })
-        .catch(async (error: unknown) => {
-          pendingBubble?.remove();
-          pendingBubble = null;
-          if (selectedPhoto || selectedVideo || selectedFile || selectedVoice) attachment.hidden = false;
-          if (error instanceof RealtimeDeliveryUncertainError) {
-            await latestResync.request().catch(() => undefined);
-            window.alert('Delivery could not be confirmed. The conversation was refreshed; check whether your message appears before retrying.');
+      return { bubble, progress };
+    };
+
+    const finishDelivery = (localId: string, success: boolean, error?: unknown): void => {
+      const delivery = pendingDeliveries.get(localId);
+      if (!delivery) return;
+      if (success) {
+        delivery.bubble.remove();
+        if (delivery.previewUrl) URL.revokeObjectURL(delivery.previewUrl);
+        pendingDeliveries.delete(localId);
+        return;
+      }
+      delivery.bubble.classList.remove('is-pending');
+      delivery.bubble.classList.add('is-failed');
+      const status = delivery.bubble.querySelector<HTMLElement>('.chat-delivery-state') ?? element('small', 'chat-delivery-state');
+      status.textContent = error instanceof RealtimeDeliveryUncertainError ? 'Delivery uncertain. Check the chat before retrying.' : (error instanceof Error ? error.message : 'Unable to send message.');
+      status.setAttribute('role', 'status');
+      if (!status.parentElement) delivery.bubble.append(status);
+      if (!delivery.bubble.querySelector('.chat-delivery-retry')) {
+        const retry = secondaryButton('Retry');
+        retry.classList.add('chat-delivery-retry');
+        retry.type = 'button';
+        retry.addEventListener('click', () => {
+          retry.disabled = true;
+          status.textContent = 'Retrying…';
+          delivery.bubble.classList.remove('is-failed');
+          delivery.bubble.classList.add('is-pending');
+          const payload = (delivery.bubble as HTMLDivElement & { __payload?: { message: string; photo: File | null; video: File | null; file: File | null; voice: File | null } }).__payload;
+          if (!payload) {
+            retry.disabled = false;
+            finishDelivery(localId, false, new Error('This message can no longer be retried.'));
             return;
           }
-          window.alert(error instanceof Error ? error.message : 'Unable to send message.');
-        })
-        .finally(() => {
-          send.disabled = false;
-          attach.disabled = !attachmentsAvailable;
-          text.disabled = false;
-          send.classList.remove('is-sending');
-          send.setAttribute('aria-label', 'Send message');
-          send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
+          void this.handlers.onSendMessage!(conversationId, payload.message, payload.photo ?? undefined, payload.video ?? undefined, payload.file ?? undefined, payload.voice ?? undefined, (percent) => {
+            const progress = delivery.bubble.querySelector<HTMLElement>('.chat-circular-progress');
+            if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
+          }).then(async () => {
+            finishDelivery(localId, true);
+            playSentChatSound(this.session.user.user_id);
+            await refresh();
+          }).catch(async (retryError: unknown) => {
+            if (retryError instanceof RealtimeDeliveryUncertainError) await latestResync.request().catch(() => undefined);
+            finishDelivery(localId, false, retryError);
+            retry.disabled = false;
+          });
         });
+        delivery.bubble.append(retry);
+      }
+    };
+
+    composer.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const message = text.value.trim();
+      const files = { photo: selectedPhoto, video: selectedVideo, file: selectedFile, voice: selectedVoice };
+      if ((!message && !files.photo && !files.video && !files.file && !files.voice) || !this.handlers.onSendMessage) return;
+      unlockChatAudio(this.session.user.user_id);
+
+      const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const deliveryPreviewUrl = previewUrl;
+      const { bubble, progress } = createDeliveryBubble(message, files, deliveryPreviewUrl, localId);
+      (bubble as HTMLDivElement & { __payload?: typeof files & { message: string } }).__payload = { ...files, message };
+      pendingDeliveries.set(localId, { bubble, previewUrl: deliveryPreviewUrl });
+      thread.append(bubble);
+      thread.scrollTop = thread.scrollHeight;
+
+      // Reset only the composer. The in-flight delivery keeps its own payload/state.
+      previewUrl = null;
+      clearAttachment();
+      text.value = '';
+      this.drafts.delete(String(conversationId));
+      send.classList.add('is-sending');
+      setTyping(false);
+
+      void this.handlers.onSendMessage(conversationId, message, files.photo ?? undefined, files.video ?? undefined, files.file ?? undefined, files.voice ?? undefined, (percent) => {
+        if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
+      }).then(async () => {
+        finishDelivery(localId, true);
+        deliveryStatus.textContent = '';
+        playSentChatSound(this.session.user.user_id);
+        await refresh();
+      }).catch(async (error: unknown) => {
+        if (error instanceof RealtimeDeliveryUncertainError) await latestResync.request().catch(() => undefined);
+        finishDelivery(localId, false, error);
+      }).finally(() => {
+        send.classList.remove('is-sending');
+        send.setAttribute('aria-label', 'Send message');
+        send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
+      });
     });
 
     await refresh();
