@@ -2358,6 +2358,20 @@ p { color: #64748b; line-height: 1.55; }
 }
 .chat-media-card--file,
 .chat-media-card--voice { min-height: 64px; }
+.chat-voice-player { min-height: 64px; width: min(300px, 100%); display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 10px; padding: 8px 10px; box-sizing: border-box; }
+.chat-voice-player__play { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: #0066B2; color: #fff; }
+.chat-voice-player__play:disabled { opacity: .5; }
+.chat-voice-player__play-icon { display: block; width: 0; height: 0; border-style: solid; border-width: 7px 0 7px 11px; border-color: transparent transparent transparent currentColor; margin-left: 3px; }
+.chat-voice-player__pause-icon { display: block; width: 12px; height: 14px; border-left: 4px solid currentColor; border-right: 4px solid currentColor; }
+.chat-voice-player__body { min-width: 0; display: grid; gap: 3px; }
+.chat-voice-player__times { display: flex; justify-content: space-between; font-size: 11px; font-variant-numeric: tabular-nums; opacity: .78; }
+.chat-voice-player__seek { width: 100%; min-width: 0; margin: 0; accent-color: #0066B2; }
+.chat-media-source-sheet { position: fixed; inset: 0; z-index: 150; display: grid; place-items: end center; padding: 12px; background: rgba(15,23,42,.38); }
+.chat-media-source-sheet__panel { width: min(100%, 520px); display: grid; gap: 10px; padding: 16px; border: 1px solid #D6E3EF; border-radius: 22px; background: #fff; box-shadow: 0 18px 50px rgba(15,23,42,.28); }
+.chat-media-source-sheet__panel > strong { color: #173247; }
+.chat-media-source-sheet__close { position: absolute; right: 22px; bottom: 178px; width: 38px; height: 38px; border: 0; border-radius: 50%; background: #EFF5F9; color: #173247; font-size: 25px; }
+.chat-media-source-sheet__options { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.chat-media-source-sheet__option { min-height: 52px; border: 1px solid #D6E3EF; border-radius: 14px; background: #F8FAFC; color: #24435A; font: inherit; font-weight: 700; }
 .chat-media-card__download {
   position: absolute;
   left: 50%;
