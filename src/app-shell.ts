@@ -186,11 +186,6 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     brand.addEventListener('click', () => void selectTab('home'));
 
     const topActions = element('div', 'native-topbar-actions');
-    const notificationButton = makeBadgeAction(
-      '/native-chrome/icons/header-notifications.svg',
-      'Notifications',
-      () => void selectTab('notifications')
-    );
     const makeTopAction = (src: string, label: string, action: () => void): HTMLButtonElement => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -213,6 +208,12 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       button.append(badge);
       return button;
     }
+
+    const notificationButton = makeBadgeAction(
+      '/native-chrome/icons/header-notifications.svg',
+      'Notifications',
+      () => void selectTab('notifications')
+    );
 
     topActions.append(
       makeTopAction('/native-chrome/icons/header-search.svg', 'Discover', () => showRetainedModule('/search', 'Discover', '')),
