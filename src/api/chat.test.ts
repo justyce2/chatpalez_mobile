@@ -113,12 +113,18 @@ describe('ChatService', () => {
     });
   });
 
-  it('reads site chat capabilities without presenting them as per-user switches', async () => {
+  it('uses effective backend upload permissions for attachment capabilities', async () => {
     const get = vi.fn().mockResolvedValue({ system: {
-      chat_photos_enabled: '1', chat_typing_enabled: '0', chat_seen_enabled: true, chat_socket_enabled: 1
+      chat_photos_enabled: '1', chat_typing_enabled: '0', chat_seen_enabled: true, chat_socket_enabled: 1,
+      chat_videos_enabled: '1', voice_notes_chat_enabled: '1', max_video_size: '50'
+    }, user: {
+      can_upload_videos: '1', can_upload_files: '1', can_upload_audios: '1'
     } });
     const chat = new ChatService({ get } as unknown as ChatPalezApiClient);
-    await expect(chat.getFeatures()).resolves.toEqual({ photos: true, typing: false, seen: true, realtime: true });
+    await expect(chat.getFeatures()).resolves.toEqual({
+      photos: true, typing: false, seen: true, realtime: true,
+      videos: true, files: true, voiceNotes: true, videoMaxBytes: 50 * 1024, fileMaxBytes: 0
+    });
     expect(get).toHaveBeenCalledWith('app/settings');
   });
 
