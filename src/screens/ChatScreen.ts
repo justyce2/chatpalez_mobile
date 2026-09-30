@@ -781,7 +781,7 @@ export class ChatScreen {
         attachmentsAvailable = photosAvailable || features.videos || features.files || features.voiceNotes;
         attach.disabled = !attachmentsAvailable;
         attach.title = attach.disabled ? 'Attachments are disabled by site settings.' : '';
-      }).catch((error) => {
+      }).catch(() => {
         if (version !== this.viewVersion) return;
         attach.disabled = true;
         attach.title = 'Unable to determine attachment permissions. Retry by reopening the chat.';
