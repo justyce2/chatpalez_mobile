@@ -58,7 +58,7 @@ export type ChatScreenHandlers = {
   onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
   onLoadMessages?: (conversationId: number | string, offset: number, lastMessageId?: number | string) => Promise<MessagesResult>;
-  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, voice?: File, onProgress?: (percent: number) => void) => Promise<ChatDeliveryTransport>;
+  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, voice?: File, onProgress?: (percent: number) => void, clientMessageId?: string) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onLeaveConversation?: (conversationId: number | string) => Promise<void>;
   onDeleteConversation?: (conversationId: number | string) => Promise<void>;
@@ -1073,7 +1073,7 @@ export class ChatScreen {
           void this.handlers.onSendMessage!(conversationId, payload.message, payload.photo ?? undefined, payload.video ?? undefined, payload.file ?? undefined, payload.voice ?? undefined, (percent) => {
             const progress = delivery.bubble.querySelector<HTMLElement>('.chat-circular-progress');
             if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
-          }).then(async () => {
+          }, localId).then(async () => {
             finishDelivery(localId, true);
             void removeChatOutbox(localId).catch(() => undefined);
             playSentChatSound(this.session.user.user_id);
