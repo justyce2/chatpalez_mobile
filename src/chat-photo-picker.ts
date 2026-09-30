@@ -43,6 +43,19 @@ export async function pickNativeChatPhoto(): Promise<File | null> {
   return photoToFile(photo as { webPath?: string; uri?: string; metadata?: { format?: string } });
 }
 
+export async function captureNativeChatPhoto(): Promise<File | null> {
+  const photo = await Camera.getPhoto({
+    source: CameraSource.Camera,
+    resultType: CameraResultType.Uri,
+    quality: 72,
+    width: 1280,
+    height: 1280,
+    correctOrientation: true,
+    saveToGallery: false
+  });
+  return photoToFile(photo as { webPath?: string; uri?: string; metadata?: { format?: string } });
+}
+
 export async function pickNativeChatPhotoWithChoice(): Promise<File | null> {
   if (!Capacitor.isNativePlatform()) return pickNativeChatPhoto();
 
