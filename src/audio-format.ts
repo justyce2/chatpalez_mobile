@@ -66,7 +66,7 @@ export function resolveAudioFormat(bytes: Uint8Array, declaredMime = '', declare
   const extension = normalizeAudioExtension(declaredExtension);
   const detected = detectAudioFormat(bytes);
   const resolvedMime = mime || MIME_BY_EXTENSION[extension] || detected?.mime || '';
-  const resolvedExtension = extension || EXTENSION_BY_MIME[resolvedMime] || detected?.extension || '';
+  const resolvedExtension = EXTENSION_BY_MIME[resolvedMime] || extension || detected?.extension || '';
   if (!resolvedMime.startsWith('audio/') || !resolvedExtension) {
     throw new Error('The recording format could not be identified. Please try recording again.');
   }
