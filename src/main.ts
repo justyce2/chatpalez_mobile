@@ -634,6 +634,12 @@ const shell = createAppShell(root, {
     // connection/reconnection cannot be missed by the active chat screen.
     const stop = chatRealtime.subscribe({
       onMessage: (event) => {
+        window.dispatchEvent(new CustomEvent('chatpalez:chat-message', {
+          detail: {
+            conversationId: event.conversation?.conversation_id,
+            isMe: event.is_me === true
+          }
+        }));
         if (String(event.conversation?.conversation_id ?? '') === currentConversationId) {
           if (event.is_me === false && activeSession) playReceivedChatSound(activeSession.user.user_id);
           void events.refresh();
