@@ -550,7 +550,7 @@ export class ChatScreen {
 
     searchForm.addEventListener('submit', (event) => { event.preventDefault(); offset = 0; void loadContacts(); });
     more.addEventListener('click', () => { if (hasMore) { offset += 1; void loadContacts(true); } });
-    composer.addEventListener('submit', (event) => {
+    composer.addEventListener('submit', async (event) => {
       event.preventDefault();
       const message = text.value.trim();
       const ids = [...selected.values()].map((contact) => contact.user_id);
@@ -1105,7 +1105,8 @@ export class ChatScreen {
       (bubble as HTMLDivElement & { __payload?: ChatOutboxPayload }).__payload = { ...files, message };
       pendingDeliveries.set(localId, { bubble, previewUrl: deliveryPreviewUrl });
       thread.append(bubble);
-      void saveChatOutbox({
+      thread.scrollTop = thread.scrollHeight;
+      await saveChatOutbox({
         localId,
         conversationId: String(conversationId),
         ...files,
@@ -1114,7 +1115,6 @@ export class ChatScreen {
         createdAt: Date.now(),
         updatedAt: Date.now()
       }).then(() => updateChatOutbox(localId, { state: 'sending', error: undefined })).catch(() => undefined);
-      thread.scrollTop = thread.scrollHeight;
 
       // Reset only the composer. The in-flight delivery keeps its own payload/state.
       previewUrl = null;
