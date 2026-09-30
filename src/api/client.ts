@@ -111,13 +111,19 @@ export class ChatPalezApiClient {
     });
   }
 
-  async downloadWithProgress(url: string, onProgress?: (loaded: number, total: number | null) => void): Promise<Blob> {
+  async downloadWithProgress(
+    url: string,
+    onProgress?: (loaded: number, total: number | null) => void,
+    timeoutMs = 120000
+  ): Promise<Blob> {
     const token = this.getAuthToken();
     return new Promise<Blob>((resolve, reject) => {
       const xhr = new XMLHttpRequest(); xhr.open('GET', url, true); xhr.responseType = 'blob';
+      xhr.timeout = timeoutMs;
       xhr.setRequestHeader('Accept', '*/*'); xhr.setRequestHeader('x-mobile-client', 'chatpalez-mobile-v1'); if (token) xhr.setRequestHeader('x-auth-token', token);
       xhr.addEventListener('progress', (event) => onProgress?.(event.loaded, event.lengthComputable ? event.total : null));
       xhr.addEventListener('error', () => reject(new ApiError('Unable to download the attachment.', 0)));
+      xhr.addEventListener('timeout', () => reject(new ApiError('The attachment download timed out. Check your connection and try again.', 408)));
       xhr.addEventListener('abort', () => reject(new ApiError('The download was cancelled.', 0)));
       xhr.addEventListener('load', () => { if (xhr.status < 200 || xhr.status >= 300) { reject(new ApiError('Attachment download failed (' + xhr.status + ').', xhr.status)); return; } resolve(xhr.response as Blob); });
       xhr.send();
