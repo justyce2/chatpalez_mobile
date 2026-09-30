@@ -78,7 +78,7 @@ async function recordVoiceNote(): Promise<File | null> {
     const finish = (value: File | null, error?: unknown) => { if (settled) return; settled = true; window.clearInterval(timerId); overlay.remove(); error ? reject(error) : resolve(value); };
     buttons[0].addEventListener('click', () => { void VoiceRecorder.stopRecording().then(() => finish(null)).catch((error) => finish(null, error)); });
     buttons[1].addEventListener('click', () => {
-      void VoiceRecorder.stopRecording().then((result) => {
+      void VoiceRecorder.stopRecording().then(async (result) => {
         const data = result.value as { recordDataBase64?: string; msDuration?: number; mimeType?: string; fileExtension?: string; uri?: string };
         if (!data.recordDataBase64 && !data.uri) throw new Error('Voice recording returned no audio data.');
         if (data.recordDataBase64) {
