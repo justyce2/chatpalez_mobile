@@ -10,7 +10,10 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   ogg: 'audio/ogg',
   oga: 'audio/ogg',
   opus: 'audio/ogg',
-  mp3: 'audio/mpeg'
+  mp3: 'audio/mpeg',
+  amr: 'audio/amr',
+  flac: 'audio/flac',
+  caf: 'audio/x-caf'
 };
 
 const EXTENSION_BY_MIME: Record<string, string> = {
@@ -23,7 +26,11 @@ const EXTENSION_BY_MIME: Record<string, string> = {
   'audio/webm': 'webm',
   'audio/ogg': 'ogg',
   'audio/opus': 'opus',
-  'audio/mpeg': 'mp3'
+  'audio/mpeg': 'mp3',
+  'audio/amr': 'amr',
+  'audio/flac': 'flac',
+  'audio/x-caf': 'caf',
+  'audio/3gpp': '3gp'
 };
 
 export function normalizeAudioMime(value: string): string {
@@ -41,10 +48,16 @@ export function detectAudioFormat(bytes: Uint8Array): AudioFormat | null {
   };
   if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WAVE') return { mime: 'audio/wav', extension: 'wav' };
   if (ascii(0, 4) === 'OggS') return { mime: 'audio/ogg', extension: 'ogg' };
+  if (ascii(0, 4) === 'fLaC') return { mime: 'audio/flac', extension: 'flac' };
+  if (ascii(0, 6) === '#!AMR\\n') return { mime: 'audio/amr', extension: 'amr' };
   if (ascii(0, 3) === 'ID3') return { mime: 'audio/mpeg', extension: 'mp3' };
   if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) return { mime: 'audio/aac', extension: 'aac' };
   if (ascii(0, 4) === '\x1aE\xdf\xa3') return { mime: 'audio/webm', extension: 'webm' };
-  if (bytes.length >= 12 && ascii(4, 4) === 'ftyp') return { mime: 'audio/mp4', extension: 'm4a' };
+  if (bytes.length >= 12 && ascii(4, 4) === 'ftyp') {
+    const brand = ascii(8, 4).toLowerCase();
+    if (brand.startsWith('3gp')) return { mime: 'audio/3gpp', extension: '3gp' };
+    return { mime: 'audio/mp4', extension: 'm4a' };
+  }
   return null;
 }
 
