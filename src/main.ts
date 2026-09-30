@@ -590,10 +590,6 @@ const shell = createAppShell(root, {
     }
     // Attachments deliberately remain on the proven API upload path.
     // Socket.IO is reserved for ordinary text messages only.
-    const reportProgress = (offset: number, span: number) => (percent: number): void => {
-      const normalized = Math.max(0, Math.min(100, percent));
-      onProgress?.(Math.round(offset + (normalized * span) / 100));
-    };
     const attachmentCount = [photo, video, file, voice].filter(Boolean).length || 1;
     const attachmentSpan = 100 / attachmentCount;
     let completedAttachments = 0;
