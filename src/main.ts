@@ -588,10 +588,12 @@ const shell = createAppShell(root, {
         });
       }
     }
-    const photoSource = photo ? await uploads.uploadChatPhoto(photo, onProgress) : '';
-    const videoUpload = video ? await uploads.uploadChatVideo(video, onProgress) : { source: '', thumbnail: '' };
-    const fileSource = file ? await uploads.uploadChatFile(file, onProgress) : '';
-    const voiceSource = voice ? await uploads.uploadChatVoice(voice, onProgress) : '';
+    // Attachments deliberately remain on the proven API upload path.
+    // Socket.IO is reserved for ordinary text messages only.
+    const photoSource = photo ? await uploads.uploadChatPhoto(photo) : '';
+    const videoUpload = video ? await uploads.uploadChatVideo(video) : { source: '', thumbnail: '' };
+    const fileSource = file ? await uploads.uploadChatFile(file) : '';
+    const voiceSource = voice ? await uploads.uploadChatVoice(voice) : '';
     const videoSource = typeof videoUpload === 'string' ? videoUpload : JSON.stringify({ source: videoUpload.source, video_thumbnail: videoUpload.thumbnail || '' });
     const finalMessage = message || (file ? file.name : '');
     await chat.sendMessage(conversationId, finalMessage, photoSource, videoSource, fileSource, voiceSource);
