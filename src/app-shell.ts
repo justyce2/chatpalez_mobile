@@ -373,19 +373,28 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       if (badgeRefreshInFlight) return;
       badgeRefreshInFlight = true;
       try {
-        const [notifications, conversations] = await Promise.all([
-          handlers.onLoadNotifications?.() ?? Promise.resolve([]),
-          handlers.onLoadConversations?.(0) ?? Promise.resolve({ items: [], hasMore: false })
-        ]);
-        const notificationCount = notifications.filter(isUnreadNotification).length;
+        const notificationsPromise = handlers.onLoadNotifications?.() ?? Promise.resolve([]);
+        const notificationItems = await notificationsPromise;
+        const notificationCount = notificationItems.filter(isUnreadNotification).length;
+
         let chatCount = 0;
-        for (const conversation of conversations.items) {
-          const explicit = numericUnread(
-            conversation.unread_count ??
-            conversation.unread_messages ??
-            conversation.unread
-          );
-          chatCount += explicit ?? (conversation.seen === false || conversation.seen === 0 || conversation.seen === '0' ? 1 : 0);
+        if (handlers.onLoadConversations) {
+          let offset = 0;
+          let hasMore = true;
+          // Chat unread state is global. Do not derive the badge from page 1 only.
+          while (hasMore) {
+            const page = await handlers.onLoadConversations(offset);
+            for (const conversation of page.items) {
+              const explicit = numericUnread(
+                conversation.unread_count ??
+                conversation.unread_messages ??
+                conversation.unread
+              );
+              chatCount += explicit ?? (conversation.seen === false || conversation.seen === 0 || conversation.seen === '0' ? 1 : 0);
+            }
+            hasMore = page.hasMore;
+            offset += 1;
+          }
         }
         updateBadge(notificationBadge, notificationCount);
         updateBadge(chatBadge, chatCount);
@@ -405,6 +414,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       if (!document.hidden) void refreshBadges();
     };
     document.addEventListener('visibilitychange', handleBadgeVisibility);
+    window.addEventListener('chatpalez:chat-message', () => { void refreshBadges(); });
     startBadgeRefresh();
 
     const profileScreen = new ProfileScreen(content, session, {
