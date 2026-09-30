@@ -81,6 +81,7 @@ export class ChatScreen {
   private activeThreadCleanup: (() => void) | null = null;
   private activeMessageActionsCleanup: (() => void) | null = null;
   private activeImagePreviewCleanup: (() => void) | null = null;
+  private activeVoiceAudio: HTMLAudioElement | null = null;
   private activeConversation: Conversation | null = null;
   private attachmentCleanup: (() => void) | null = null;
   private readonly selectedMessages = new Map<string, Message>();
@@ -649,7 +650,7 @@ export class ChatScreen {
     const attachmentSheetOptions = element('div', 'chat-attachment-sheet__options');
     const attachmentIcon = (type: string): string => `<span class="chat-attachment-option__icon chat-attachment-option__icon--${type}" aria-hidden="true"></span>`;
     // Photo availability is runtime state because feature flags load after the attachment sheet is created.
-    let photosAvailable = true;
+    let photosAvailable = false;
     const addOption = (kind: 'image' | 'video' | 'file' | 'voice', label: string, enabled = true): void => {
       const option = document.createElement('button');
       option.type = 'button';
@@ -682,10 +683,10 @@ export class ChatScreen {
       });
       attachmentSheetOptions.append(option);
     };
-    addOption('image', 'Image', photosAvailable);
-    addOption('video', 'Video', true);
-    addOption('file', 'File', true);
-    addOption('voice', 'Voice note', true);
+    addOption('image', 'Image', false);
+    addOption('video', 'Video', false);
+    addOption('file', 'File', false);
+    addOption('voice', 'Voice note', false);
     attachmentSheetPanel.append(attachmentSheetHeader, attachmentSheetOptions);
     attachmentSheet.append(attachmentSheetPanel);
     document.body.append(attachmentSheet);
@@ -778,7 +779,11 @@ export class ChatScreen {
         setOption('image', photosAvailable);
         attach.disabled = !(photosAvailable || features.videos || features.files || features.voiceNotes);
         attach.title = attach.disabled ? 'Attachments are disabled by site settings.' : '';
-      }).catch(() => undefined);
+      }).catch((error) => {
+        if (version !== this.viewVersion) return;
+        attach.disabled = true;
+        attach.title = 'Unable to determine attachment permissions. Retry by reopening the chat.';
+      });
     }
 
     let typingTimer: number | undefined;
@@ -1081,6 +1086,8 @@ export class ChatScreen {
     this.dismissSelection();
     this.activeImagePreviewCleanup?.();
     this.activeImagePreviewCleanup = null;
+    this.activeVoiceAudio?.pause();
+    this.activeVoiceAudio = null;
     this.activeMessageActionsCleanup?.();
     this.activeMessageActionsCleanup = null;
     const cleanup = this.activeThreadCleanup;
@@ -1495,10 +1502,7 @@ export class ChatScreen {
         }).then((url: string) => {
           progress.hidden = true;
           if (kind === 'voice') {
-            const audio = new Audio(url);
-            audio.controls = true;
-            audio.play().catch(() => undefined);
-            card.replaceChildren(audio);
+            this.mountVoicePlayer(card, url);
           } else if (kind === 'video') {
             const video = document.createElement('video');
             video.controls = true;
@@ -1577,6 +1581,83 @@ export class ChatScreen {
       this.installMessageActions(bubble, message, refresh);
     }
     return bubble;
+  }
+
+  private mountVoicePlayer(card: HTMLElement, url: string): void {
+    this.activeVoiceAudio?.pause();
+    this.activeVoiceAudio = null;
+    card.replaceChildren();
+    card.classList.add('chat-voice-player');
+
+    const audio = new Audio(url);
+    audio.preload = 'metadata';
+    audio.setAttribute('aria-label', 'Voice note');
+    this.activeVoiceAudio = audio;
+
+    const play = document.createElement('button');
+    play.type = 'button';
+    play.className = 'chat-voice-player__play';
+    play.setAttribute('aria-label', 'Play voice note');
+    play.innerHTML = '<span class="chat-voice-player__play-icon" aria-hidden="true"></span>';
+
+    const body = element('div', 'chat-voice-player__body');
+    const times = element('div', 'chat-voice-player__times');
+    const current = elementWithText('span', '0:00');
+    const duration = elementWithText('span', '0:00');
+    times.append(current, duration);
+
+    const seek = document.createElement('input');
+    seek.type = 'range';
+    seek.min = '0';
+    seek.max = '100';
+    seek.step = '0.1';
+    seek.value = '0';
+    seek.className = 'chat-voice-player__seek';
+    seek.setAttribute('aria-label', 'Seek voice note');
+
+    const formatTime = (value: number): string => {
+      if (!Number.isFinite(value) || value < 0) return '0:00';
+      const seconds = Math.floor(value);
+      return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    };
+    const sync = (): void => {
+      current.textContent = formatTime(audio.currentTime);
+      duration.textContent = formatTime(audio.duration);
+      seek.value = Number.isFinite(audio.duration) && audio.duration > 0 ? String((audio.currentTime / audio.duration) * 100) : '0';
+    };
+    const toggle = (): void => {
+      if (audio.paused) {
+        if (this.activeVoiceAudio !== audio) {
+          this.activeVoiceAudio?.pause();
+          this.activeVoiceAudio = audio;
+        }
+        void audio.play().catch(() => undefined);
+      } else {
+        audio.pause();
+      }
+    };
+    play.addEventListener('click', (event) => { event.stopPropagation(); toggle(); });
+    seek.addEventListener('input', (event) => {
+      event.stopPropagation();
+      if (Number.isFinite(audio.duration) && audio.duration > 0) audio.currentTime = (Number(seek.value) / 100) * audio.duration;
+    });
+    audio.addEventListener('loadedmetadata', sync);
+    audio.addEventListener('timeupdate', sync);
+    audio.addEventListener('play', () => {
+      play.setAttribute('aria-label', 'Pause voice note');
+      play.innerHTML = '<span class="chat-voice-player__pause-icon" aria-hidden="true"></span>';
+    });
+    audio.addEventListener('pause', () => {
+      play.setAttribute('aria-label', 'Play voice note');
+      play.innerHTML = '<span class="chat-voice-player__play-icon" aria-hidden="true"></span>';
+    });
+    audio.addEventListener('ended', () => { audio.currentTime = 0; sync(); });
+    audio.addEventListener('error', () => {
+      play.disabled = true;
+      current.textContent = 'Unavailable';
+    });
+    body.append(times, seek);
+    card.append(play, body);
   }
 
   private openImagePreview(photoUrl: string): void {
