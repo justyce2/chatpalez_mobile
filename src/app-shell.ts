@@ -50,7 +50,7 @@ export type AppShellHandlers = {
   onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
   onLoadMessages?: (conversationId: number | string, offset: number, lastMessageId?: number | string) => Promise<MessagesResult>;
-  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, voice?: File, onProgress?: (percent: number) => void) => Promise<ChatDeliveryTransport>;
+  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, voice?: File, onProgress?: (percent: number) => void, clientMessageId?: string) => Promise<ChatDeliveryTransport>;
   onRecordVoiceNote?: (conversationId: number | string) => Promise<File | null>;
   onDownloadChatMedia?: (source: string, onProgress?: (percent: number) => void) => Promise<string>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
