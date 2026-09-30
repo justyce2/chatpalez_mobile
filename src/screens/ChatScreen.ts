@@ -550,7 +550,7 @@ export class ChatScreen {
 
     searchForm.addEventListener('submit', (event) => { event.preventDefault(); offset = 0; void loadContacts(); });
     more.addEventListener('click', () => { if (hasMore) { offset += 1; void loadContacts(true); } });
-    composer.addEventListener('submit', async (event) => {
+    composer.addEventListener('submit', (event) => {
       event.preventDefault();
       const message = text.value.trim();
       const ids = [...selected.values()].map((contact) => contact.user_id);
@@ -1092,7 +1092,7 @@ export class ChatScreen {
       }
     };
 
-    composer.addEventListener('submit', (event) => {
+    composer.addEventListener('submit', async (event) => {
       event.preventDefault();
       const message = text.value.trim();
       const files = { photo: selectedPhoto, video: selectedVideo, file: selectedFile, voice: selectedVoice };
