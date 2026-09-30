@@ -73,7 +73,7 @@ export class ChatPalezApiClient {
     const url = this.buildUrl(path);
     const token = this.getAuthToken();
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     onProgress?.(0, null);
 
@@ -97,7 +97,7 @@ export class ChatPalezApiClient {
       }
       throw new ApiError('Unable to reach ChatPalez. Check your connection and try again.', 0);
     } finally {
-      window.clearTimeout(timeout);
+      clearTimeout(timeout);
     }
 
     let envelope: ApiEnvelope<T> | null = null;
