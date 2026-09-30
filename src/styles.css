@@ -1258,6 +1258,39 @@ p { color: #64748b; line-height: 1.55; }
   object-fit: contain;
   filter: grayscale(1) brightness(.45);
 }
+.native-top-action {
+  position: relative;
+  overflow: visible;
+}
+.native-badge {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: #D92D20;
+  color: #fff;
+  box-shadow: 0 2px 7px rgba(15,23,42,.28);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.native-badge[hidden] { display: none; }
+.native-badge--chat {
+  top: -5px;
+  right: 12px;
+}
+.native-badge--notification {
+  top: -4px;
+  right: -5px;
+}
 .avatar-button {
   padding: 0;
   overflow: hidden;
