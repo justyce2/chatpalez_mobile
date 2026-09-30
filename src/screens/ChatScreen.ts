@@ -652,14 +652,14 @@ export class ChatScreen {
     // Photo availability is runtime state because feature flags load after the attachment sheet is created.
     let photosAvailable = false;
     let attachmentsAvailable = false;
-    const addOption = (kind: 'image' | 'video' | 'file' | 'voice', label: string, enabled = true): void => {
+    const addOption = (kind: 'image' | 'camera' | 'video' | 'file' | 'voice', label: string, enabled = true): void => {
       const option = document.createElement('button');
       option.type = 'button';
       option.className = 'chat-attachment-option';
       option.disabled = !enabled;
       option.innerHTML = `${attachmentIcon(kind)}<span>${label}</span>`;
       option.addEventListener('click', () => {
-        if (kind === 'image' && !photosAvailable) return;
+        if ((kind === 'image' || kind === 'camera') && !photosAvailable) return;
         attachmentSheet.hidden = true;
         if (kind === 'voice') {
           if (!this.handlers.onRecordVoiceNote) return;
@@ -669,6 +669,16 @@ export class ChatScreen {
           }).catch((error: unknown) => {
             if (version === this.viewVersion && error instanceof Error && !/cancel|dismiss/i.test(error.message)) window.alert(error.message);
           }).finally(() => { option.disabled = false; });
+          return;
+        }
+        if (kind === 'camera') {
+          if (!this.handlers.onPickChatPhoto) return;
+          option.disabled = true;
+          void this.handlers.onPickChatPhoto().then((file) => {
+            if (file && version === this.viewVersion) showAttachment(file);
+          }).catch((error: unknown) => {
+            if (version === this.viewVersion && error instanceof Error && !/cancel|dismiss/i.test(error.message)) window.alert(error.message);
+          }).finally(() => { option.disabled = !enabled; });
           return;
         }
         if (this.handlers.onPickChatAttachment) {
@@ -685,6 +695,7 @@ export class ChatScreen {
       attachmentSheetOptions.append(option);
     };
     addOption('image', 'Image', false);
+    addOption('camera', 'Camera', false);
     addOption('video', 'Video', false);
     addOption('file', 'File', false);
     addOption('voice', 'Voice note', false);
@@ -774,7 +785,7 @@ export class ChatScreen {
         const options = Array.from(attachmentSheetOptions.querySelectorAll<HTMLButtonElement>('.chat-attachment-option'));
         const labels = options.map((option) => option.textContent?.trim().toLowerCase());
         const setOption = (label: string, enabled: boolean) => { const index = labels.indexOf(label); if (index >= 0 && options[index]) options[index].disabled = !enabled; };
-        setOption('image', features.photos); setOption('video', features.videos); setOption('file', features.files); setOption('voice note', features.voiceNotes);
+        setOption('image', features.photos); setOption('camera', features.photos); setOption('video', features.videos); setOption('file', features.files); setOption('voice note', features.voiceNotes);
         photosAvailable = Boolean(features.photos);
         if (!photosAvailable && selectedPhoto) clearAttachment();
         setOption('image', photosAvailable);
