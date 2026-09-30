@@ -40,6 +40,7 @@ export class UploadService {
   }
 
   async uploadChatFile(file: File, onProgress?: (percent: number) => void): Promise<string> {
+    if (!file.name.trim()) throw new Error('Choose a file to attach.');
     return this.upload(file, 'file', onProgress) as Promise<string>;
   }
   async uploadChatVoice(file: File, onProgress?: (percent: number) => void): Promise<string> {
