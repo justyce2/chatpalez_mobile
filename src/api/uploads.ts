@@ -11,7 +11,9 @@ export class UploadService {
     return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
   }
 
-  private async upload(file: File, type: 'photos' | 'video' | 'file' | 'audio', onProgress?: (percent: number) => void, chatThumbnail = false): Promise<unknown> {
+  private async upload(file: File, type: 'photos' | 'video' | 'file' | 'audio', onProgress?: (percent: number) => void, chatThumbnail = false): Promise<string | { source: string; thumbnail?: string }> {
+    if (!file || file.size <= 0) throw new Error('The selected attachment is empty.');
+    if (!file.name.trim()) throw new Error('The selected attachment has no file name.');
     const form = new FormData();
     form.append('file', file, file.name);
     form.append('name', file.name);
@@ -23,28 +25,33 @@ export class UploadService {
     form.append('chunkIndex', '0');
     form.append('totalChunks', '1');
     if (chatThumbnail) form.append('chat_thumbnail', '1');
-    return this.api.postFormWithProgress<string>('data/upload', form, (loaded, total) => {
+    const result = await this.api.postFormWithProgress<string | { source?: string; thumbnail?: string }>('data/upload', form, (loaded, total) => {
       if (total && total > 0) onProgress?.(Math.round((loaded / total) * 100));
     });
+    if (typeof result === 'string' && result.trim()) return result;
+    if (result && typeof result === 'object' && typeof result.source === 'string' && result.source.trim()) {
+      return { source: result.source, thumbnail: typeof result.thumbnail === 'string' ? result.thumbnail : '' };
+    }
+    throw new Error('ChatPalez returned an invalid upload result.');
   }
 
   async uploadChatPhoto(file: File, onProgress?: (percent: number) => void): Promise<string> {
     if (!file.type.startsWith('image/')) throw new Error('Choose an image file to attach.');
-    return this.upload(file, 'photos', onProgress) as Promise<string>;
+    const result = await this.upload(file, 'photos', onProgress); return typeof result === 'string' ? result : result.source;
   }
 
   async uploadChatVideo(file: File, onProgress?: (percent: number) => void): Promise<{ source: string; thumbnail: string }> {
     if (!file.type.startsWith('video/')) throw new Error('Choose a video file to attach.');
-    const result = await this.upload(file, 'video', onProgress, true) as string | { source?: string; thumbnail?: string };
+    const result = await this.upload(file, 'video', onProgress, true);
     return typeof result === 'string' ? { source: result, thumbnail: '' } : { source: String(result.source || ''), thumbnail: String(result.thumbnail || '') };
   }
 
   async uploadChatFile(file: File, onProgress?: (percent: number) => void): Promise<string> {
     if (!file.name.trim()) throw new Error('Choose a file to attach.');
-    return this.upload(file, 'file', onProgress) as Promise<string>;
+    const result = await this.upload(file, 'file', onProgress); return typeof result === 'string' ? result : result.source;
   }
   async uploadChatVoice(file: File, onProgress?: (percent: number) => void): Promise<string> {
     if (!file.type.startsWith('audio/')) throw new Error('Choose an audio recording to attach.');
-    return this.upload(file, 'audio', onProgress) as Promise<string>;
+    const result = await this.upload(file, 'audio', onProgress); return typeof result === 'string' ? result : result.source;
   }
 }
