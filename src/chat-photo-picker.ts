@@ -12,6 +12,8 @@ async function photoToFile(photo: { webPath?: string; uri?: string; metadata?: {
   if (Number(response.headers.get('content-length')) > maximumBytes) {
     throw new Error('This photo is too large. Choose a smaller image.');
   }
+  const advertisedLength = Number(response.headers.get('content-length') || 0);
+  if (advertisedLength > 8 * 1024 * 1024) throw new Error('This photo is too large. Choose a smaller image.');
   const blob = await response.blob();
   if (!blob.size) throw new Error('The selected photo is empty.');
   if (blob.size > maximumBytes) throw new Error('This photo is too large. Choose a smaller image.');
