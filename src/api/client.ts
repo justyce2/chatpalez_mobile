@@ -72,54 +72,47 @@ export class ChatPalezApiClient {
   ): Promise<T> {
     const url = this.buildUrl(path);
     const token = this.getAuthToken();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    onProgress?.(0, null);
+    return new Promise<T>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url.toString(), true);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader('Accept', 'application/json');
+      // Keep the multipart request CORS-simple for the native WebView bridge.
+      // The mobile-client header is the app authentication/compatibility marker;
+      // adding X-Requested-With here can force a preflight that the upload route
+      // does not consistently expose on native WebView origins.
+      xhr.setRequestHeader('x-mobile-client', 'chatpalez-mobile-v1');
+      xhr.timeout = timeoutMs;
+      if (token) xhr.setRequestHeader('x-auth-token', token);
 
-    const headers = new Headers();
-    headers.set('Accept', 'application/json');
-    headers.set('x-mobile-client', 'chatpalez-mobile-v1');
-    if (token) headers.set('x-auth-token', token);
-
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body,
-        credentials: 'include',
-        signal: controller.signal
+      xhr.upload.addEventListener('progress', (event) => {
+        onProgress?.(event.loaded, event.lengthComputable ? event.total : null);
       });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        throw new ApiError('The attachment upload timed out. Check your connection and try again.', 408);
-      }
-      throw new ApiError('Unable to reach ChatPalez. Check your connection and try again.', 0);
-    } finally {
-      clearTimeout(timeout);
-    }
 
-    let envelope: ApiEnvelope<T> | null = null;
-    try {
-      envelope = (await response.json()) as ApiEnvelope<T>;
-    } catch {
-      // Normalize below.
-    }
-
-    if (!response.ok || envelope?.status === 'error') {
-      if (response.status === 401 && token) this.onUnauthorized?.();
-      throw new ApiError(envelope?.message || `ChatPalez request failed (${response.status}).`, response.status);
-    }
-
-    if (!envelope || envelope.status !== 'success') {
-      throw new ApiError('ChatPalez returned an unexpected response.', response.status);
-    }
-
-    // Fetch does not expose upload-byte progress in this request path.
-    // Report completion only so existing attachment UI still terminates cleanly.
-    onProgress?.(100, null);
-    return envelope.data as T;
+      xhr.addEventListener('error', () => reject(new ApiError('Unable to reach ChatPalez. Check your connection and try again.', 0)));
+      xhr.addEventListener('timeout', () => reject(new ApiError('The attachment upload timed out. Check your connection and try again.', 408)));
+      xhr.addEventListener('abort', () => reject(new ApiError('The upload was cancelled.', 0)));
+      xhr.addEventListener('load', () => {
+        let envelope: ApiEnvelope<T> | null = null;
+        try {
+          envelope = JSON.parse(xhr.responseText) as ApiEnvelope<T>;
+        } catch {
+          // Normalize below.
+        }
+        if (xhr.status === 401 && token) this.onUnauthorized?.();
+        if (xhr.status < 200 || xhr.status >= 300 || envelope?.status === 'error') {
+          reject(new ApiError(envelope?.message || `ChatPalez request failed (${xhr.status}).`, xhr.status));
+          return;
+        }
+        if (!envelope || envelope.status !== 'success') {
+          reject(new ApiError('ChatPalez returned an unexpected response.', xhr.status));
+          return;
+        }
+        resolve(envelope.data as T);
+      });
+      xhr.send(body);
+    });
   }
 
   async downloadWithProgress(
