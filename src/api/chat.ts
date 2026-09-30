@@ -133,7 +133,7 @@ export class ChatService {
     });
   }
 
-  async sendMessage(conversationId: number | string, message: string, photo = '', video = '', file = '', voiceNote = ''): Promise<Conversation> {
+  async sendMessage(conversationId: number | string, message: string, photo = '', video = '', file = '', voiceNote = '', clientMessageId = ''): Promise<Conversation> {
     return this.api.post<Conversation>('chat/message', {
       conversation_id: conversationId,
       message,
@@ -141,7 +141,8 @@ export class ChatService {
       video,
       voice_note: voiceNote,
       file,
-      recipients: ''
+      recipients: '',
+      client_message_id: clientMessageId
     });
   }
 
