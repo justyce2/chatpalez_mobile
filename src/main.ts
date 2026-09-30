@@ -19,7 +19,7 @@ import { installRegistration, needsRegistrationCompletion, resumeRegistration, t
 import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
 import { getChatMediaUrl, getChatPhotoUrl } from './media';
-import { pickNativeChatPhoto } from './chat-photo-picker';
+import { pickNativeChatPhoto, pickNativeChatPhotoWithChoice } from './chat-photo-picker';
 import { isChatSoundEnabled, playReceivedChatSound, unlockChatAudio } from './chat-sound';
 import {
   logoutNativeNotifications,
@@ -78,14 +78,21 @@ async function recordVoiceNote(): Promise<File | null> {
     buttons[0].addEventListener('click', () => { void VoiceRecorder.stopRecording().then(() => finish(null)).catch((error) => finish(null, error)); });
     buttons[1].addEventListener('click', () => {
       void VoiceRecorder.stopRecording().then((result) => {
-        const data = result.value as { recordDataBase64?: string; msDuration?: number; mimeType?: string };
-        if (!data.recordDataBase64) throw new Error('Voice recording returned no audio data.');
-        const binary = atob(data.recordDataBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        const data = result.value as { recordDataBase64?: string; msDuration?: number; mimeType?: string; fileExtension?: string; uri?: string };
+        if (!data.recordDataBase64 && !data.uri) throw new Error('Voice recording returned no audio data.');
         const mime = data.mimeType || 'audio/aac';
-        const extension = mime.includes('mp4') ? 'm4a' : mime.includes('webm') ? 'webm' : 'aac';
-        finish(new File([bytes], `voice-${Date.now()}.${extension}`, { type: mime }));
+        const extension = data.fileExtension || (mime.includes('mp4') ? 'm4a' : mime.includes('webm') ? 'webm' : mime.includes('wav') ? 'wav' : 'aac');
+        if (data.recordDataBase64) {
+          const binary = atob(data.recordDataBase64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+          finish(new File([bytes], `voice-${Date.now()}.${extension}`, { type: mime }));
+          return;
+        }
+        const response = await fetch(Capacitor.convertFileSrc(data.uri!));
+        if (!response.ok) throw new Error('The voice recording could not be opened.');
+        const blob = await response.blob();
+        finish(new File([blob], `voice-${Date.now()}.${extension}`, { type: mime }));
       }).catch((error) => finish(null, error));
     });
   });
@@ -463,7 +470,7 @@ const shell = createAppShell(root, {
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source, config.allowedHosts, config.uploadsBaseUrl),
   onPickChatPhoto: Capacitor.isNativePlatform() ? pickNativeChatPhoto : undefined,
   onPickChatAttachment: async (kind) => {
-    if (kind === 'image' && Capacitor.isNativePlatform()) return pickNativeChatPhoto();
+    if (kind === 'image' && Capacitor.isNativePlatform()) return pickNativeChatPhotoWithChoice();
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = kind === 'video' ? 'video/*' : kind === 'image' ? 'image/*' : '*/*';
