@@ -2406,6 +2406,7 @@ p { color: #64748b; line-height: 1.55; }
 .chat-media-source-sheet__options { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .chat-media-source-sheet__option { min-height: 52px; border: 1px solid #D6E3EF; border-radius: 14px; background: #F8FAFC; color: #24435A; font: inherit; font-weight: 700; }
 .chat-media-source-sheet__option:last-child { background: #FFFFFF; color: #617487; }
+.chat-media-source-sheet__option:last-child { grid-column: 1 / -1; }
 .chat-media-source-sheet__option:focus-visible { outline: 3px solid #0066B2; outline-offset: 2px; }
 .message-bubble.is-pending { opacity: .86; }
 .message-bubble.is-failed { border: 1px solid #E6A3A0; background: #FFF5F4; }
