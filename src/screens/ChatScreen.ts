@@ -29,6 +29,7 @@ import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { saveChatPhoto } from '../chat-photo-save';
 import { ChatPollingController } from '../chat-polling';
+import { listChatOutbox, removeChatOutbox, saveChatOutbox, updateChatOutbox, type ChatOutboxPayload } from '../chat-outbox';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
 export type ChatDeliveryTransport = 'realtime' | 'http';
@@ -1062,21 +1063,27 @@ export class ChatScreen {
           status.textContent = 'Retrying…';
           delivery.bubble.classList.remove('is-failed');
           delivery.bubble.classList.add('is-pending');
-          const payload = (delivery.bubble as HTMLDivElement & { __payload?: { message: string; photo: File | null; video: File | null; file: File | null; voice: File | null } }).__payload;
+          const payload = (delivery.bubble as HTMLDivElement & { __payload?: ChatOutboxPayload }).__payload;
           if (!payload) {
             retry.disabled = false;
             finishDelivery(localId, false, new Error('This message can no longer be retried.'));
             return;
           }
+          void updateChatOutbox(localId, { state: 'sending', error: undefined }).catch(() => undefined);
           void this.handlers.onSendMessage!(conversationId, payload.message, payload.photo ?? undefined, payload.video ?? undefined, payload.file ?? undefined, payload.voice ?? undefined, (percent) => {
             const progress = delivery.bubble.querySelector<HTMLElement>('.chat-circular-progress');
             if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
           }).then(async () => {
             finishDelivery(localId, true);
+            void removeChatOutbox(localId).catch(() => undefined);
             playSentChatSound(this.session.user.user_id);
             await refresh();
           }).catch(async (retryError: unknown) => {
             if (retryError instanceof RealtimeDeliveryUncertainError) await latestResync.request().catch(() => undefined);
+            void updateChatOutbox(localId, {
+              state: retryError instanceof RealtimeDeliveryUncertainError ? 'uncertain' : 'failed',
+              error: retryError instanceof Error ? retryError.message : String(retryError ?? 'Unable to send message.')
+            }).catch(() => undefined);
             finishDelivery(localId, false, retryError);
             retry.disabled = false;
           });
@@ -1095,9 +1102,18 @@ export class ChatScreen {
       const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const deliveryPreviewUrl = previewUrl;
       const { bubble, progress } = createDeliveryBubble(message, files, deliveryPreviewUrl, localId);
-      (bubble as HTMLDivElement & { __payload?: typeof files & { message: string } }).__payload = { ...files, message };
+      (bubble as HTMLDivElement & { __payload?: ChatOutboxPayload }).__payload = { ...files, message };
       pendingDeliveries.set(localId, { bubble, previewUrl: deliveryPreviewUrl });
       thread.append(bubble);
+      void saveChatOutbox({
+        localId,
+        conversationId: String(conversationId),
+        ...files,
+        message,
+        state: 'queued',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      }).then(() => updateChatOutbox(localId, { state: 'sending', error: undefined })).catch(() => undefined);
       thread.scrollTop = thread.scrollHeight;
 
       // Reset only the composer. The in-flight delivery keeps its own payload/state.
@@ -1112,11 +1128,16 @@ export class ChatScreen {
         if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
       }).then(async () => {
         finishDelivery(localId, true);
+        void removeChatOutbox(localId).catch(() => undefined);
         deliveryStatus.textContent = '';
         playSentChatSound(this.session.user.user_id);
         await refresh();
       }).catch(async (error: unknown) => {
         if (error instanceof RealtimeDeliveryUncertainError) await latestResync.request().catch(() => undefined);
+        void updateChatOutbox(localId, {
+          state: error instanceof RealtimeDeliveryUncertainError ? 'uncertain' : 'failed',
+          error: error instanceof Error ? error.message : String(error ?? 'Unable to send message.')
+        }).catch(() => undefined);
         finishDelivery(localId, false, error);
       }).finally(() => {
         send.classList.remove('is-sending');
@@ -1124,6 +1145,47 @@ export class ChatScreen {
         send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
       });
     });
+
+    try {
+      const persisted = await listChatOutbox(String(conversationId));
+      for (const record of persisted) {
+        if (version !== this.viewVersion) break;
+        if (record.state === 'sending') {
+          await updateChatOutbox(record.localId, {
+            state: 'uncertain',
+            error: 'The app closed while this message was being sent. Check the conversation before retrying.'
+          }).catch(() => undefined);
+          record.state = 'uncertain';
+          record.error = 'The app closed while this message was being sent. Check the conversation before retrying.';
+        }
+        const media = record.photo || record.video || record.file || record.voice;
+        const persistedPreviewUrl = media ? URL.createObjectURL(media) : null;
+        const delivery = createDeliveryBubble(record.message, {
+          photo: record.photo,
+          video: record.video,
+          file: record.file,
+          voice: record.voice
+        }, persistedPreviewUrl, record.localId);
+        (delivery.bubble as HTMLDivElement & { __payload?: ChatOutboxPayload }).__payload = {
+          message: record.message,
+          photo: record.photo,
+          video: record.video,
+          file: record.file,
+          voice: record.voice
+        };
+        pendingDeliveries.set(record.localId, { bubble: delivery.bubble, previewUrl: persistedPreviewUrl });
+        thread.append(delivery.bubble);
+        const persistedError = record.error
+          ? new Error(record.error)
+          : new Error(record.state === 'queued' ? 'This message was queued before the app closed.' : 'Unable to send message.');
+        finishDelivery(record.localId, false, record.state === 'uncertain'
+          ? new RealtimeDeliveryUncertainError(record.error || 'Delivery status is uncertain. Check the conversation before retrying.')
+          : persistedError);
+      }
+      if (persisted.length) thread.scrollTop = thread.scrollHeight;
+    } catch {
+      // IndexedDB is a durability enhancement; the live chat path remains authoritative.
+    }
 
     await refresh();
     if (version === this.viewVersion) messagePolling.start();
