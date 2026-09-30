@@ -76,6 +76,7 @@ export class ChatPalezApiClient {
     return new Promise<T>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url.toString(), true);
+      xhr.withCredentials = true;
       xhr.setRequestHeader('Accept', 'application/json');
       // Keep the multipart request CORS-simple for the native WebView bridge.
       // The mobile-client header is the app authentication/compatibility marker;
