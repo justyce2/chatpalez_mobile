@@ -77,7 +77,10 @@ export class ChatPalezApiClient {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url.toString(), true);
       xhr.setRequestHeader('Accept', 'application/json');
-      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+      // Keep the multipart request CORS-simple for the native WebView bridge.
+      // The mobile-client header is the app authentication/compatibility marker;
+      // adding X-Requested-With here can force a preflight that the upload route
+      // does not consistently expose on native WebView origins.
       xhr.setRequestHeader('x-mobile-client', 'chatpalez-mobile-v1');
       xhr.timeout = timeoutMs;
       if (token) xhr.setRequestHeader('x-auth-token', token);
