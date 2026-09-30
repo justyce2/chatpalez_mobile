@@ -19,7 +19,7 @@ import { installRegistration, needsRegistrationCompletion, resumeRegistration, t
 import { renderTwoFactorChallenge } from './auth/two-factor';
 import { getAppConfig } from './config';
 import { getChatMediaUrl, getChatPhotoUrl } from './media';
-import { pickNativeChatPhoto, pickNativeChatPhotoWithChoice } from './chat-photo-picker';
+import { captureNativeChatPhoto, pickNativeChatPhoto } from './chat-photo-picker';
 import { isChatSoundEnabled, playReceivedChatSound, unlockChatAudio } from './chat-sound';
 import {
   logoutNativeNotifications,
@@ -470,9 +470,9 @@ const shell = createAppShell(root, {
   onShowCreateActions: webContentSurface.isSupported() ? () => webContentSurface.showCreateActions() : undefined,
   onOpenPublicPage: openPublicModule,
   resolveChatPhotoUrl: (source) => getChatPhotoUrl(config.origin, source, config.allowedHosts, config.uploadsBaseUrl),
-  onPickChatPhoto: Capacitor.isNativePlatform() ? pickNativeChatPhoto : undefined,
+  onPickChatPhoto: Capacitor.isNativePlatform() ? captureNativeChatPhoto : undefined,
   onPickChatAttachment: async (kind) => {
-    if (kind === 'image' && Capacitor.isNativePlatform()) return pickNativeChatPhotoWithChoice();
+    if (kind === 'image' && Capacitor.isNativePlatform()) return pickNativeChatPhoto();
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = kind === 'video' ? 'video/*' : kind === 'image' ? 'image/*' : '*/*';
