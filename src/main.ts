@@ -552,7 +552,7 @@ const shell = createAppShell(root, {
     const blob = await api.downloadWithProgress(url, (loaded, total) => { if (total) onProgress?.(Math.round((loaded / total) * 100)); });
     return URL.createObjectURL(blob);
   },
-  onSendMessage: async (conversationId, message, photo, video, file, voice, onProgress) => {
+  onSendMessage: async (conversationId, message, photo, video, file, voice, onProgress, clientMessageId) => {
     /*
      * Keep uploads on HTTP. Plain text may use Socket.IO when connected.
      * HTTP is selected when realtime is unavailable before submission; once a
@@ -594,7 +594,7 @@ const shell = createAppShell(root, {
     const voiceSource = voice ? await uploads.uploadChatVoice(voice, onProgress) : '';
     const videoSource = typeof videoUpload === 'string' ? videoUpload : JSON.stringify({ source: videoUpload.source, video_thumbnail: videoUpload.thumbnail || '' });
     const finalMessage = message || (file ? file.name : '');
-    await chat.sendMessage(conversationId, finalMessage, photoSource, videoSource, fileSource, voiceSource);
+    await chat.sendMessage(conversationId, finalMessage, photoSource, videoSource, fileSource, voiceSource, clientMessageId || '');
     logInfo('Message sent through HTTP chat', { conversationId, hasPhoto: Boolean(photo), hasVideo: Boolean(video), hasFile: Boolean(file) });
     return 'http' as const;
   },
