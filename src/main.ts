@@ -590,10 +590,29 @@ const shell = createAppShell(root, {
     }
     // Attachments deliberately remain on the proven API upload path.
     // Socket.IO is reserved for ordinary text messages only.
-    const photoSource = photo ? await uploads.uploadChatPhoto(photo) : '';
-    const videoUpload = video ? await uploads.uploadChatVideo(video) : { source: '', thumbnail: '' };
-    const fileSource = file ? await uploads.uploadChatFile(file) : '';
-    const voiceSource = voice ? await uploads.uploadChatVoice(voice) : '';
+    const reportProgress = (offset: number, span: number) => (percent: number): void => {
+      const normalized = Math.max(0, Math.min(100, percent));
+      onProgress?.(Math.round(offset + (normalized * span) / 100));
+    };
+    const attachmentCount = [photo, video, file, voice].filter(Boolean).length || 1;
+    const attachmentSpan = 100 / attachmentCount;
+    let completedAttachments = 0;
+    const uploadProgress = (percent: number): void => {
+      onProgress?.(Math.round(completedAttachments * attachmentSpan + (percent * attachmentSpan) / 100));
+    };
+
+    const photoSource = photo
+      ? await uploads.uploadChatPhoto(photo, uploadProgress).then((source) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return source; })
+      : '';
+    const videoUpload = video
+      ? await uploads.uploadChatVideo(video, uploadProgress).then((result) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return result; })
+      : { source: '', thumbnail: '' };
+    const fileSource = file
+      ? await uploads.uploadChatFile(file, uploadProgress).then((source) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return source; })
+      : '';
+    const voiceSource = voice
+      ? await uploads.uploadChatVoice(voice, uploadProgress).then((source) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return source; })
+      : '';
     const videoSource = typeof videoUpload === 'string' ? videoUpload : JSON.stringify({ source: videoUpload.source, video_thumbnail: videoUpload.thumbnail || '' });
     const finalMessage = message || (file ? file.name : '');
     await chat.sendMessage(conversationId, finalMessage, photoSource, videoSource, fileSource, voiceSource);
