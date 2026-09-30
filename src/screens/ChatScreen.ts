@@ -1126,7 +1126,7 @@ export class ChatScreen {
 
       void this.handlers.onSendMessage(conversationId, message, files.photo ?? undefined, files.video ?? undefined, files.file ?? undefined, files.voice ?? undefined, (percent) => {
         if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
-      }).then(async () => {
+      }, localId).then(async () => {
         finishDelivery(localId, true);
         void removeChatOutbox(localId).catch(() => undefined);
         deliveryStatus.textContent = '';
