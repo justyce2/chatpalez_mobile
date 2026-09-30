@@ -186,6 +186,11 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
     brand.addEventListener('click', () => void selectTab('home'));
 
     const topActions = element('div', 'native-topbar-actions');
+    const notificationButton = makeBadgeAction(
+      '/native-chrome/icons/header-notifications.svg',
+      'Notifications',
+      () => void selectTab('notifications')
+    );
     const makeTopAction = (src: string, label: string, action: () => void): HTMLButtonElement => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -199,12 +204,21 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       button.addEventListener('click', action);
       return button;
     };
+    function makeBadgeAction(src: string, label: string, action: () => void): HTMLButtonElement {
+      const button = makeTopAction(src, label, action);
+      const badge = elementWithText('span', '0');
+      badge.className = 'native-badge native-badge--notification';
+      badge.hidden = true;
+      badge.setAttribute('aria-hidden', 'true');
+      button.append(badge);
+      return button;
+    }
 
     topActions.append(
       makeTopAction('/native-chrome/icons/header-search.svg', 'Discover', () => showRetainedModule('/search', 'Discover', '')),
       makeTopAction('/native-chrome/icons/groups.svg', 'Groups', () => showRetainedModule('/groups', 'Groups', '')),
       makeTopAction('/native-chrome/icons/pages.svg', 'Pages', () => showRetainedModule('/pages', 'Pages', '')),
-      makeTopAction('/native-chrome/icons/header-notifications.svg', 'Notifications', () => void selectTab('notifications'))
+      notificationButton
     );
 
     const avatar = document.createElement('button');
@@ -318,10 +332,80 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       const label = elementWithText('span', tab.label);
       label.className = 'tab-button__label';
       button.append(icon, label);
+      if (tab.id === 'messages') {
+        const badge = elementWithText('span', '0');
+        badge.className = 'native-badge native-badge--chat';
+        badge.hidden = true;
+        badge.setAttribute('aria-hidden', 'true');
+        button.append(badge);
+      }
       button.addEventListener('click', () => void selectTab(tab.id));
       buttons.set(tab.id, button);
       nav.append(button);
     }
+
+    const notificationBadge = notificationButton.querySelector<HTMLElement>('.native-badge')!;
+    const chatBadge = buttons.get('messages')?.querySelector<HTMLElement>('.native-badge') ?? null;
+    let badgeRefreshTimer: number | null = null;
+    let badgeRefreshInFlight = false;
+
+    const updateBadge = (badge: HTMLElement | null, count: number): void => {
+      if (!badge) return;
+      const safeCount = Math.max(0, Math.floor(count));
+      badge.textContent = safeCount > 99 ? '99+' : String(safeCount);
+      badge.hidden = safeCount === 0;
+    };
+
+    const numericUnread = (value: unknown): number | null => {
+      if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, value);
+      if (typeof value === 'string' && /^\\d+$/.test(value.trim())) return Math.max(0, Number(value.trim()));
+      return null;
+    };
+
+    const isUnreadNotification = (item: NotificationItem): boolean => {
+      const explicit = item.seen ?? item.read ?? item.is_read ?? item.viewed;
+      if (explicit === undefined || explicit === null || explicit === '') return true;
+      return explicit === false || explicit === 0 || explicit === '0' || explicit === 'false';
+    };
+
+    const refreshBadges = async (): Promise<void> => {
+      if (badgeRefreshInFlight) return;
+      badgeRefreshInFlight = true;
+      try {
+        const [notifications, conversations] = await Promise.all([
+          handlers.onLoadNotifications?.() ?? Promise.resolve([]),
+          handlers.onLoadConversations?.(0) ?? Promise.resolve({ items: [], hasMore: false })
+        ]);
+        const notificationCount = notifications.filter(isUnreadNotification).length;
+        let chatCount = 0;
+        for (const conversation of conversations.items) {
+          const explicit = numericUnread(
+            conversation.unread_count ??
+            conversation.unread_messages ??
+            conversation.unread ??
+            conversation.message_count
+          );
+          chatCount += explicit ?? (conversation.seen === false || conversation.seen === 0 || conversation.seen === '0' ? 1 : 0);
+        }
+        updateBadge(notificationBadge, notificationCount);
+        updateBadge(chatBadge, chatCount);
+      } catch {
+        // Badge refresh is supplemental UI; never break navigation if it fails.
+      } finally {
+        badgeRefreshInFlight = false;
+      }
+    };
+
+    const startBadgeRefresh = (): void => {
+      void refreshBadges();
+      if (badgeRefreshTimer !== null) window.clearInterval(badgeRefreshTimer);
+      badgeRefreshTimer = window.setInterval(() => void refreshBadges(), 30000);
+    };
+    const handleBadgeVisibility = (): void => {
+      if (!document.hidden) void refreshBadges();
+    };
+    document.addEventListener('visibilitychange', handleBadgeVisibility);
+    startBadgeRefresh();
 
     const profileScreen = new ProfileScreen(content, session, {
       onLoadProfile: handlers.onLoadProfile,
