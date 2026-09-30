@@ -2179,7 +2179,7 @@ p { color: #64748b; line-height: 1.55; }
 }
 .chat-attachment-sheet__options {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 .chat-attachment-option {
@@ -2211,6 +2211,26 @@ p { color: #64748b; line-height: 1.55; }
   inset: 3px;
   border: 2px solid currentColor;
   border-radius: 8px;
+}
+.chat-attachment-option__icon--camera::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 7px;
+  width: 22px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-radius: 5px;
+}
+.chat-attachment-option__icon--camera::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 11px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
 }
 .chat-attachment-option__icon--video::after {
   content: "";
