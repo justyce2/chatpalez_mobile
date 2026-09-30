@@ -33,6 +33,7 @@ import { bindWebBridgeEvents } from './web-bridge-events';
 import { webContentSurface } from './web-content-surface';
 import './styles.css';
 import { CHATPALEZ_BUILD_ID } from './build-info';
+import { resolveAudioFormat } from './audio-format';
 
 const appRoot = document.querySelector<HTMLElement>('#app');
 if (!appRoot) throw new Error('ChatPalez app root was not found.');
@@ -80,19 +81,20 @@ async function recordVoiceNote(): Promise<File | null> {
       void VoiceRecorder.stopRecording().then((result) => {
         const data = result.value as { recordDataBase64?: string; msDuration?: number; mimeType?: string; fileExtension?: string; uri?: string };
         if (!data.recordDataBase64 && !data.uri) throw new Error('Voice recording returned no audio data.');
-        const mime = data.mimeType || 'audio/aac';
-        const extension = data.fileExtension || (mime.includes('mp4') ? 'm4a' : mime.includes('webm') ? 'webm' : mime.includes('wav') ? 'wav' : 'aac');
         if (data.recordDataBase64) {
           const binary = atob(data.recordDataBase64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-          finish(new File([bytes], `voice-${Date.now()}.${extension}`, { type: mime }));
+          const format = resolveAudioFormat(bytes, data.mimeType || '', data.fileExtension || '');
+          finish(new File([bytes], `voice-${Date.now()}.${format.extension}`, { type: format.mime }));
           return;
         }
         const response = await fetch(Capacitor.convertFileSrc(data.uri!));
         if (!response.ok) throw new Error('The voice recording could not be opened.');
         const blob = await response.blob();
-        finish(new File([blob], `voice-${Date.now()}.${extension}`, { type: mime }));
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const format = resolveAudioFormat(bytes, data.mimeType || blob.type, data.fileExtension || '');
+        finish(new File([bytes], `voice-${Date.now()}.${format.extension}`, { type: format.mime }));
       }).catch((error) => finish(null, error));
     });
   });
