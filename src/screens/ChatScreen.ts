@@ -651,6 +651,7 @@ export class ChatScreen {
     const attachmentIcon = (type: string): string => `<span class="chat-attachment-option__icon chat-attachment-option__icon--${type}" aria-hidden="true"></span>`;
     // Photo availability is runtime state because feature flags load after the attachment sheet is created.
     let photosAvailable = false;
+    let attachmentsAvailable = false;
     const addOption = (kind: 'image' | 'video' | 'file' | 'voice', label: string, enabled = true): void => {
       const option = document.createElement('button');
       option.type = 'button';
@@ -777,7 +778,8 @@ export class ChatScreen {
         photosAvailable = Boolean(features.photos);
         if (!photosAvailable && selectedPhoto) clearAttachment();
         setOption('image', photosAvailable);
-        attach.disabled = !(photosAvailable || features.videos || features.files || features.voiceNotes);
+        attachmentsAvailable = photosAvailable || features.videos || features.files || features.voiceNotes;
+        attach.disabled = !attachmentsAvailable;
         attach.title = attach.disabled ? 'Attachments are disabled by site settings.' : '';
       }).catch((error) => {
         if (version !== this.viewVersion) return;
@@ -1060,7 +1062,7 @@ export class ChatScreen {
         })
         .finally(() => {
           send.disabled = false;
-          attach.disabled = false;
+          attach.disabled = !attachmentsAvailable;
           text.disabled = false;
           send.classList.remove('is-sending');
           send.setAttribute('aria-label', 'Send message');
