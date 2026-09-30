@@ -83,17 +83,18 @@ export class ChatService {
   constructor(private readonly api: ChatPalezApiClient) {}
 
   async getFeatures(): Promise<ChatFeatures> {
-    const settings = await this.api.get<{ system?: Record<string, unknown> }>('app/settings');
+    const settings = await this.api.get<{ system?: Record<string, unknown>; user?: Record<string, unknown> }>('app/settings');
     const system = settings.system ?? {};
+    const user = settings.user ?? {};
     const enabled = (value: unknown): boolean => value === true || value === 1 || value === '1';
     return {
       photos: enabled(system.chat_photos_enabled),
       typing: enabled(system.chat_typing_enabled),
       seen: enabled(system.chat_seen_enabled),
       realtime: enabled(system.chat_socket_enabled),
-      videos: enabled(system.chat_videos_enabled),
-      files: Boolean(system.file_extensions || system.max_file_size),
-      voiceNotes: enabled(system.voice_notes_chat_enabled),
+      videos: enabled(system.chat_videos_enabled) && enabled(user.can_upload_videos),
+      files: enabled(user.can_upload_files),
+      voiceNotes: enabled(system.voice_notes_chat_enabled) && enabled(user.can_upload_audios),
       videoMaxBytes: Number(system.max_video_size || 0) * 1024,
       fileMaxBytes: Number(system.max_file_size || 0) * 1024
     };
