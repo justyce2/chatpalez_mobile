@@ -552,7 +552,7 @@ const shell = createAppShell(root, {
     const blob = await api.downloadWithProgress(url, (loaded, total) => { if (total) onProgress?.(Math.round((loaded / total) * 100)); });
     return URL.createObjectURL(blob);
   },
-  onSendMessage: async (conversationId, message, photo, video, file, voice, onProgress, _clientMessageId) => {
+  onSendMessage: async (conversationId, message, photo, video, file, voice) => {
     /*
      * Keep uploads on HTTP. Plain text may use Socket.IO when connected.
      * HTTP is selected when realtime is unavailable before submission; once a
