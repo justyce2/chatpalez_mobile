@@ -383,8 +383,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
           const explicit = numericUnread(
             conversation.unread_count ??
             conversation.unread_messages ??
-            conversation.unread ??
-            conversation.message_count
+            conversation.unread
           );
           chatCount += explicit ?? (conversation.seen === false || conversation.seen === 0 || conversation.seen === '0' ? 1 : 0);
         }
