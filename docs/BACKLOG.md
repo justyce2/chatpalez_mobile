@@ -475,3 +475,17 @@ Code/UI audit after native-profile milestone:
 - No Sngine upload PHP controller rewrite was required.
 - Required local sync after pull: `npm install`, then `npm run cap:sync`.
 - Device acceptance: Android/iOS Photos permission/picker, camera permission, cancel path, one photo, multiple photos, HEIC/JPEG/PNG handling, upload progress, remove attachment, publish post, and file chooser.
+
+
+### Implementation update — chat attachment transport hardening (2026-09-30)
+
+Mobile-only hardening completed without modifying the backend:
+- Chat attachment uploads now use the existing multipart XHR path so the composer receives real upload progress instead of a synthetic/unused progress callback.
+- Multipart upload requests include the legacy AJAX request marker expected by the existing Sngine upload controller and use a bounded 120-second timeout.
+- Attachment downloads now also have a bounded timeout so download loading indicators cannot remain indefinitely.
+- Failed attachment delivery now hides the circular progress indicator; retry resets and reactivates it.
+- Video/file/photo selection previews are rendered according to the selected media type instead of treating every attachment as an image.
+- Mobile chat now parses the existing JSON video representation (source + thumbnail) before resolving the media URL, fixing a client-side video rendering mismatch.
+- No PHP/controller/database/backend code was changed.
+
+Runtime acceptance remains required for Android/iOS, especially actual upload response, public media URL resolution, video/file delivery, timeout behavior and physical-device picker behavior.
