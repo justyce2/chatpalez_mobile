@@ -75,7 +75,6 @@ export class ChatPalezApiClient {
     return new Promise<T>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url.toString(), true);
-      xhr.withCredentials = true;
       xhr.setRequestHeader('Accept', 'application/json');
       xhr.setRequestHeader('x-mobile-client', 'chatpalez-mobile-v1');
       if (token) xhr.setRequestHeader('x-auth-token', token);
