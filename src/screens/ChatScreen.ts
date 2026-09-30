@@ -622,6 +622,13 @@ export class ChatScreen {
       attachmentImage.hidden = true;
       attachmentHint.textContent = 'Photo selected. Preview unavailable; you can still add a caption and send.';
     });
+    const attachmentVideo = document.createElement('video');
+    attachmentVideo.className = 'message-video-preview';
+    attachmentVideo.controls = true;
+    attachmentVideo.muted = true;
+    attachmentVideo.playsInline = true;
+    attachmentVideo.preload = 'metadata';
+    attachmentVideo.hidden = true;
     const attachmentName = element('span', 'chat-attachment-preview__name');
     const attachmentHint = elementWithText('span', 'Add a caption below, or send the photo on its own.');
     attachmentHint.className = 'chat-attachment-preview__hint';
@@ -629,7 +636,7 @@ export class ChatScreen {
     attachmentDetails.append(attachmentName, attachmentHint);
     const removeAttachment = secondaryButton('Remove');
     removeAttachment.type = 'button';
-    attachment.append(attachmentImage, attachmentDetails, removeAttachment);
+    attachment.append(attachmentImage, attachmentVideo, attachmentDetails, removeAttachment);
     const attachmentSheet = element('div', 'chat-attachment-sheet');
     attachmentSheet.hidden = true;
     attachmentSheet.setAttribute('role', 'dialog');
@@ -722,6 +729,9 @@ export class ChatScreen {
       attachment.hidden = true;
       attachmentImage.hidden = false;
       attachmentImage.removeAttribute('src');
+      attachmentVideo.hidden = true;
+      attachmentVideo.removeAttribute('src');
+      attachmentVideo.load();
       text.placeholder = 'Write a message…';
       send.setAttribute('aria-label', 'Send message');
     };
