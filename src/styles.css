@@ -1583,10 +1583,8 @@ p { color: #64748b; line-height: 1.55; }
 }
 .chat-attachment-preview[hidden] { display: none !important; }
 .chat-attachment-preview img { width: 104px; height: 104px; flex: 0 0 104px; object-fit: cover; border-radius: 10px; }
-.chat-attachment-preview__details { min-width: 0; flex: 1; display: grid; gap: 8px; padding-top: 4px; }
-.chat-attachment-preview__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 700; }
-.chat-attachment-preview__hint { font-size: 12px; line-height: 1.4; color: #52657A; }
-.chat-attachment-preview button { min-height: 44px; }
+.chat-attachment-preview video { width: 104px; height: 104px; flex: 0 0 104px; object-fit: cover; border-radius: 10px; }
+.chat-attachment-preview button { min-height: 44px; flex: 0 0 auto; }
 .chat-message-receipt { display: block; margin-top: 5px; color: #52657A; font-size: 11px; text-align: right; }
 .chat-message-receipt.is-seen { color: #0066B2; font-weight: 700; }
 .chat-message-text { white-space: pre-wrap; }
