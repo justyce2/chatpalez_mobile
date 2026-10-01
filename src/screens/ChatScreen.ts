@@ -915,7 +915,7 @@ export class ChatScreen {
       try {
         const nextOffset = older ? historyOffset + 1 : 0;
         const result = await this.handlers.onLoadMessages!(conversationId, nextOffset, lastMessageId);
-        if (version !== this.viewVersion) return;
+        if (version !== this.viewVersion) return false;
         const messages = result.messages ?? [];
         normalPresence = conversation.multiple_recipients
           ? `${conversation.recipients?.length ?? 0} participants`
