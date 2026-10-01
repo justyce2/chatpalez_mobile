@@ -2154,6 +2154,17 @@ p { color: #64748b; line-height: 1.55; }
 @keyframes chat-progress-spin {
   to { transform: rotate(360deg); }
 }
+.chat-circular-progress:not(.is-retry):not(.is-complete)::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border: 3px solid rgba(255,255,255,.22);
+  border-top-color: #FFFFFF;
+  border-right-color: #FFFFFF;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: chat-progress-spin 1s linear infinite;
+}
 
 
 /* Chat attachment icon + picker sheet */
