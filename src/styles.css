@@ -1286,7 +1286,8 @@ p { color: #64748b; line-height: 1.55; }
 .native-badge[hidden] { display: none; }
 .native-badge--chat {
   top: 1px;
-  right: calc(50% - 17px);
+  left: calc(50% + 5px);
+  right: auto;
 }
 .native-badge--notification {
   top: -4px;
@@ -2109,11 +2110,12 @@ p { color: #64748b; line-height: 1.55; }
 .chat-circular-progress__icon {
   position: relative;
   z-index: 1;
-  width: 14px;
-  height: 14px;
+  width: 17px;
+  height: 17px;
   border: 0;
-  border-radius: 3px;
+  border-radius: 0;
   background: #FFFFFF;
+  clip-path: polygon(25% 0, 75% 0, 100% 25%, 100% 75%, 75% 100%, 25% 100%, 0 75%, 0 25%);
   animation: none;
 }
 .chat-circular-progress.is-retry .chat-circular-progress__icon {
@@ -2480,8 +2482,7 @@ p { color: #64748b; line-height: 1.55; }
 .message-bubble.is-failed { border: 1px solid #E6A3A0; background: #FFF5F4; }
 .chat-delivery-state { display: block; margin-top: 5px; color: #A32220; font-size: 12px; font-weight: 650; }
 .chat-delivery-retry { margin-top: 7px; min-height: 34px; padding: 6px 11px; }
-.chat-conversation-item.is-unread .conversation-item__copy strong,
-.chat-conversation-item.is-unread .conversation-item__copy span { font-weight: 800; }
+.chat-conversation-item.is-unread .conversation-item__copy > span { font-weight: 800; }
 .chat-conversation-item.is-unread { border-color: #9BCBE8; background: #F2F9FE; }
 
 .chat-media-card__download {
@@ -2594,3 +2595,13 @@ p { color: #64748b; line-height: 1.55; }
   font-weight: 700;
 }
 .chat-voice-load:disabled { opacity: .65; cursor: wait; }
+
+.chat-media-card__download-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  margin-top: 8px;
+  color: #1F6F43;
+  font-size: 12px;
+  font-weight: 800;
+}
