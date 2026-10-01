@@ -998,13 +998,13 @@ export class ChatScreen {
         }
       }
     };
-    const latestResync = new CoalescedResync(() => refresh(false));
+    const latestResync = new CoalescedResync(async () => { await refresh(false); });
     const messagePolling = new ChatPollingController({
       intervalMs: 3000,
       isRealtimeConnected: () => realtimeConnected,
       getLastMessageId: () => renderedMessages.length ? renderedMessages[renderedMessages.length - 1]?.message_id : undefined,
       isOnline: () => navigator.onLine !== false && document.visibilityState !== 'hidden',
-      poll: (lastMessageId) => refresh(false, lastMessageId)
+      poll: async (lastMessageId) => { await refresh(false, lastMessageId); }
     });
 
     let threadClosed = false;
