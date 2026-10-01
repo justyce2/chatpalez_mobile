@@ -33,7 +33,8 @@
     "@aparajita/capacitor-secure-storage": "^8.0.0",
     "@capacitor/camera": "^8.0.0",
     "socket.io-client": "^4.8.1",
-    "@independo/capacitor-voice-recorder": "^8.3.10"
+    "@independo/capacitor-voice-recorder": "^8.3.10",
+    "axios": "^1.12.2"
   },
   "devDependencies": {
     "@capacitor/android": "^8.0.0",
