@@ -1478,7 +1478,7 @@ export class ChatScreen {
     });
   }
 
-  private toggleMessageSelection(message: Message, thread: HTMLElement, refresh: () => Promise<void>): void {
+  private toggleMessageSelection(message: Message, thread: HTMLElement, refresh: () => Promise<unknown>): void {
     if (message.message_id == null) return;
     const id = String(message.message_id);
     if (this.selectedMessages.has(id)) this.selectedMessages.delete(id);
@@ -2154,7 +2154,7 @@ export class ChatScreen {
   private installMessageActions(
     bubble: HTMLDivElement,
     message: Message,
-    refresh: () => Promise<void>
+    refresh: () => Promise<unknown>
   ): void {
     bubble.tabIndex = 0;
     bubble.setAttribute('aria-label', 'Message. Long press for actions.');
