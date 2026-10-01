@@ -58,7 +58,7 @@ export type ChatScreenHandlers = {
   onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
   onLoadMessages?: (conversationId: number | string, offset: number, lastMessageId?: number | string) => Promise<MessagesResult>;
-  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, voice?: File, onProgress?: (percent: number) => void, clientMessageId?: string) => Promise<ChatDeliveryTransport>;
+  onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, voice?: File, onProgress?: (percent: number) => void, clientMessageId?: string, signal?: AbortSignal) => Promise<ChatDeliveryTransport>;
   onTyping?: (conversationId: number | string, isTyping: boolean) => Promise<void>;
   onLeaveConversation?: (conversationId: number | string) => Promise<void>;
   onDeleteConversation?: (conversationId: number | string) => Promise<void>;
@@ -786,7 +786,7 @@ export class ChatScreen {
     send.setAttribute('aria-label', 'Send message');
     send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
     composer.append(attach, text, photo, send);
-    this.content.append(realtimeStatus, deliveryStatus, attachment, composer);
+    this.content.append(realtimeStatus, deliveryStatus, composer);
     if (savedDraft?.photo) showAttachment(savedDraft.photo);
     if (this.handlers.onLoadChatFeatures) {
       void this.handlers.onLoadChatFeatures().then((features) => {
@@ -830,7 +830,8 @@ export class ChatScreen {
     let loadingOlder = false;
     let renderedMessages: Message[] = [];
     let realtimeConnected = false;
-    const pendingDeliveries = new Map<string, { bubble: HTMLDivElement; previewUrl: string | null }>();
+    type PendingDelivery = { bubble: HTMLDivElement; previewUrl: string | null; controller: AbortController; cancelled: boolean };
+    const pendingDeliveries = new Map<string, PendingDelivery>();
     let lastMarkedIncomingId: string | null = null;
     let previousScrollTop = 0;
     let touchStartY = 0;
@@ -1013,36 +1014,48 @@ export class ChatScreen {
       updateHistoryControl();
       void refresh(true);
     });
-    const createDeliveryBubble = (message: string, files: { photo: File | null; video: File | null; file: File | null; voice: File | null }, previewSource: string | null, localId: string): { bubble: HTMLDivElement; progress: HTMLDivElement | null } => {
+    const createDeliveryBubble = (message: string, files: { photo: File | null; video: File | null; file: File | null; voice: File | null }, previewSource: string | null, localId: string): { bubble: HTMLDivElement; progress: HTMLButtonElement | null } => {
       const bubble = element('div', 'message-bubble is-mine is-pending') as HTMLDivElement;
       bubble.dataset.localMessageId = localId;
-      if (files.video && previewSource) {
-        const pendingVideo = document.createElement('video');
-        pendingVideo.className = 'message-video-preview';
-        pendingVideo.src = previewSource;
-        pendingVideo.muted = true;
-        pendingVideo.playsInline = true;
-        pendingVideo.preload = 'metadata';
-        pendingVideo.setAttribute('aria-label', 'Video being sent');
-        bubble.append(pendingVideo);
-      } else if (files.photo && previewSource) {
-        const pendingImage = document.createElement('img');
-        pendingImage.className = 'message-photo';
-        pendingImage.src = previewSource;
-        pendingImage.alt = 'Photo being sent';
-        bubble.append(pendingImage);
-      } else if (files.file || files.voice) {
-        const pendingFile = elementWithText('div', files.voice ? (files.voice.name || 'Voice note') : (files.file?.name || 'File attachment'));
-        pendingFile.className = 'message-file-preview';
-        bubble.append(pendingFile);
+      const hasAttachment = Boolean(files.photo || files.video || files.file || files.voice);
+      let mediaSurface: HTMLElement | null = null;
+
+      if (hasAttachment) {
+        mediaSurface = element('div', 'chat-upload-preview');
+        if (files.video && previewSource) {
+          const pendingVideo = document.createElement('video');
+          pendingVideo.className = 'message-video-preview';
+          pendingVideo.src = previewSource;
+          pendingVideo.muted = true;
+          pendingVideo.playsInline = true;
+          pendingVideo.preload = 'metadata';
+          pendingVideo.setAttribute('aria-label', 'Video being sent');
+          mediaSurface.append(pendingVideo);
+        } else if (files.photo && previewSource) {
+          const pendingImage = document.createElement('img');
+          pendingImage.className = 'message-photo';
+          pendingImage.src = previewSource;
+          pendingImage.alt = 'Photo being sent';
+          mediaSurface.append(pendingImage);
+        } else {
+          const pendingFile = elementWithText('div', files.voice ? (files.voice.name || 'Voice note') : (files.file?.name || 'File attachment'));
+          pendingFile.className = files.voice ? 'message-voice-preview' : 'message-file-preview';
+          mediaSurface.append(pendingFile);
+        }
+        bubble.append(mediaSurface);
       }
+
       if (message) bubble.append(elementWithText('div', message));
-      const progress = (files.photo || files.video || files.file || files.voice) ? document.createElement('div') : null;
+
+      const progress = hasAttachment ? document.createElement('button') : null;
       if (progress) {
+        progress.type = 'button';
         progress.className = 'chat-circular-progress';
         progress.style.setProperty('--chat-progress', '0%');
+        progress.setAttribute('aria-label', 'Cancel upload');
+        progress.title = 'Cancel upload';
         progress.innerHTML = '<span class="chat-circular-progress__icon" aria-hidden="true"></span>';
-        bubble.append(progress);
+        mediaSurface?.append(progress);
       } else {
         bubble.append(elementWithText('small', 'Sending…'));
       }
@@ -1058,15 +1071,32 @@ export class ChatScreen {
         pendingDeliveries.delete(localId);
         return;
       }
+
       delivery.bubble.classList.remove('is-pending');
       delivery.bubble.classList.add('is-failed');
-      const progress = delivery.bubble.querySelector<HTMLElement>('.chat-circular-progress');
-      if (progress) progress.hidden = true;
+      const progress = delivery.bubble.querySelector<HTMLButtonElement>('.chat-circular-progress');
+      const hasAttachment = Boolean(delivery.bubble.querySelector('.chat-upload-preview'));
+
+      if (hasAttachment && progress) {
+        progress.hidden = false;
+        progress.disabled = false;
+        progress.classList.add('is-retry');
+        progress.setAttribute('aria-label', 'Retry upload');
+        progress.title = 'Retry upload';
+      } else if (progress) {
+        progress.hidden = true;
+      }
+
       const status = delivery.bubble.querySelector<HTMLElement>('.chat-delivery-state') ?? element('small', 'chat-delivery-state');
-      status.textContent = error instanceof RealtimeDeliveryUncertainError ? 'Delivery uncertain. Check the chat before retrying.' : (error instanceof Error ? error.message : 'Unable to send message.');
+      status.textContent = delivery.cancelled
+        ? 'Upload cancelled. Tap the upload icon to try again.'
+        : (error instanceof RealtimeDeliveryUncertainError
+          ? 'Delivery uncertain. Check the chat before retrying.'
+          : (error instanceof Error ? error.message : 'Unable to send message.'));
       status.setAttribute('role', 'status');
       if (!status.parentElement) delivery.bubble.append(status);
-      if (!delivery.bubble.querySelector('.chat-delivery-retry')) {
+
+      if (!hasAttachment && !delivery.bubble.querySelector('.chat-delivery-retry')) {
         const retry = secondaryButton('Retry');
         retry.classList.add('chat-delivery-retry');
         retry.type = 'button';
@@ -1082,10 +1112,12 @@ export class ChatScreen {
             return;
           }
           void updateChatOutbox(localId, { state: 'sending', error: undefined }).catch(() => undefined);
+          delivery.controller = new AbortController();
+          delivery.cancelled = false;
           void this.handlers.onSendMessage!(conversationId, payload.message, payload.photo ?? undefined, payload.video ?? undefined, payload.file ?? undefined, payload.voice ?? undefined, (percent) => {
             const progress = delivery.bubble.querySelector<HTMLElement>('.chat-circular-progress');
             if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
-          }, localId).then(async () => {
+          }, localId, delivery.controller.signal).then(async () => {
             finishDelivery(localId, true);
             void removeChatOutbox(localId).catch(() => undefined);
             playSentChatSound(this.session.user.user_id);
@@ -1104,44 +1136,36 @@ export class ChatScreen {
       }
     };
 
-    composer.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const message = text.value.trim();
-      const files = { photo: selectedPhoto, video: selectedVideo, file: selectedFile, voice: selectedVoice };
-      if ((!message && !files.photo && !files.video && !files.file && !files.voice) || !this.handlers.onSendMessage) return;
-      unlockChatAudio(this.session.user.user_id);
+    const runAttachmentDelivery = (localId: string, payload: ChatOutboxPayload): void => {
+      const delivery = pendingDeliveries.get(localId);
+      if (!delivery) return;
+      delivery.controller = new AbortController();
+      delivery.cancelled = false;
+      const progress = delivery.bubble.querySelector<HTMLButtonElement>('.chat-circular-progress');
+      if (progress) {
+        progress.hidden = false;
+        progress.disabled = false;
+        progress.classList.remove('is-retry');
+        progress.setAttribute('aria-label', 'Cancel upload');
+        progress.title = 'Cancel upload';
+      }
+      delivery.bubble.classList.remove('is-failed');
+      delivery.bubble.classList.add('is-pending');
+      delivery.bubble.querySelector('.chat-delivery-state')?.remove();
 
-      const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      const deliveryPreviewUrl = previewUrl;
-      const { bubble, progress } = createDeliveryBubble(message, files, deliveryPreviewUrl, localId);
-      (bubble as HTMLDivElement & { __payload?: ChatOutboxPayload }).__payload = { ...files, message };
-      pendingDeliveries.set(localId, { bubble, previewUrl: deliveryPreviewUrl });
-      thread.append(bubble);
-      thread.scrollTop = thread.scrollHeight;
-      await saveChatOutbox({
+      void this.handlers.onSendMessage!(
+        conversationId,
+        payload.message,
+        payload.photo ?? undefined,
+        payload.video ?? undefined,
+        payload.file ?? undefined,
+        payload.voice ?? undefined,
+        (percent) => {
+          if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
+        },
         localId,
-        conversationId: String(conversationId),
-        ...files,
-        message,
-        state: 'queued',
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      }).then(() => updateChatOutbox(localId, { state: 'sending', error: undefined })).catch(() => undefined);
-
-      // Reset only the composer. The in-flight delivery keeps its own payload/state.
-      previewUrl = null;
-      clearAttachment();
-      text.value = '';
-      this.drafts.delete(String(conversationId));
-      // Delivery state belongs to the message bubble. The composer must be
-      // immediately reusable while HTTP upload/realtime delivery continues.
-      send.disabled = false;
-      send.classList.remove('is-sending');
-      setTyping(false);
-
-      void this.handlers.onSendMessage(conversationId, message, files.photo ?? undefined, files.video ?? undefined, files.file ?? undefined, files.voice ?? undefined, (percent) => {
-        if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
-      }, localId).then(async () => {
+        delivery.controller.signal
+      ).then(async () => {
         finishDelivery(localId, true);
         void removeChatOutbox(localId).catch(() => undefined);
         deliveryStatus.textContent = '';
@@ -1154,12 +1178,83 @@ export class ChatScreen {
           error: error instanceof Error ? error.message : String(error ?? 'Unable to send message.')
         }).catch(() => undefined);
         finishDelivery(localId, false, error);
-      }).finally(() => {
-        send.disabled = false;
-        send.classList.remove('is-sending');
-        send.setAttribute('aria-label', 'Send message');
-        send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
       });
+    };
+
+    composer.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const message = text.value.trim();
+      const files = { photo: selectedPhoto, video: selectedVideo, file: selectedFile, voice: selectedVoice };
+      if ((!message && !files.photo && !files.video && !files.file && !files.voice) || !this.handlers.onSendMessage) return;
+      unlockChatAudio(this.session.user.user_id);
+
+      const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const deliveryPreviewUrl = previewUrl;
+      const { bubble, progress } = createDeliveryBubble(message, files, deliveryPreviewUrl, localId);
+      const payload: ChatOutboxPayload = { ...files, message };
+      const delivery: PendingDelivery = {
+        bubble,
+        previewUrl: deliveryPreviewUrl,
+        controller: new AbortController(),
+        cancelled: false
+      };
+      (bubble as HTMLDivElement & { __payload?: ChatOutboxPayload }).__payload = payload;
+      pendingDeliveries.set(localId, delivery);
+
+      if (progress) {
+        progress.addEventListener('click', (clickEvent) => {
+          clickEvent.stopPropagation();
+          const current = pendingDeliveries.get(localId);
+          if (!current) return;
+          if (progress.classList.contains('is-retry')) {
+            void updateChatOutbox(localId, { state: 'sending', error: undefined }).catch(() => undefined);
+            runAttachmentDelivery(localId, payload);
+            return;
+          }
+          current.cancelled = true;
+          progress.disabled = true;
+          current.controller.abort();
+        });
+      }
+
+      thread.append(bubble);
+      thread.scrollTop = thread.scrollHeight;
+      await saveChatOutbox({
+        localId,
+        conversationId: String(conversationId),
+        ...files,
+        message,
+        state: 'queued',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      }).then(() => updateChatOutbox(localId, { state: 'sending', error: undefined })).catch(() => undefined);
+
+      previewUrl = null;
+      clearAttachment();
+      text.value = '';
+      this.drafts.delete(String(conversationId));
+      send.disabled = false;
+      send.classList.remove('is-sending');
+      setTyping(false);
+
+      if (files.photo || files.video || files.file || files.voice) {
+        runAttachmentDelivery(localId, payload);
+      } else {
+        void this.handlers.onSendMessage(conversationId, message, undefined, undefined, undefined, undefined, undefined, localId).then(async () => {
+          finishDelivery(localId, true);
+          void removeChatOutbox(localId).catch(() => undefined);
+          deliveryStatus.textContent = '';
+          playSentChatSound(this.session.user.user_id);
+          await refresh();
+        }).catch(async (error: unknown) => {
+          if (error instanceof RealtimeDeliveryUncertainError) await latestResync.request().catch(() => undefined);
+          void updateChatOutbox(localId, {
+            state: error instanceof RealtimeDeliveryUncertainError ? 'uncertain' : 'failed',
+            error: error instanceof Error ? error.message : String(error ?? 'Unable to send message.')
+          }).catch(() => undefined);
+          finishDelivery(localId, false, error);
+        });
+      }
     });
 
     try {
@@ -1189,7 +1284,22 @@ export class ChatScreen {
           file: record.file,
           voice: record.voice
         };
-        pendingDeliveries.set(record.localId, { bubble: delivery.bubble, previewUrl: persistedPreviewUrl });
+        pendingDeliveries.set(record.localId, { bubble: delivery.bubble, previewUrl: persistedPreviewUrl, controller: new AbortController(), cancelled: false });
+        if (delivery.progress) {
+          delivery.progress.addEventListener('click', (clickEvent) => {
+            clickEvent.stopPropagation();
+            const current = pendingDeliveries.get(record.localId);
+            if (!current) return;
+            if (delivery.progress!.classList.contains('is-retry')) {
+              void updateChatOutbox(record.localId, { state: 'sending', error: undefined }).catch(() => undefined);
+              runAttachmentDelivery(record.localId, (current.bubble as HTMLDivElement & { __payload?: ChatOutboxPayload }).__payload!);
+              return;
+            }
+            current.cancelled = true;
+            delivery.progress!.disabled = true;
+            current.controller.abort();
+          });
+        }
         thread.append(delivery.bubble);
         const persistedError = record.error
           ? new Error(record.error)
