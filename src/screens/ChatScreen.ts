@@ -1829,15 +1829,20 @@ export class ChatScreen {
             video.playsInline = true;
             video.src = url;
             card.replaceChildren(video);
-          } else {
-            const link = document.createElement('a');
-            link.href = url;
-            link.target = '_blank';
-            link.rel = 'noopener';
-            link.download = fileName;
-            link.textContent = 'Open downloaded file';
-            card.append(link);
+            return;
           }
+
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.style.display = 'none';
+          document.body.append(link);
+          link.click();
+          link.remove();
+
+          const downloaded = elementWithText('span', kind === 'file' ? 'Downloaded' : 'Ready to play');
+          downloaded.className = 'chat-media-card__download-status';
+          card.append(downloaded);
         }).catch((error: unknown) => {
           progress.hidden = true;
           window.alert(error instanceof Error ? error.message : `Unable to download this ${kind}.`);
