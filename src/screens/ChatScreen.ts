@@ -780,12 +780,48 @@ export class ChatScreen {
     text.setAttribute('aria-label', 'Message or photo caption');
     const savedDraft = this.drafts.get(String(conversationId));
     if (savedDraft) text.value = savedDraft.text;
+    const emojiButton = document.createElement('button');
+    emojiButton.type = 'button';
+    emojiButton.className = 'message-emoji-button';
+    emojiButton.textContent = '😊';
+    emojiButton.setAttribute('aria-label', 'Choose emoji');
+    emojiButton.title = 'Choose emoji';
+
+    const emojiPicker = element('div', 'message-emoji-picker');
+    emojiPicker.hidden = true;
+    emojiPicker.setAttribute('role', 'dialog');
+    emojiPicker.setAttribute('aria-label', 'Emoji picker');
+    const composerEmojis = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','🙂','🙃','😉','😌','😍','🥰','😘','😎','🤔','😢','😭','😡','😮','😴','🙏','👏','🙌','👍','👎','❤️','🔥','🎉','💯','✨','💙','💔','🤝','😂','😇','🤗','🤩','😋','😜','🤪','😏','😐','😑','🙄','😬','🤐','🤭','🫶','💪','👋','✌️','👌','💡','🎯','🚀','🌟','🍀','☀️','🌍'];
+    for (const emoji of composerEmojis) {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.textContent = emoji;
+      option.setAttribute('aria-label', `Insert ${emoji}`);
+      option.addEventListener('click', () => {
+        const start = text.selectionStart ?? text.value.length;
+        const end = text.selectionEnd ?? start;
+        text.value = text.value.slice(0, start) + emoji + text.value.slice(end);
+        text.focus();
+        const cursor = start + emoji.length;
+        text.setSelectionRange(cursor, cursor);
+        emojiPicker.hidden = true;
+        text.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      emojiPicker.append(option);
+    }
+
+    const inputWrap = element('div', 'message-composer__input-wrap');
+    inputWrap.append(text, emojiButton, emojiPicker);
+    emojiButton.addEventListener('click', () => {
+      emojiPicker.hidden = !emojiPicker.hidden;
+    });
+
     const send = primaryButton('');
     send.type = 'submit';
     send.classList.add('message-send-button');
     send.setAttribute('aria-label', 'Send message');
     send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
-    composer.append(attach, text, photo, send);
+    composer.append(attach, inputWrap, photo, send);
     this.content.append(realtimeStatus, deliveryStatus, composer);
     if (savedDraft?.photo) showAttachment(savedDraft.photo);
     if (this.handlers.onLoadChatFeatures) {
