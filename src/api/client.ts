@@ -123,11 +123,49 @@ export class ChatPalezApiClient {
 
         if (error.response) {
           const data = error.response.data;
-          const responseText = typeof data === 'string' ? data.trim() : '';
-          const exactMessage =
-            (data && typeof data === 'object' && typeof data.message === 'string' ? data.message.trim() : '')
-            || (responseText && responseText !== '{}' ? responseText : '')
-            || `HTTP ${status}`;
+          let parsedData: unknown = data;
+
+          if (typeof data === 'string') {
+            const responseText = data.trim();
+            if (responseText) {
+              try {
+                parsedData = JSON.parse(responseText) as unknown;
+              } catch {
+                parsedData = responseText;
+              }
+            }
+          }
+
+          const extractMessage = (value: unknown): string => {
+            if (typeof value === 'string') return value.trim();
+
+            if (!value || typeof value !== 'object') return '';
+
+            const record = value as Record<string, unknown>;
+            const directMessage =
+              typeof record.message === 'string' ? record.message.trim() : '';
+            if (directMessage) return directMessage;
+
+            const directError =
+              typeof record.error === 'string' ? record.error.trim() : '';
+            if (directError) return directError;
+
+            const nestedData = record.data;
+            if (nestedData && typeof nestedData === 'object') {
+              const nested = nestedData as Record<string, unknown>;
+              const nestedMessage =
+                typeof nested.message === 'string' ? nested.message.trim() : '';
+              if (nestedMessage) return nestedMessage;
+
+              const nestedError =
+                typeof nested.error === 'string' ? nested.error.trim() : '';
+              if (nestedError) return nestedError;
+            }
+
+            return '';
+          };
+
+          const exactMessage = extractMessage(parsedData) || `HTTP ${status}`;
           throw new ApiError(`${exactMessage} (HTTP ${status})`, status);
         }
       }
