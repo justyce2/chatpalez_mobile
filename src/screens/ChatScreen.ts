@@ -1805,10 +1805,29 @@ export class ChatScreen {
       video_thumbnail?: { source?: string } | null;
     };
     const downloadMedia = this.handlers.onDownloadChatMedia;
-    const videoSource = typeof message.video === 'string' ? message.video : '';
-    const videoThumbnail = this.handlers.resolveChatPhotoUrl?.(media.video_thumbnail?.source || '');
-    const fileSource = media.file?.source || '';
-    const fileName = media.file?.name || body || 'File attachment';
+    const rawVideoSource = typeof message.video === 'string' ? message.video : '';
+    let videoSource = rawVideoSource;
+    let videoThumbnailSource = media.video_thumbnail?.source || '';
+    if (rawVideoSource) {
+      try {
+        const parsed = JSON.parse(rawVideoSource) as { source?: unknown; video_thumbnail?: unknown; thumbnail?: unknown };
+        if (parsed && typeof parsed === 'object') {
+          if (typeof parsed.source === 'string' && parsed.source.trim()) videoSource = parsed.source;
+          const thumbnail = parsed.video_thumbnail;
+          if (thumbnail && typeof thumbnail === 'object' && typeof (thumbnail as { source?: unknown }).source === 'string') {
+            videoThumbnailSource = String((thumbnail as { source: string }).source);
+          } else if (typeof parsed.thumbnail === 'string' && parsed.thumbnail.trim()) {
+            videoThumbnailSource = parsed.thumbnail;
+          }
+        }
+      } catch {
+        // Older messages may store the video source as a plain upload path.
+      }
+    }
+    const videoThumbnail = this.handlers.resolveChatPhotoUrl?.(videoThumbnailSource);
+    const rawFile = media.file;
+    const fileSource = rawFile?.source || (typeof message.file === 'string' ? message.file : '');
+    const fileName = rawFile?.name || (typeof message.file_name === 'string' ? message.file_name : '') || body || 'File attachment';
     const voiceSource = typeof message.voice_note === 'string' ? message.voice_note : '';
 
     const renderDownloadable = (source: string, thumbnail: string, kind: 'video' | 'file' | 'voice'): void => {
