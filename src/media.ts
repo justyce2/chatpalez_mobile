@@ -11,10 +11,8 @@ export function getChatPhotoUrl(
   uploadsBaseUrl: URL = new URL('uploads/', origin)
 ): string | null {
   if (!source) return null;
-  const normalizedSource = source.replace(/^\/+/, '');
-  if (/^(?:uploads\/)?photos\/\d{4}\/\d{2}\/[A-Za-z0-9._-]+\.(?:jpe?g|png|gif|webp|avif)$/i.test(normalizedSource)) {
-    const photoPath = normalizedSource.startsWith('uploads/') ? normalizedSource.slice('uploads/'.length) : normalizedSource;
-    return new URL(photoPath, uploadsBaseUrl).toString();
+  if (/^photos\/\d{4}\/\d{2}\/[A-Za-z0-9._-]+\.(?:jpe?g|png|gif|webp|avif)$/i.test(source)) {
+    return new URL(source, uploadsBaseUrl).toString();
   }
 
   try {
