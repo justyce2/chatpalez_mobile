@@ -1,5 +1,7 @@
 import type { ChatPalezApiClient } from './client';
 
+const CHAT_UPLOAD_ENDPOINT = 'https://chatpalez.com/apis/php/data/upload';
+
 export class UploadService {
   constructor(private readonly api: ChatPalezApiClient) {}
 
@@ -40,7 +42,7 @@ export class UploadService {
     if (chatThumbnail) form.append('chat_thumbnail', '1');
 
     const result = await this.api.postFormWithProgress<string | { source?: string; thumbnail?: string }>(
-      'data/upload',
+      CHAT_UPLOAD_ENDPOINT,
       form,
       (loaded, total) => {
         if (!total) return;
