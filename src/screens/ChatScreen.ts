@@ -30,6 +30,7 @@ import { Share } from '@capacitor/share';
 import { saveChatPhoto } from '../chat-photo-save';
 import { ChatPollingController } from '../chat-polling';
 import { listChatOutbox, removeChatOutbox, saveChatOutbox, updateChatOutbox, type ChatOutboxPayload } from '../chat-outbox';
+import { loadChatHistory, saveChatHistory } from '../chat-message-cache';
 
 export type ChatPageResult<T> = { items: T[]; hasMore: boolean };
 export type ChatDeliveryTransport = 'realtime' | 'http';
@@ -908,8 +909,8 @@ export class ChatScreen {
         receipt.classList.toggle('is-seen', seen);
       });
     };
-    const refresh = async (older = false, lastMessageId?: number | string): Promise<void> => {
-      if (older && (loadingOlder || !hasMoreHistory)) return;
+    const refresh = async (older = false, lastMessageId?: number | string): Promise<boolean> => {
+      if (older && (loadingOlder || !hasMoreHistory)) return false;
       if (older) loadingOlder = true;
       try {
         const nextOffset = older ? historyOffset + 1 : 0;
@@ -937,6 +938,7 @@ export class ChatScreen {
         const existing = new Map([...thread.querySelectorAll<HTMLDivElement>('.message-bubble[data-message-id]')]
           .map((bubble) => [bubble.dataset.messageId!, bubble]));
         renderedMessages = mergeChatHistory(renderedMessages, messages, older);
+        void saveChatHistory(this.session.user.user_id, conversationId, renderedMessages, hasMoreHistory).catch(() => undefined);
 
         const latestIds = new Set(messages.map((message) => String(message.message_id)));
         const bubbles = renderedMessages.map((message) => {
@@ -980,6 +982,7 @@ export class ChatScreen {
           void this.handlers.onMarkSeen(conversationId).catch(() => { lastMarkedIncomingId = null; });
         }
 
+        return true;
       } catch (error) {
         if (!older && !hasLoadedHistory) {
           thread.replaceChildren(paragraph(error instanceof Error ? error.message : 'Unable to load messages.'));
@@ -987,6 +990,7 @@ export class ChatScreen {
         } else if (version === this.viewVersion) {
           deliveryStatus.textContent = error instanceof Error ? error.message : 'Unable to refresh messages.';
         }
+        return false;
       } finally {
         if (older) {
           loadingOlder = false;
@@ -1158,10 +1162,23 @@ export class ChatScreen {
             const progress = delivery.bubble.querySelector<HTMLElement>('.chat-circular-progress');
             if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
           }, localId, delivery.controller.signal).then(async () => {
-            finishDelivery(localId, true);
+            const synced = await refresh();
+            if (synced) {
+              finishDelivery(localId, true);
+            } else {
+              const current = pendingDeliveries.get(localId);
+              if (current) {
+                current.bubble.classList.remove('is-pending');
+                const state = current.bubble.querySelector<HTMLElement>('.chat-delivery-state') ?? element('small', 'chat-delivery-state');
+                state.textContent = 'Sent. Waiting for chat sync…';
+                state.setAttribute('role', 'status');
+                if (!state.parentElement) current.bubble.append(state);
+                const progress = current.bubble.querySelector<HTMLElement>('.chat-circular-progress');
+                if (progress) progress.hidden = true;
+              }
+            }
             void removeChatOutbox(localId).catch(() => undefined);
             playSentChatSound(this.session.user.user_id);
-            await refresh();
           }).catch(async (retryError: unknown) => {
             if (retryError instanceof RealtimeDeliveryUncertainError) await latestResync.request().catch(() => undefined);
             void updateChatOutbox(localId, {
@@ -1206,11 +1223,24 @@ export class ChatScreen {
         localId,
         delivery.controller.signal
       ).then(async () => {
-        finishDelivery(localId, true);
+        const synced = await refresh();
+        if (synced) {
+          finishDelivery(localId, true);
+        } else {
+          const current = pendingDeliveries.get(localId);
+          if (current) {
+            current.bubble.classList.remove('is-pending');
+            const state = current.bubble.querySelector<HTMLElement>('.chat-delivery-state') ?? element('small', 'chat-delivery-state');
+            state.textContent = 'Sent. Waiting for chat sync…';
+            state.setAttribute('role', 'status');
+            if (!state.parentElement) current.bubble.append(state);
+            const progress = current.bubble.querySelector<HTMLElement>('.chat-circular-progress');
+            if (progress) progress.hidden = true;
+          }
+        }
         void removeChatOutbox(localId).catch(() => undefined);
         deliveryStatus.textContent = '';
         playSentChatSound(this.session.user.user_id);
-        await refresh();
       }).catch(async (error: unknown) => {
         if (error instanceof RealtimeDeliveryUncertainError) await latestResync.request().catch(() => undefined);
         void updateChatOutbox(localId, {
@@ -1281,11 +1311,22 @@ export class ChatScreen {
         runAttachmentDelivery(localId, payload);
       } else {
         void this.handlers.onSendMessage(conversationId, message, undefined, undefined, undefined, undefined, undefined, localId).then(async () => {
-          finishDelivery(localId, true);
+          const synced = await refresh();
+          if (synced) {
+            finishDelivery(localId, true);
+          } else {
+            const current = pendingDeliveries.get(localId);
+            if (current) {
+              current.bubble.classList.remove('is-pending');
+              const state = current.bubble.querySelector<HTMLElement>('.chat-delivery-state') ?? element('small', 'chat-delivery-state');
+              state.textContent = 'Sent. Waiting for chat sync…';
+              state.setAttribute('role', 'status');
+              if (!state.parentElement) current.bubble.append(state);
+            }
+          }
           void removeChatOutbox(localId).catch(() => undefined);
           deliveryStatus.textContent = '';
           playSentChatSound(this.session.user.user_id);
-          await refresh();
         }).catch(async (error: unknown) => {
           if (error instanceof RealtimeDeliveryUncertainError) await latestResync.request().catch(() => undefined);
           void updateChatOutbox(localId, {
@@ -1296,6 +1337,23 @@ export class ChatScreen {
         });
       }
     });
+
+    try {
+      const cached = await loadChatHistory(this.session.user.user_id, conversationId);
+      if (cached?.messages.length && version === this.viewVersion) {
+        renderedMessages = cached.messages;
+        hasMoreHistory = cached.hasMore;
+        hasLoadedHistory = true;
+        const cachedBubbles = renderedMessages.map((message) => this.messageBubble(message, refresh));
+        thread.replaceChildren(loadOlder, ...cachedBubbles);
+        if (this.selectedMessages.size) this.updateSelection();
+        thread.scrollTop = thread.scrollHeight;
+        previousScrollTop = thread.scrollTop;
+        updateHistoryControl();
+      }
+    } catch {
+      // Persistent cache is an optimization; the server remains authoritative.
+    }
 
     try {
       const persisted = await listChatOutbox(String(conversationId));
