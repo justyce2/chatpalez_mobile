@@ -236,15 +236,43 @@ export class ChatPalezApiClient {
     }
 
     let envelope: ApiEnvelope<T> | null = null;
+    let responseBody: unknown = null;
     try {
-      envelope = (await response.json()) as ApiEnvelope<T>;
+      responseBody = await response.json();
+      envelope = responseBody as ApiEnvelope<T>;
     } catch {
       // Fall through to normalized HTTP error below.
     }
 
     if (!response.ok || envelope?.status === 'error') {
       if (response.status === 401 && token) this.onUnauthorized?.();
-      throw new ApiError(envelope?.message || `ChatPalez request failed (${response.status}).`, response.status);
+
+      const extractMessage = (value: unknown): string => {
+        if (typeof value === 'string') return value.trim();
+        if (!value || typeof value !== 'object') return '';
+
+        const record = value as Record<string, unknown>;
+        const message = typeof record.message === 'string' ? record.message.trim() : '';
+        if (message) return message;
+
+        const error = typeof record.error === 'string' ? record.error.trim() : '';
+        if (error) return error;
+
+        const nestedData = record.data;
+        if (nestedData && typeof nestedData === 'object') {
+          const nested = nestedData as Record<string, unknown>;
+          const nestedMessage = typeof nested.message === 'string' ? nested.message.trim() : '';
+          if (nestedMessage) return nestedMessage;
+
+          const nestedError = typeof nested.error === 'string' ? nested.error.trim() : '';
+          if (nestedError) return nestedError;
+        }
+
+        return '';
+      };
+
+      const exactMessage = extractMessage(responseBody) || `HTTP ${response.status}`;
+      throw new ApiError(`${exactMessage} (HTTP ${response.status})`, response.status);
     }
 
     if (!envelope || envelope.status !== 'success') {
