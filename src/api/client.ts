@@ -1,3 +1,4 @@
+import axios from 'axios';
 import type { AppConfig } from '../config';
 
 export type ApiEnvelope<T> = {
@@ -74,58 +75,68 @@ export class ChatPalezApiClient {
     const url = this.buildUrl(path);
     const token = this.getAuthToken();
 
-    return new Promise<T>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', url.toString(), true);
-      xhr.withCredentials = true;
-      xhr.setRequestHeader('Accept', 'application/json');
-      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-      xhr.setRequestHeader('x-mobile-client', 'chatpalez-mobile-v1');
-      xhr.timeout = timeoutMs;
-      if (token) xhr.setRequestHeader('x-auth-token', token);
-
-      xhr.upload.addEventListener('progress', (event) => {
-        onProgress?.(event.loaded, event.lengthComputable ? event.total : null);
+    try {
+      const response = await axios.post<ApiEnvelope<T>>(url.toString(), body, {
+        withCredentials: true,
+        timeout: timeoutMs,
+        signal,
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'x-mobile-client': 'chatpalez-mobile-v1',
+          ...(token ? { 'x-auth-token': token } : {})
+        },
+        onUploadProgress: (event) => {
+          onProgress?.(event.loaded, event.total ?? null);
+        }
       });
 
-      xhr.addEventListener('error', () => reject(new ApiError('Unable to reach ChatPalez. Check your connection and try again.', 0)));
-      xhr.addEventListener('timeout', () => reject(new ApiError('The attachment upload timed out. (HTTP 408)', 408)));
-      xhr.addEventListener('abort', () => reject(new ApiError('The upload was cancelled. (HTTP 0)', 0)));
-      if (signal) {
-        if (signal.aborted) {
-          xhr.abort();
-          return;
-        }
-        signal.addEventListener('abort', () => xhr.abort(), { once: true });
+      const envelope = response.data;
+      if (response.status === 401 && token) this.onUnauthorized?.();
+
+      if (response.status < 200 || response.status >= 300 || envelope?.status === 'error') {
+        const responseText = typeof envelope === 'string'
+          ? envelope.trim()
+          : envelope?.message?.trim() || '';
+        const exactMessage = responseText || `HTTP ${response.status}`;
+        throw new ApiError(`${exactMessage} (HTTP ${response.status})`, response.status);
       }
-      xhr.addEventListener('load', () => {
-        let envelope: ApiEnvelope<T> | null = null;
-        try {
-          envelope = JSON.parse(xhr.responseText) as ApiEnvelope<T>;
-        } catch {
-          // The response may be plain text rather than JSON.
+
+      if (!envelope || envelope.status !== 'success') {
+        const responseText = typeof envelope === 'string' ? envelope.trim() : '';
+        const exactMessage = responseText || 'ChatPalez returned an unexpected response.';
+        throw new ApiError(`${exactMessage} (HTTP ${response.status})`, response.status);
+      }
+
+      return envelope.data as T;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+
+      if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
+        throw new ApiError('The upload was cancelled. (HTTP 0)', 0);
+      }
+
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status ?? 0;
+        if (status === 401 && token) this.onUnauthorized?.();
+
+        if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+          throw new ApiError('The attachment upload timed out. (HTTP 408)', 408);
         }
-        if (xhr.status === 401 && token) this.onUnauthorized?.();
-        if (xhr.status < 200 || xhr.status >= 300 || envelope?.status === 'error') {
-          const responseText = xhr.responseText.trim();
-          const exactMessage = envelope?.message?.trim()
+
+        if (error.response) {
+          const data = error.response.data;
+          const responseText = typeof data === 'string' ? data.trim() : '';
+          const exactMessage =
+            (data && typeof data === 'object' && typeof data.message === 'string' ? data.message.trim() : '')
             || (responseText && responseText !== '{}' ? responseText : '')
-            || `HTTP ${xhr.status}`;
-          reject(new ApiError(`${exactMessage} (HTTP ${xhr.status})`, xhr.status));
-          return;
+            || `HTTP ${status}`;
+          throw new ApiError(`${exactMessage} (HTTP ${status})`, status);
         }
-        if (!envelope || envelope.status !== 'success') {
-          const responseText = xhr.responseText.trim();
-          const exactMessage = responseText && responseText !== '{}'
-            ? responseText
-            : 'ChatPalez returned an unexpected response.';
-          reject(new ApiError(`${exactMessage} (HTTP ${xhr.status})`, xhr.status));
-          return;
-        }
-        resolve(envelope.data as T);
-      });
-      xhr.send(body);
-    });
+      }
+
+      throw new ApiError('Unable to reach ChatPalez. Check your connection and try again.', 0);
+    }
   }
 
   async downloadWithProgress(
