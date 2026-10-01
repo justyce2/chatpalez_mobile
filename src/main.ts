@@ -552,7 +552,7 @@ const shell = createAppShell(root, {
     const blob = await api.downloadWithProgress(url, (loaded, total) => { if (total) onProgress?.(Math.round((loaded / total) * 100)); });
     return URL.createObjectURL(blob);
   },
-  onSendMessage: async (conversationId, message, photo, video, file, voice, onProgress) => {
+  onSendMessage: async (conversationId, message, photo, video, file, voice, onProgress, _clientMessageId, signal) => {
     /*
      * Keep uploads on HTTP. Plain text may use Socket.IO when connected.
      * HTTP is selected when realtime is unavailable before submission; once a
@@ -598,16 +598,16 @@ const shell = createAppShell(root, {
     };
 
     const photoSource = photo
-      ? await uploads.uploadChatPhoto(photo, uploadProgress).then((source) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return source; })
+      ? await uploads.uploadChatPhoto(photo, uploadProgress, signal).then((source) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return source; })
       : '';
     const videoUpload = video
-      ? await uploads.uploadChatVideo(video, uploadProgress).then((result) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return result; })
+      ? await uploads.uploadChatVideo(video, uploadProgress, signal).then((result) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return result; })
       : { source: '', thumbnail: '' };
     const fileSource = file
-      ? await uploads.uploadChatFile(file, uploadProgress).then((source) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return source; })
+      ? await uploads.uploadChatFile(file, uploadProgress, signal).then((source) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return source; })
       : '';
     const voiceSource = voice
-      ? await uploads.uploadChatVoice(voice, uploadProgress).then((source) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return source; })
+      ? await uploads.uploadChatVoice(voice, uploadProgress, signal).then((source) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return source; })
       : '';
     const videoSource = typeof videoUpload === 'string' ? videoUpload : JSON.stringify({ source: videoUpload.source, video_thumbnail: videoUpload.thumbnail || '' });
     const finalMessage = message || (file ? file.name : '');
