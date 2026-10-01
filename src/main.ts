@@ -612,7 +612,9 @@ const shell = createAppShell(root, {
     if (signal?.aborted) {
       throw new DOMException('The upload was cancelled.', 'AbortError');
     }
-    const videoSource = typeof videoUpload === 'string' ? videoUpload : JSON.stringify({ source: videoUpload.source, video_thumbnail: videoUpload.thumbnail || '' });
+    const videoSource = video
+      ? (typeof videoUpload === 'string' ? videoUpload : JSON.stringify({ source: videoUpload.source, video_thumbnail: videoUpload.thumbnail || '' }))
+      : '';
     const finalMessage = message || (file ? file.name : '');
     await chat.sendMessage(conversationId, finalMessage, photoSource, videoSource, fileSource, voiceSource);
     logInfo('Message sent through HTTP chat', { conversationId, hasPhoto: Boolean(photo), hasVideo: Boolean(video), hasFile: Boolean(file) });
