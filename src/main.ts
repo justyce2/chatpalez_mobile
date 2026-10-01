@@ -609,6 +609,9 @@ const shell = createAppShell(root, {
     const voiceSource = voice
       ? await uploads.uploadChatVoice(voice, uploadProgress, signal).then((source) => { completedAttachments += 1; onProgress?.(Math.round(completedAttachments * attachmentSpan)); return source; })
       : '';
+    if (signal?.aborted) {
+      throw new DOMException('The upload was cancelled.', 'AbortError');
+    }
     const videoSource = typeof videoUpload === 'string' ? videoUpload : JSON.stringify({ source: videoUpload.source, video_thumbnail: videoUpload.thumbnail || '' });
     const finalMessage = message || (file ? file.name : '');
     await chat.sendMessage(conversationId, finalMessage, photoSource, videoSource, fileSource, voiceSource);
