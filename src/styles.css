@@ -2554,6 +2554,7 @@ p { color: #64748b; line-height: 1.55; }
 }
 .message-emoji-button:active,
 .message-emoji-button:focus-visible { background: #EEF5FA; outline: none; }
+.message-emoji-picker[hidden] { display: none !important; }
 .message-emoji-picker {
   position: absolute;
   right: 0;
