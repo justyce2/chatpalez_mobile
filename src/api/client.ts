@@ -95,17 +95,15 @@ export class ChatPalezApiClient {
       if (response.status === 401 && token) this.onUnauthorized?.();
 
       if (response.status < 200 || response.status >= 300 || envelope?.status === 'error') {
-        const responseText = typeof envelope === 'string'
-          ? envelope.trim()
-          : envelope?.message?.trim() || '';
-        const exactMessage = responseText || `HTTP ${response.status}`;
+        const exactMessage = envelope?.message?.trim() || `HTTP ${response.status}`;
         throw new ApiError(`${exactMessage} (HTTP ${response.status})`, response.status);
       }
 
       if (!envelope || envelope.status !== 'success') {
-        const responseText = typeof envelope === 'string' ? envelope.trim() : '';
-        const exactMessage = responseText || 'ChatPalez returned an unexpected response.';
-        throw new ApiError(`${exactMessage} (HTTP ${response.status})`, response.status);
+        throw new ApiError(
+          `ChatPalez returned an unexpected response. (HTTP ${response.status})`,
+          response.status
+        );
       }
 
       return envelope.data as T;
