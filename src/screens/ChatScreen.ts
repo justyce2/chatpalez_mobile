@@ -88,7 +88,7 @@ export class ChatScreen {
   private attachmentCleanup: (() => void) | null = null;
   private readonly selectedMessages = new Map<string, Message>();
   private selectionThread: HTMLElement | null = null;
-  private selectedRefresh: (() => Promise<void>) | null = null;
+  private selectedRefresh: (() => Promise<unknown>) | null = null;
   private forwardPickerCleanup: (() => void) | null = null;
   private readonly drafts = new Map<string, { text: string; photo: File | null }>();
   private viewVersion = 0;
@@ -1792,7 +1792,7 @@ export class ChatScreen {
     }
   }
 
-  private messageBubble(message: Message, refresh: () => Promise<void>): HTMLDivElement {
+  private messageBubble(message: Message, refresh: () => Promise<unknown>): HTMLDivElement {
     const bubble = element('div', 'message-bubble');
     if (message.message_id != null) bubble.dataset.messageId = String(message.message_id);
     const senderId = String(message.user_id ?? message.sender_id ?? '');
