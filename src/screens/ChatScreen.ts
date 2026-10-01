@@ -809,7 +809,6 @@ export class ChatScreen {
         text.focus();
         const cursor = start + emoji.length;
         text.setSelectionRange(cursor, cursor);
-        emojiPicker.hidden = true;
         text.dispatchEvent(new Event('input', { bubbles: true }));
       });
       emojiPicker.append(option);
