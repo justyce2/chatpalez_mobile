@@ -82,7 +82,6 @@ export class ChatPalezApiClient {
         signal,
         headers: {
           Accept: 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
           'x-mobile-client': 'chatpalez-mobile-v1',
           ...(token ? { 'x-auth-token': token } : {})
         },
