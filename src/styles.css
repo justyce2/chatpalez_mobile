@@ -2578,3 +2578,19 @@ p { color: #64748b; line-height: 1.55; }
 }
 .message-emoji-picker button:active,
 .message-emoji-picker button:focus-visible { background: #EEF5FA; outline: none; }
+
+.chat-voice-load {
+  min-height: 56px;
+  width: min(300px, 100%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: #EEF5FA;
+  color: #173247;
+  font-weight: 700;
+}
+.chat-voice-load:disabled { opacity: .65; cursor: wait; }
