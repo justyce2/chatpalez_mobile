@@ -151,7 +151,11 @@ export class ChatScreen {
   private conversationRow(conversation: Conversation): HTMLButtonElement {
     const row = element('button', 'conversation-item chat-conversation-item');
     row.type = 'button';
-    if (!conversation.seen) row.classList.add('is-unread');
+    const unreadValue = conversation.unread_count ?? conversation.unread_messages ?? conversation.unread;
+    const hasUnread = unreadValue !== undefined && unreadValue !== null && unreadValue !== ''
+      ? Number(unreadValue) > 0
+      : (conversation.seen === false || conversation.seen === 0 || conversation.seen === '0');
+    if (hasUnread) row.classList.add('is-unread');
 
     const avatar = element('span', 'conversation-avatar');
     const picture = this.handlers.resolveChatPhotoUrl?.(conversation.picture || (!conversation.multiple_recipients ? conversation.recipients?.[0]?.user_picture : '') || '');
