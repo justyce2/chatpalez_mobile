@@ -625,7 +625,6 @@ export class ChatScreen {
     attachmentImage.alt = 'Selected photo';
     attachmentImage.addEventListener('error', () => {
       attachmentImage.hidden = true;
-      attachmentHint.textContent = 'Photo selected. Preview unavailable; you can still add a caption and send.';
     });
     const attachmentVideo = document.createElement('video');
     attachmentVideo.className = 'message-video-preview';
@@ -634,14 +633,10 @@ export class ChatScreen {
     attachmentVideo.playsInline = true;
     attachmentVideo.preload = 'metadata';
     attachmentVideo.hidden = true;
-    const attachmentName = element('span', 'chat-attachment-preview__name');
-    const attachmentHint = elementWithText('span', 'Add a caption below, or send the photo on its own.');
-    attachmentHint.className = 'chat-attachment-preview__hint';
-    const attachmentDetails = element('div', 'chat-attachment-preview__details');
-    attachmentDetails.append(attachmentName, attachmentHint);
     const removeAttachment = secondaryButton('Remove');
     removeAttachment.type = 'button';
-    attachment.append(attachmentImage, attachmentVideo, attachmentDetails, removeAttachment);
+    removeAttachment.setAttribute('aria-label', 'Remove selected attachment');
+    attachment.append(attachmentImage, attachmentVideo, removeAttachment);
     const attachmentSheet = element('div', 'chat-attachment-sheet');
     attachmentSheet.hidden = true;
     attachmentSheet.setAttribute('role', 'dialog');
@@ -746,8 +741,6 @@ export class ChatScreen {
       previewUrl = URL.createObjectURL(file);
       attachmentImage.hidden = true;
       attachmentImage.removeAttribute('src');
-      attachmentName.textContent = file.name || 'Voice note';
-      attachmentHint.textContent = 'Voice note recorded. Send when ready.';
       attachment.hidden = false;
       text.placeholder = 'Add a caption (optional)…';
       send.setAttribute('aria-label', 'Send voice note');
@@ -778,12 +771,6 @@ export class ChatScreen {
         attachmentVideo.removeAttribute('src');
         attachmentVideo.load();
       }
-      attachmentName.textContent = file.name;
-      attachmentHint.textContent = kind === 'video'
-        ? 'Video selected. Send when ready.'
-        : kind === 'file'
-          ? 'File selected. Send when ready.'
-          : 'Add a caption below, or send the photo on its own.';
       attachment.hidden = false;
       text.placeholder = 'Add a caption (optional)…';
       send.setAttribute('aria-label', kind === 'image' ? 'Send message and photo' : kind === 'video' ? 'Send message and video' : 'Send message and file');
