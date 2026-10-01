@@ -68,7 +68,8 @@ export class ChatPalezApiClient {
     path: string,
     body: FormData,
     onProgress?: (loaded: number, total: number | null) => void,
-    timeoutMs = 120000
+    timeoutMs = 120000,
+    signal?: AbortSignal
   ): Promise<T> {
     const url = this.buildUrl(path);
     const token = this.getAuthToken();
@@ -93,6 +94,13 @@ export class ChatPalezApiClient {
       xhr.addEventListener('error', () => reject(new ApiError('Unable to reach ChatPalez. Check your connection and try again.', 0)));
       xhr.addEventListener('timeout', () => reject(new ApiError('The attachment upload timed out. Check your connection and try again.', 408)));
       xhr.addEventListener('abort', () => reject(new ApiError('The upload was cancelled.', 0)));
+      if (signal) {
+        if (signal.aborted) {
+          xhr.abort();
+          return;
+        }
+        signal.addEventListener('abort', () => xhr.abort(), { once: true });
+      }
       xhr.addEventListener('load', () => {
         let envelope: ApiEnvelope<T> | null = null;
         try {
