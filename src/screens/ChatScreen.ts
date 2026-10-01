@@ -763,12 +763,30 @@ export class ChatScreen {
       else if (kind === 'video') selectedVideo = file;
       else selectedFile = file;
       previewUrl = URL.createObjectURL(file);
-      attachmentImage.src = previewUrl;
+      attachmentImage.hidden = kind !== 'image';
+      attachmentVideo.hidden = kind !== 'video';
+      if (kind === 'image') {
+        attachmentImage.src = previewUrl;
+        attachmentVideo.removeAttribute('src');
+        attachmentVideo.load();
+      } else if (kind === 'video') {
+        attachmentImage.removeAttribute('src');
+        attachmentVideo.src = previewUrl;
+        attachmentVideo.load();
+      } else {
+        attachmentImage.removeAttribute('src');
+        attachmentVideo.removeAttribute('src');
+        attachmentVideo.load();
+      }
       attachmentName.textContent = file.name;
-      attachmentHint.textContent = kind === 'video' ? 'Video selected. Send when ready.' : kind === 'file' ? 'File selected. Send when ready.' : 'Add a caption below, or send the photo on its own.';
+      attachmentHint.textContent = kind === 'video'
+        ? 'Video selected. Send when ready.'
+        : kind === 'file'
+          ? 'File selected. Send when ready.'
+          : 'Add a caption below, or send the photo on its own.';
       attachment.hidden = false;
       text.placeholder = 'Add a caption (optional)…';
-      send.setAttribute('aria-label', 'Send message and photo');
+      send.setAttribute('aria-label', kind === 'image' ? 'Send message and photo' : kind === 'video' ? 'Send message and video' : 'Send message and file');
     };
     this.attachmentCleanup = (): void => {
       clearAttachment();
