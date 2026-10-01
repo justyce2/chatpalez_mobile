@@ -1757,6 +1757,41 @@ export class ChatScreen {
     const renderDownloadable = (source: string, thumbnail: string, kind: 'video' | 'file' | 'voice'): void => {
       if (!downloadMedia || !source) return;
       const card = element('div', `chat-media-card chat-media-card--${kind}`);
+
+      if (kind === 'voice') {
+        const loadButton = document.createElement('button');
+        loadButton.type = 'button';
+        loadButton.className = 'chat-voice-load';
+        loadButton.setAttribute('aria-label', 'Play voice note');
+        loadButton.innerHTML = '<span class="chat-voice-player__play-icon" aria-hidden="true"></span><span>Play voice note</span>';
+
+        const progress = document.createElement('div');
+        progress.className = 'chat-circular-progress chat-media-card__progress';
+        progress.style.setProperty('--chat-progress', '0%');
+        progress.hidden = true;
+        progress.innerHTML = '<span class="chat-circular-progress__icon" aria-hidden="true"></span>';
+
+        card.append(loadButton, progress);
+        loadButton.addEventListener('click', (event) => {
+          event.stopPropagation();
+          loadButton.disabled = true;
+          progress.hidden = false;
+          void downloadMedia(source, (percent: number) => {
+            progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
+          }).then((url: string) => {
+            progress.hidden = true;
+            this.mountVoicePlayer(card, url);
+            if (this.activeVoiceAudio) void this.activeVoiceAudio.play().catch(() => undefined);
+          }).catch((error: unknown) => {
+            progress.hidden = true;
+            loadButton.disabled = false;
+            window.alert(error instanceof Error ? error.message : 'Unable to load this voice note.');
+          });
+        });
+        bubble.append(card);
+        return;
+      }
+
       if (thumbnail) {
         const thumb = document.createElement('img');
         thumb.className = 'chat-media-card__thumbnail';
@@ -1765,8 +1800,9 @@ export class ChatScreen {
         thumb.loading = 'lazy';
         card.append(thumb);
       } else {
-        card.append(elementWithText('span', kind === 'voice' ? 'Voice note' : kind === 'file' ? fileName : 'Video'));
+        card.append(elementWithText('span', kind === 'file' ? fileName : 'Video'));
       }
+
       const download = document.createElement('button');
       download.type = 'button';
       download.className = 'chat-media-card__download';
@@ -1778,6 +1814,7 @@ export class ChatScreen {
       progress.hidden = true;
       progress.innerHTML = '<span class="chat-circular-progress__icon" aria-hidden="true"></span>';
       card.append(download, progress);
+
       download.addEventListener('click', (event) => {
         event.stopPropagation();
         download.disabled = true;
@@ -1786,9 +1823,7 @@ export class ChatScreen {
           progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
         }).then((url: string) => {
           progress.hidden = true;
-          if (kind === 'voice') {
-            this.mountVoicePlayer(card, url);
-          } else if (kind === 'video') {
+          if (kind === 'video') {
             const video = document.createElement('video');
             video.controls = true;
             video.playsInline = true;
