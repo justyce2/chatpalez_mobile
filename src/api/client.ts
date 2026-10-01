@@ -92,8 +92,8 @@ export class ChatPalezApiClient {
       });
 
       xhr.addEventListener('error', () => reject(new ApiError('Unable to reach ChatPalez. Check your connection and try again.', 0)));
-      xhr.addEventListener('timeout', () => reject(new ApiError('The attachment upload timed out. Check your connection and try again.', 408)));
-      xhr.addEventListener('abort', () => reject(new ApiError('The upload was cancelled.', 0)));
+      xhr.addEventListener('timeout', () => reject(new ApiError('The attachment upload timed out. (HTTP 408)', 408)));
+      xhr.addEventListener('abort', () => reject(new ApiError('The upload was cancelled. (HTTP 0)', 0)));
       if (signal) {
         if (signal.aborted) {
           xhr.abort();
@@ -106,15 +106,23 @@ export class ChatPalezApiClient {
         try {
           envelope = JSON.parse(xhr.responseText) as ApiEnvelope<T>;
         } catch {
-          // Normalize below.
+          // The response may be plain text rather than JSON.
         }
         if (xhr.status === 401 && token) this.onUnauthorized?.();
         if (xhr.status < 200 || xhr.status >= 300 || envelope?.status === 'error') {
-          reject(new ApiError(envelope?.message || `ChatPalez request failed (${xhr.status}).`, xhr.status));
+          const responseText = xhr.responseText.trim();
+          const exactMessage = envelope?.message?.trim()
+            || (responseText && responseText !== '{}' ? responseText : '')
+            || `HTTP ${xhr.status}`;
+          reject(new ApiError(`${exactMessage} (HTTP ${xhr.status})`, xhr.status));
           return;
         }
         if (!envelope || envelope.status !== 'success') {
-          reject(new ApiError('ChatPalez returned an unexpected response.', xhr.status));
+          const responseText = xhr.responseText.trim();
+          const exactMessage = responseText && responseText !== '{}'
+            ? responseText
+            : 'ChatPalez returned an unexpected response.';
+          reject(new ApiError(`${exactMessage} (HTTP ${xhr.status})`, xhr.status));
           return;
         }
         resolve(envelope.data as T);
