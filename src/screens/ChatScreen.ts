@@ -826,7 +826,7 @@ export class ChatScreen {
     send.setAttribute('aria-label', 'Send message');
     send.innerHTML = '<span class="message-send-button__icon" aria-hidden="true"></span>';
     composer.append(attach, inputWrap, photo, send);
-    this.content.append(realtimeStatus, deliveryStatus, composer);
+    this.content.append(realtimeStatus, deliveryStatus, attachment, composer);
     if (savedDraft?.photo) showAttachment(savedDraft.photo);
     if (this.handlers.onLoadChatFeatures) {
       void this.handlers.onLoadChatFeatures().then((features) => {
