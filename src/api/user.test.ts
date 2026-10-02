@@ -11,7 +11,7 @@ describe('UserService', () => {
 
     await expect(users.getBlockedUsersPage(2)).resolves.toEqual({ data: [], hasMore: true });
     await users.deleteAccount('current-password');
-    await users.updateOneSignalId('subscription-id');
+    await users.updateOneSignalSubscriptionId('subscription-id');
 
     expect(getPage).toHaveBeenCalledWith('user/blocked', { offset: 2 });
     expect(post).toHaveBeenNthCalledWith(1, 'user/delete', { password: 'current-password' });
