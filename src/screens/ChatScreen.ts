@@ -57,7 +57,7 @@ export type ChatScreenHandlers = {
   onLoadConversations?: (offset: number) => Promise<ChatPageResult<Conversation>>;
   onLoadContacts?: (query: string, offset: number) => Promise<ChatPageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
-  onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
+  onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo?: string, video?: string, file?: string, voice?: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
   onLoadMessages?: (conversationId: number | string, offset: number, lastMessageId?: number | string) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, voice?: File, onProgress?: (percent: number) => void, clientMessageId?: string, signal?: AbortSignal) => Promise<ChatDeliveryTransport>;
@@ -1618,7 +1618,7 @@ export class ChatScreen {
         ? `Send ${selected.length} message${selected.length === 1 ? '' : 's'} to ${selectedDestinations.size} chat${selectedDestinations.size === 1 ? '' : 's'}`
         : 'Select a destination';
       sendButton.disabled = busy || failed || !selectedDestinations.size || editors.some((editor, index) =>
-        !editor.value.trim() && !selected[index].image && !selected[index].photo);
+        !editor.value.trim() && !selected[index].image && !selected[index].photo && !selected[index].video && !selected[index].voice_note && !selected[index].file && !(selected[index].attachments?.file));
     };
     const close = (): void => {
       closed = true;
@@ -1648,8 +1648,28 @@ export class ChatScreen {
           let target = destination.target;
           for (const [index, item] of selected.entries()) {
             status.textContent = `Sending ${sent + 1} of ${total} to ${destination.name}…`;
+            const rawVideo = typeof item.video === 'string' ? item.video : '';
+            let forwardedVideo = rawVideo;
+            if (rawVideo) {
+              try {
+                const parsed = JSON.parse(rawVideo) as { source?: unknown };
+                if (typeof parsed.source === 'string' && parsed.source.trim()) forwardedVideo = parsed.source;
+              } catch { /* Older messages may store the video source as a plain path. */ }
+            }
+            const rawFile = item.attachments?.file;
+            const forwardedFile = typeof rawFile === 'string'
+              ? rawFile
+              : rawFile && typeof rawFile === 'object' && typeof rawFile.source === 'string'
+                ? rawFile.source
+                : typeof item.file === 'string' ? item.file : '';
+            const forwardedVoice = typeof item.voice_note === 'string' ? item.voice_note : '';
             const result = await this.handlers.onForwardMessage!(
-              target, forwardedText(edited[index]), String(item.image || item.photo || '')
+              target,
+              forwardedText(edited[index]),
+              String(item.image || item.photo || ''),
+              forwardedVideo,
+              forwardedFile,
+              forwardedVoice
             );
             sent += 1;
             if (result.conversation_id === undefined || result.conversation_id === null) {
@@ -1753,17 +1773,29 @@ export class ChatScreen {
     if (!selected.length) return;
     if (selected.length === 1) {
       const item = selected[0];
-      const shared = await this.shareMessage(
-        displayChatMessage(item).text,
-        this.handlers.resolveChatPhotoUrl?.(item.image || item.photo || '') || undefined
-      );
+      const rawVideo = typeof item.video === 'string' ? item.video : '';
+      let videoSource = rawVideo;
+      if (rawVideo) {
+        try {
+          const parsed = JSON.parse(rawVideo) as { source?: unknown };
+          if (typeof parsed.source === 'string' && parsed.source.trim()) videoSource = parsed.source;
+        } catch { /* Older messages may store the video source as a plain path. */ }
+      }
+      const rawFile = item.attachments?.file;
+      const fileSource = typeof rawFile === 'string'
+        ? rawFile
+        : rawFile && typeof rawFile === 'object' && typeof rawFile.source === 'string'
+          ? rawFile.source
+          : typeof item.file === 'string' ? item.file : '';
+      const attachmentUrl =
+        this.handlers.resolveChatPhotoUrl?.(item.image || item.photo || '') ||
+        this.handlers.resolveChatMediaUrl?.(videoSource || fileSource || (typeof item.voice_note === 'string' ? item.voice_note : '')) ||
+        undefined;
+      const shared = await this.shareMessage(displayChatMessage(item).text, attachmentUrl);
       if (shared) this.dismissSelection();
       return;
     }
-    const chunks = selected.map((item) => [
-      displayChatMessage(item).text,
-      this.handlers.resolveChatPhotoUrl?.(item.image || item.photo || '')
-    ].filter(Boolean).join('\n'));
+    const chunks = selected.map((item) => [displayChatMessage(item).text].filter(Boolean).join(''));
     if (await this.shareMessage(chunks.join('\n\n'))) this.dismissSelection();
   }
 
@@ -1824,8 +1856,14 @@ export class ChatScreen {
     }
     const videoThumbnail = this.handlers.resolveChatPhotoUrl?.(videoThumbnailSource);
     const rawFile = media.file;
-    const fileSource = rawFile?.source || (typeof message.file === 'string' ? message.file : '');
-    const fileName = rawFile?.name || (typeof message.file_name === 'string' ? message.file_name : '') || body || 'File attachment';
+    const fileSource = typeof rawFile === 'string'
+      ? rawFile
+      : rawFile && typeof rawFile === 'object' && typeof rawFile.source === 'string'
+        ? rawFile.source
+        : typeof message.file === 'string' ? message.file : '';
+    const fileName = rawFile && typeof rawFile === 'object' && typeof rawFile.name === 'string'
+      ? rawFile.name
+      : (typeof message.file_name === 'string' ? message.file_name : '') || body || 'File attachment';
     const voiceSource = typeof message.voice_note === 'string' ? message.voice_note : '';
 
     const renderDownloadable = (source: string, thumbnail: string, kind: 'video' | 'file' | 'voice'): void => {
