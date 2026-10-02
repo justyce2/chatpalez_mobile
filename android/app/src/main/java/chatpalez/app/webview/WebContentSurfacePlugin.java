@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.MotionEvent;
 import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -40,8 +41,9 @@ import java.nio.charset.StandardCharsets;
 
 @CapacitorPlugin(name = "WebContentSurface")
 public class WebContentSurfacePlugin extends Plugin {
-    private WebView contentWebView;
+    private PullRefreshWebView contentWebView;
     private FrameLayout feedLoadingView;
+    private String currentUrl;
     private boolean feedLoading;
     private int feedLoadGeneration;
     private boolean chatSoundEnabled = true;
@@ -59,7 +61,7 @@ public class WebContentSurfacePlugin extends Plugin {
         ViewGroup host = getActivity().findViewById(android.R.id.content);
         if (host == null) return;
 
-        contentWebView = new WebView(getContext());
+        contentWebView = new PullRefreshWebView();
         contentWebView.setBackgroundColor(Color.WHITE);
         contentWebView.setVisibility(View.GONE);
 
@@ -117,6 +119,8 @@ public class WebContentSurfacePlugin extends Plugin {
 
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                currentUrl = url;
+                contentWebView.setPullRefreshEnabled(isPullRefreshRoute(url));
                 JSObject data = new JSObject();
                 data.put("url", url);
                 notifyListeners("loadStarted", data);
@@ -124,6 +128,8 @@ public class WebContentSurfacePlugin extends Plugin {
 
             @Override
             public void onPageFinished(WebView view, String url) {
+                currentUrl = url;
+                contentWebView.setPullRefreshEnabled(isPullRefreshRoute(url));
                 emitRouteChanged(url);
                 Uri uri = Uri.parse(url);
                 if (isAllowed(uri)) {
@@ -371,6 +377,64 @@ public class WebContentSurfacePlugin extends Plugin {
 
     private int dp(int value) {
         return Math.round(value * getContext().getResources().getDisplayMetrics().density);
+    }
+
+    private boolean isPullRefreshRoute(String url) {
+        try {
+            String path = Uri.parse(url).getPath();
+            return "/".equals(path) || "/reels".equals(path);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private void performPullRefresh() {
+        if (contentWebView == null || !isPullRefreshRoute(currentUrl)) return;
+        contentWebView.reload();
+    }
+
+    private final class PullRefreshWebView extends WebView {
+        private float touchStartY;
+        private boolean pullRefreshEnabled;
+        private boolean refreshTriggered;
+
+        PullRefreshWebView() {
+            super(getContext());
+        }
+
+        void setPullRefreshEnabled(boolean enabled) {
+            pullRefreshEnabled = enabled;
+            if (!enabled) {
+                refreshTriggered = false;
+                touchStartY = 0;
+            }
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            if (pullRefreshEnabled) {
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        touchStartY = event.getY();
+                        refreshTriggered = false;
+                        break;
+                    case MotionEvent.ACTION_MOVE:
+                        if (!refreshTriggered && getScrollY() <= 0 && event.getY() - touchStartY >= dp(56)) {
+                            refreshTriggered = true;
+                            performPullRefresh();
+                        }
+                        break;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        refreshTriggered = false;
+                        touchStartY = 0;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            return super.onTouchEvent(event);
+        }
     }
 
     @PluginMethod
