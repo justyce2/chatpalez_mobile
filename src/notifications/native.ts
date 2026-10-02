@@ -13,6 +13,7 @@ export type NativeNotificationStatus =
 let initialized = false;
 let syncCurrentUser: (() => Promise<void>) | null = null;
 let userListenerRegistered = false;
+let pushSubscriptionListenerRegistered = false;
 let notificationClickListenerRegistered = false;
 let openNotificationRoute: ((path: string) => void) | null = null;
 
@@ -21,9 +22,9 @@ function isConfigured(config: AppConfig): boolean {
 }
 
 async function syncOneSignalUser(users: UserService): Promise<void> {
-  const oneSignalId = await OneSignal.User.getOnesignalId();
-  if (oneSignalId) {
-    await users.updateOneSignalId(oneSignalId);
+  const subscriptionId = await OneSignal.User.pushSubscription.getIdAsync();
+  if (subscriptionId) {
+    await users.updateOneSignalSubscriptionId(subscriptionId);
   }
 }
 
@@ -63,6 +64,13 @@ export async function initializeNativeNotifications(
       void syncCurrentUser?.().catch(() => undefined);
     });
     userListenerRegistered = true;
+  }
+
+  if (!pushSubscriptionListenerRegistered) {
+    OneSignal.User.pushSubscription.addEventListener('change', () => {
+      void syncCurrentUser?.().catch(() => undefined);
+    });
+    pushSubscriptionListenerRegistered = true;
   }
 
   await OneSignal.login(String(userId));
