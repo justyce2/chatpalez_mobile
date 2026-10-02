@@ -1,6 +1,7 @@
 import type { BlockedUser, MobileAccount, ProfileUpdate, UserProfile } from '../api/user';
 import type { AuthSession } from '../auth/session';
 import type { NativeNotificationStatus } from '../notifications/native';
+import { cropProfilePicture } from '../profile-picture-cropper';
 
 export type ProfilePageResult<T> = { items: T[]; hasMore: boolean };
 
@@ -8,6 +9,9 @@ export type ProfileScreenHandlers = {
   onLoadProfile?: () => Promise<UserProfile>;
   onLoadAccount?: () => Promise<MobileAccount>;
   onUpdateProfile?: (payload: ProfileUpdate) => Promise<void>;
+  onPickProfilePicture?: () => Promise<File | null>;
+  onCaptureProfilePicture?: () => Promise<File | null>;
+  onUploadProfilePicture?: (file: File, onProgress?: (percent: number) => void) => Promise<UserProfile>;
   onUpdateIdentity?: (payload: { username: string; email: string; phone: string; password: string }) => Promise<void>;
   onUpdateWork?: (payload: { work_title: string; work_place: string; work_url: string }) => Promise<void>;
   onUpdateLocation?: (payload: { city: string; hometown: string }) => Promise<void>;
@@ -27,6 +31,7 @@ export type ProfileScreenHandlers = {
 export class ProfileScreen {
   private account: MobileAccount | null = null;
   private renderVersion = 0;
+  private profilePictureBusy = false;
 
   constructor(
     private readonly content: HTMLElement,
@@ -66,18 +71,25 @@ export class ProfileScreen {
       hero.append(cover);
     }
     const identity = element('div', 'native-profile-identity');
+    const avatarWrap = element('div', 'native-profile-avatar-wrap');
     if (profile.user_picture) {
       const photo = document.createElement('img');
       photo.className = 'native-profile-avatar';
-      photo.src = String(profile.user_picture);
+      photo.src = cacheBustImageUrl(String(profile.user_picture));
       photo.alt = name;
       photo.loading = 'lazy';
-      identity.append(photo);
+      avatarWrap.append(photo);
     } else {
       const fallback = elementWithText('div', initials(name));
       fallback.className = 'native-profile-avatar native-profile-avatar--fallback';
-      identity.append(fallback);
+      avatarWrap.append(fallback);
     }
+    const changePhoto = secondaryButton(this.profilePictureBusy ? 'Uploading…' : 'Change photo');
+    changePhoto.classList.add('native-profile-avatar-action');
+    changePhoto.disabled = this.profilePictureBusy || (!this.handlers.onPickProfilePicture && !this.handlers.onCaptureProfilePicture);
+    changePhoto.addEventListener('click', () => void this.changeProfilePicture());
+    avatarWrap.append(changePhoto);
+    identity.append(avatarWrap);
     const copy = element('div', 'native-profile-copy');
     const nameRow = element('div', 'native-profile-name-row');
     nameRow.append(elementWithText('strong', name));
@@ -105,6 +117,10 @@ export class ProfileScreen {
       stats.append(stat);
     }
     if (stats.childElementCount) hero.append(stats);
+    const uploadStatus = paragraph('');
+    uploadStatus.className = 'profile-picture-upload-status';
+    uploadStatus.hidden = true;
+    hero.append(uploadStatus);
     this.content.append(hero);
 
     const about = element('section', 'settings-card native-profile-details');
@@ -150,6 +166,60 @@ export class ProfileScreen {
 
   deactivate(): void {
     ++this.renderVersion;
+  }
+
+  private async changeProfilePicture(): Promise<void> {
+    if (this.profilePictureBusy || !this.handlers.onUploadProfilePicture) return;
+
+    this.profilePictureBusy = true;
+    const version = this.renderVersion;
+    let previewUrl = '';
+    try {
+      const file = await this.chooseProfilePicture();
+      if (!file) return;
+
+      const cropped = await cropProfilePicture(file);
+      if (!cropped) return;
+      previewUrl = cropped.previewUrl;
+
+      const status = this.content.querySelector<HTMLElement>('.profile-picture-upload-status');
+      if (status) {
+        status.hidden = false;
+        status.textContent = 'Uploading profile picture…';
+      }
+
+      const profile = await this.handlers.onUploadProfilePicture(cropped.file, (percent) => {
+        if (status) status.textContent = `Uploading profile picture… ${percent}%`;
+      });
+
+      if (version !== this.renderVersion) return;
+      if (!profile.user_picture) throw new Error('The profile picture upload completed but no new picture was returned.');
+
+      await this.render();
+    } catch (error) {
+      if (version !== this.renderVersion) return;
+      const status = this.content.querySelector<HTMLElement>('.profile-picture-upload-status');
+      if (status) {
+        status.hidden = false;
+        status.textContent = error instanceof Error ? error.message : 'Unable to update your profile picture.';
+      }
+    } finally {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      this.profilePictureBusy = false;
+    }
+  }
+
+  private async chooseProfilePicture(): Promise<File | null> {
+    const choose = this.handlers.onPickProfilePicture;
+    const capture = this.handlers.onCaptureProfilePicture;
+    if (!choose && !capture) return null;
+
+    if (choose && capture) {
+      const action = await chooseProfilePictureSource();
+      if (action === 'cancel') return null;
+      return action === 'camera' ? capture() : choose();
+    }
+    return choose ? choose() : capture!();
   }
 
   private async loadAccount(): Promise<MobileAccount | null> {
@@ -380,3 +450,40 @@ function formInput(label:string,value:string,type='text'):HTMLInputElement{const
 function formTextarea(label:string,value:string):HTMLTextAreaElement{const i=document.createElement('textarea');i.placeholder=label;i.value=value;i.rows=4;return i;}
 function formSelect(label:string,value:string,options:Array<[string,string]>):HTMLSelectElement{const s=document.createElement('select');s.dataset.label=label;s.setAttribute('aria-label',label);for(const [optionValue,optionLabel] of options){const o=document.createElement('option');o.value=optionValue;o.textContent=optionLabel;s.append(o);}s.value=value;return s;}
 function field(label:string,control:HTMLElement):HTMLLabelElement{const l=element('label','field');l.append(elementWithText('span',label),control);return l;}
+
+function cacheBustImageUrl(source: string): string {
+  try {
+    const url = new URL(source, window.location.origin);
+    url.searchParams.set('avatar_v', String(Date.now()));
+    return url.toString();
+  } catch {
+    return source;
+  }
+}
+
+async function chooseProfilePictureSource(): Promise<'gallery' | 'camera' | 'cancel'> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'profile-picture-source';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Choose profile picture source');
+
+    const panel = element('section', 'profile-picture-source__panel');
+    panel.append(elementWithText('strong', 'Choose profile picture'));
+    const gallery = secondaryButton('Choose from photos');
+    const camera = secondaryButton('Take a photo');
+    const cancel = secondaryButton('Cancel');
+    panel.append(gallery, camera, cancel);
+    overlay.append(panel);
+    document.body.append(overlay);
+
+    const finish = (source: 'gallery' | 'camera' | 'cancel'): void => {
+      overlay.remove();
+      resolve(source);
+    };
+    gallery.addEventListener('click', () => finish('gallery'));
+    camera.addEventListener('click', () => finish('camera'));
+    cancel.addEventListener('click', () => finish('cancel'));
+  });
+}
