@@ -67,6 +67,7 @@ import { canForwardMessage, displayChatMessage, forwardedText } from '../chat-fo
 import type { MobileAccount } from '../api/user';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
+import { Browser } from '@capacitor/browser';
 import { saveChatPhoto } from '../chat-photo-save';
 import { ChatPollingController } from '../chat-polling';
 import { listChatOutbox, removeChatOutbox, saveChatOutbox, updateChatOutbox, type ChatOutboxPayload } from '../chat-outbox';
@@ -776,33 +777,40 @@ export class ChatScreen {
       if (kind === 'image' && !photosAvailable) return;
       if (kind === 'image' && file.size > 8 * 1024 * 1024) { window.alert('This photo is too large. Choose a smaller image.'); return; }
       if (kind === 'video' && videoMaxBytes > 0 && file.size > videoMaxBytes) { window.alert('This video is larger than the site limit. Choose a smaller video.'); return; }
-      if (kind === 'file' && fileMaxBytes > 0 && file.size > fileMaxBytes) { window.alert('This file is larger than the site limit. Choose a smaller file.'); return; }
+      if (kind === 'file' && fileMaxBytes > 0 && file.size > fileMaxBytes) { window.alert('This file is too large. Choose a smaller file.'); return; }
       clearAttachment();
       if (kind === 'image') selectedPhoto = file;
       else if (kind === 'video') selectedVideo = file;
       else selectedFile = file;
       previewUrl = URL.createObjectURL(file);
+      const details = element('div', 'chat-attachment-preview__details');
+      const name = elementWithText('strong', file.name || 'File attachment');
+      name.className = 'chat-attachment-preview__name';
+      const metaText = formatAttachmentSize(file.size) + (file.type ? ' · ' + file.type : '');
+      const meta = elementWithText('span', metaText);
+      meta.className = 'chat-attachment-preview__meta';
+      details.append(name, meta);
       if (kind === 'image') {
         const imagePreview = document.createElement('img');
-        imagePreview.alt = 'Selected photo';
+        imagePreview.className = 'chat-attachment-preview__content';
+        imagePreview.alt = file.name || 'Selected photo';
         imagePreview.src = previewUrl;
         imagePreview.addEventListener('error', () => { imagePreview.hidden = true; }, { once: true });
         attachmentMedia.replaceChildren(imagePreview);
       } else if (kind === 'video') {
         const videoPreview = document.createElement('video');
-        videoPreview.className = 'message-video-preview';
+        videoPreview.className = 'chat-attachment-preview__content';
         videoPreview.controls = true;
         videoPreview.muted = true;
         videoPreview.playsInline = true;
         videoPreview.preload = 'metadata';
-        videoPreview.setAttribute('aria-label', 'Selected video');
+        videoPreview.setAttribute('aria-label', file.name || 'Selected video');
         videoPreview.src = previewUrl;
         attachmentMedia.replaceChildren(videoPreview);
       } else {
-        const filePreview = elementWithText('div', file.name || 'File attachment');
-        filePreview.className = 'chat-attachment-preview__file';
-        attachmentMedia.replaceChildren(filePreview);
+        attachmentMedia.replaceChildren(createLocalFilePreview(file, previewUrl));
       }
+      attachmentMedia.after(details);
       attachment.hidden = false;
       text.placeholder = 'Add a caption (optional)…';
       send.setAttribute('aria-label', kind === 'image' ? 'Send message and photo' : kind === 'video' ? 'Send message and video' : 'Send message and file');
@@ -2017,9 +2025,17 @@ export class ChatScreen {
         return;
       }
 
-      const fileLabel = elementWithText('span', fileName);
+      const preview = element('div', 'chat-media-card__file-preview');
+      const icon = elementWithText('span', attachmentFileBadge(fileName));
+      icon.className = 'chat-media-card__file-icon';
+      const info = element('div', 'chat-media-card__file-info');
+      const fileLabel = elementWithText('strong', fileName);
       fileLabel.className = 'chat-media-card__file-name';
-      card.append(fileLabel);
+      const kindLabel = elementWithText('span', attachmentFileKindLabel(fileName));
+      kindLabel.className = 'chat-media-card__file-kind';
+      info.append(fileLabel, kindLabel);
+      preview.append(icon, info);
+      card.append(preview);
 
       const openFile = document.createElement('button');
       openFile.type = 'button';
@@ -2028,16 +2044,15 @@ export class ChatScreen {
       openFile.textContent = 'Open';
       card.append(openFile);
 
-      const progress = document.createElement('div');
-      progress.className = 'chat-circular-progress chat-media-card__progress';
+      const progress = element('div', 'chat-circular-progress chat-media-card__progress');
       progress.style.setProperty('--chat-progress', '0%');
       progress.hidden = true;
       progress.innerHTML = '<span class="chat-circular-progress__icon" aria-hidden="true"></span>';
       card.append(progress);
 
-      const openDownloadedFile = (url: string): void => {
-        const lowerName = fileName.toLowerCase();
-        if (lowerName.endsWith('.pdf')) {
+      const showLoadedPreview = async (url: string): Promise<void> => {
+        const kind = attachmentFileKind(fileName);
+        if (kind === 'pdf') {
           const frame = document.createElement('iframe');
           frame.className = 'chat-file-preview-frame';
           frame.src = url;
@@ -2046,36 +2061,72 @@ export class ChatScreen {
           card.replaceChildren(frame);
           return;
         }
-
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = fileName;
-        link.className = 'chat-file-open-link';
-        card.replaceChildren(link);
-        link.click();
+        if (kind === 'text') {
+          const textPreview = document.createElement('pre');
+          textPreview.className = 'chat-file-text-preview';
+          try {
+            const response = await fetch(url);
+            textPreview.textContent = (await response.text()).slice(0, 30000);
+          } catch {
+            textPreview.textContent = 'This text file could not be previewed here.';
+          }
+          card.replaceChildren(textPreview);
+          return;
+        }
+        if (kind === 'image') {
+          const image = document.createElement('img');
+          image.className = 'chat-file-image-preview';
+          image.src = url;
+          image.alt = fileName;
+          card.replaceChildren(image);
+          return;
+        }
+        if (kind === 'audio') {
+          const audio = document.createElement('audio');
+          audio.controls = true;
+          audio.preload = 'metadata';
+          audio.src = url;
+          card.replaceChildren(audio);
+          return;
+        }
+        if (kind === 'video') {
+          const video = document.createElement('video');
+          video.controls = true;
+          video.playsInline = true;
+          video.preload = 'metadata';
+          video.src = url;
+          card.replaceChildren(video);
+          return;
+        }
+        card.replaceChildren(preview);
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'chat-media-card__file-open';
+        open.textContent = 'Open file';
+        open.addEventListener('click', (event) => {
+          event.stopPropagation();
+          void openChatFileUrl(resolvedUrl || url);
+        });
+        card.append(open);
       };
 
       card.addEventListener('click', () => openFile.click());
-
       openFile.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (!downloadMedia) return;
+        if (!downloadMedia) { void openChatFileUrl(resolvedUrl || ''); return; }
         openFile.disabled = true;
         progress.hidden = false;
         void downloadMedia(source, (percent: number) => {
           progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
         }).then((url: string) => {
           progress.hidden = true;
-          openDownloadedFile(url);
+          void showLoadedPreview(url);
         }).catch((error: unknown) => {
           progress.hidden = true;
           openFile.disabled = false;
           window.alert(error instanceof Error ? error.message : 'Unable to open this file.');
         });
       });
-
       bubble.append(card);
     };
     if (forwarded) {
@@ -2446,6 +2497,71 @@ function primaryButton(text: string): HTMLButtonElement {
 }
 
 
+function formatAttachmentSize(size: number): string {
+  if (!Number.isFinite(size) || size < 0) return '';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+  return `${(size / (1024 * 1024)).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+}
+
+function attachmentFileExtension(name: string): string {
+  const clean = name.split(/[?#]/)[0].split('/').pop() || '';
+  const dot = clean.lastIndexOf('.');
+  return dot > 0 ? clean.slice(dot + 1).toLowerCase() : '';
+}
+
+function attachmentFileKind(name: string): 'pdf' | 'text' | 'image' | 'audio' | 'video' | 'office' | 'archive' | 'psd' | 'generic' {
+  const ext = attachmentFileExtension(name);
+  if (ext === 'pdf') return 'pdf';
+  if (['txt','csv','tsv','json','xml','md','markdown','log','ini','yaml','yml'].includes(ext)) return 'text';
+  if (['jpg','jpeg','png','gif','webp','avif','bmp','svg'].includes(ext)) return 'image';
+  if (['mp3','wav','m4a','aac','ogg','oga','flac'].includes(ext)) return 'audio';
+  if (['mp4','webm','mov','m4v','avi','mkv'].includes(ext)) return 'video';
+  if (['doc','docx','xls','xlsx','ppt','pptx','odt','ods','odp'].includes(ext)) return 'office';
+  if (['zip','rar','7z','tar','gz','bz2'].includes(ext)) return 'archive';
+  if (ext === 'psd') return 'psd';
+  return 'generic';
+}
+
+function attachmentFileBadge(name: string): string {
+  const ext = attachmentFileExtension(name);
+  return ext ? ext.slice(0, 5).toUpperCase() : 'FILE';
+}
+
+function attachmentFileKindLabel(name: string): string {
+  const labels: Record<string, string> = { pdf: 'PDF document', text: 'Text document', image: 'Image', audio: 'Audio', video: 'Video', office: 'Office document', archive: 'Archive', psd: 'Photoshop document', generic: 'File' };
+  return labels[attachmentFileKind(name)];
+}
+
+function createLocalFilePreview(file: File, url: string): HTMLElement {
+  const kind = attachmentFileKind(file.name);
+  if (kind === 'pdf') {
+    const frame = document.createElement('iframe');
+    frame.className = 'chat-attachment-preview__document';
+    frame.src = url;
+    frame.title = file.name;
+    return frame;
+  }
+  if (kind === 'text') {
+    const wrap = element('div', 'chat-attachment-preview__text');
+    const pre = elementWithText('pre', 'Loading preview…');
+    void file.text().then((value) => { pre.textContent = value.slice(0, 12000); }).catch(() => { pre.textContent = 'Text preview unavailable.'; });
+    wrap.append(pre);
+    return wrap;
+  }
+  const wrap = element('div', 'chat-attachment-preview__generic');
+  wrap.append(elementWithText('strong', attachmentFileBadge(file.name)), elementWithText('span', attachmentFileKindLabel(file.name)));
+  return wrap;
+}
+
+async function openChatFileUrl(url: string): Promise<void> {
+  if (!url) { window.alert('This file URL is not available.'); return; }
+  try {
+    if (Capacitor.isNativePlatform()) { await Browser.open({ url }); return; }
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) window.location.href = url;
+  } catch { window.location.href = url; }
+}
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return 'U';
