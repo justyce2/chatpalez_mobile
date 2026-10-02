@@ -6,7 +6,7 @@ import type { AuthSession } from './auth/session';
 import type { NativeNotificationStatus } from './notifications/native';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { FriendsScreen } from './screens/FriendsScreen';
-import { ChatScreen, type ChatDeliveryTransport } from './screens/ChatScreen';
+import { ChatScreen, type ChatDeliveryTransport, type ChatScreenHandlers } from './screens/ChatScreen';
 
 export type LoginCredentials = {
   usernameEmail: string;
@@ -519,6 +519,7 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
       onLoadMessages: handlers.onLoadMessages,
       onSendMessage: handlers.onSendMessage,
       onRecordVoiceNote: handlers.onRecordVoiceNote,
+      resolveChatMediaUrl: handlers.resolveChatMediaUrl,
       onDownloadChatMedia: handlers.onDownloadChatMedia,
       onTyping: handlers.onTyping,
       onLeaveConversation: handlers.onLeaveConversation,
