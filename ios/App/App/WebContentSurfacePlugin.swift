@@ -101,6 +101,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
             }
 
             self.allowedOrigin = origin
+            self.pullRefreshControl?.isEnabled = self.isPullRefreshRoute(url)
             self.applyFrame(call, to: webView)
             self.feedLoadGeneration += 1
             let generation = self.feedLoadGeneration
@@ -315,11 +316,14 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
     }
 
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        pullRefreshControl?.isEnabled = isPullRefreshRoute(webView.url)
         notifyListeners("loadStarted", data: ["url": webView.url?.absoluteString ?? ""])
     }
 
     public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let url = webView.url, isAllowed(url) else { return }
+        pullRefreshControl?.isEnabled = isPullRefreshRoute(url)
+        pullRefreshControl?.endRefreshing()
         if url.path != "/mobile-session.php" { finishFeedLoading() }
         syncChatSound()
         notifyListeners("routeChanged", data: ["url": url.absoluteString])
@@ -327,10 +331,12 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
     }
 
     public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        pullRefreshControl?.endRefreshing()
         if (error as NSError).code != NSURLErrorCancelled { finishFeedLoading() }
     }
 
     public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        pullRefreshControl?.endRefreshing()
         if (error as NSError).code != NSURLErrorCancelled { finishFeedLoading() }
     }
 
