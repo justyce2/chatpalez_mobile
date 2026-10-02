@@ -102,6 +102,7 @@ function openCropper(image: HTMLImageElement, originalName: string): Promise<Cro
     const finish = (result: CroppedProfilePicture | null): void => {
       if (settled) return;
       settled = true;
+      document.removeEventListener('keydown', onKeyDown);
       overlay.remove();
       resolve(result);
     };
@@ -179,7 +180,6 @@ function openCropper(image: HTMLImageElement, originalName: string): Promise<Cro
           const fileName = `${baseName}-profile.jpg`;
           const croppedFile = new File([blob], fileName, { type: 'image/jpeg', lastModified: Date.now() });
           const previewUrl = URL.createObjectURL(croppedFile);
-          document.removeEventListener('keydown', onKeyDown);
           finish({ file: croppedFile, previewUrl });
         }, 'image/jpeg', 0.9);
       } catch {
@@ -187,7 +187,6 @@ function openCropper(image: HTMLImageElement, originalName: string): Promise<Cro
       }
     });
 
-    document.addEventListener('keydown', onKeyDown);
     draw();
   });
 }
