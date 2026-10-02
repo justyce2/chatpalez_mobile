@@ -2168,7 +2168,12 @@ export class ChatScreen {
       card.addEventListener('click', () => openFile.click());
       openFile.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (!downloadMedia) { void openChatFileUrl(resolvedUrl || ''); return; }
+        const directUrl = resolvedUrl || '';
+        if (attachmentFileKind(fileName, source) === 'pdf' && directUrl) {
+          void showLoadedPreview(directUrl);
+          return;
+        }
+        if (!downloadMedia) { void openChatFileUrl(directUrl); return; }
         openFile.disabled = true;
         progress.hidden = false;
         void downloadMedia(source, (percent: number) => {
@@ -2177,7 +2182,7 @@ export class ChatScreen {
           progress.hidden = true;
           void showLoadedPreview(url);
         }).catch((error: unknown) => {
-          progress.hidden = true;
+          progress.hidden = false;
           openFile.disabled = false;
           window.alert(error instanceof Error ? error.message : 'Unable to open this file.');
         });
@@ -2187,7 +2192,9 @@ export class ChatScreen {
       // Load lightweight previewable file types immediately so a sent
       // attachment is already a real preview, not just a filename card.
       const previewKind = attachmentFileKind(fileName, source);
-      if (downloadMedia && ['pdf', 'text', 'image'].includes(previewKind)) {
+      if (previewKind === 'pdf' && resolvedUrl) {
+        void showLoadedPreview(resolvedUrl);
+      } else if (downloadMedia && ['text', 'image'].includes(previewKind)) {
         progress.hidden = false;
         void downloadMedia(source, (percent: number) => {
           progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
