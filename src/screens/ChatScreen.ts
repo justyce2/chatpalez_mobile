@@ -1234,11 +1234,11 @@ export class ChatScreen {
             const progress = delivery.bubble.querySelector<HTMLElement>('.chat-circular-progress');
             if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
           }, localId, delivery.controller.signal).then(async () => {
-            await refresh();
-            // Sending succeeded. The history request can lag; keep the optimistic
-            // bubble until reconciliation sees the real server message.
+            // Mark success before the first history refresh so the authoritative
+            // server copy can replace the optimistic bubble in the same pass.
             finishDelivery(localId, true);
             void removeChatOutbox(localId).catch(() => undefined);
+            await refresh();
             playSentChatSound(this.session.user.user_id);
           }).catch(async (retryError: unknown) => {
             if (retryError instanceof RealtimeDeliveryUncertainError) await latestResync.request().catch(() => undefined);
@@ -1284,10 +1284,11 @@ export class ChatScreen {
         localId,
         delivery.controller.signal
       ).then(async () => {
-        await refresh();
-        // Upload/message delivery succeeded even when history has not caught up.
+        // Mark success before the first history refresh so the authoritative
+        // server copy can replace the optimistic bubble in the same pass.
         finishDelivery(localId, true);
         void removeChatOutbox(localId).catch(() => undefined);
+        await refresh();
         deliveryStatus.textContent = '';
         playSentChatSound(this.session.user.user_id);
       }).catch(async (error: unknown) => {
@@ -1363,20 +1364,11 @@ export class ChatScreen {
         runAttachmentDelivery(localId, payload);
       } else {
         void this.handlers.onSendMessage(conversationId, message, undefined, undefined, undefined, undefined, undefined, localId).then(async () => {
-          const synced = await refresh();
-          if (synced) {
-            finishDelivery(localId, true);
-          } else {
-            const current = pendingDeliveries.get(localId);
-            if (current) {
-              current.bubble.classList.remove('is-pending');
-              const state = current.bubble.querySelector<HTMLElement>('.chat-delivery-state') ?? element('small', 'chat-delivery-state');
-              state.textContent = 'Sent. Waiting for chat sync…';
-              state.setAttribute('role', 'status');
-              if (!state.parentElement) current.bubble.append(state);
-            }
-          }
+          // Mark success before refreshing so a server copy returned by the first
+          // history response can reconcile the optimistic bubble immediately.
+          finishDelivery(localId, true);
           void removeChatOutbox(localId).catch(() => undefined);
+          await refresh();
           deliveryStatus.textContent = '';
           playSentChatSound(this.session.user.user_id);
         }).catch(async (error: unknown) => {
