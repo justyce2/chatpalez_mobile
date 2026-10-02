@@ -1899,6 +1899,8 @@ export class ChatScreen {
         openVideo.innerHTML = '<span class="chat-media-card__play-icon" aria-hidden="true"></span>';
         card.append(openVideo);
 
+        card.addEventListener('click', () => openVideo.click());
+
         openVideo.addEventListener('click', (event) => {
           event.stopPropagation();
           if (!resolvedUrl) {
@@ -1956,6 +1958,8 @@ export class ChatScreen {
         card.replaceChildren(link);
         link.click();
       };
+
+      card.addEventListener('click', () => openFile.click());
 
       openFile.addEventListener('click', (event) => {
         event.stopPropagation();
