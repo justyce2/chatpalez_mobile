@@ -2090,16 +2090,30 @@ export class ChatScreen {
       const showLoadedPreview = async (url: string): Promise<void> => {
         const kind = attachmentFileKind(fileName, source);
         if (kind === 'pdf') {
-          card.replaceChildren(preview);
-          const open = document.createElement('button');
-          open.type = 'button';
-          open.className = 'chat-media-card__file-open';
-          open.textContent = 'Open PDF';
-          open.addEventListener('click', (event) => {
-            event.stopPropagation();
-            void openChatFileUrl(resolvedUrl || url);
-          });
-          card.append(open);
+          const pdfUrl = resolvedUrl || url;
+          if (!pdfUrl) {
+            card.replaceChildren(preview);
+            return;
+          }
+          const frame = document.createElement('iframe');
+          frame.className = 'chat-file-preview-frame';
+          frame.src = pdfUrl;
+          frame.title = displayFileName || 'PDF document preview';
+          frame.setAttribute('loading', 'lazy');
+          frame.setAttribute('referrerpolicy', 'no-referrer');
+          frame.addEventListener('error', () => {
+            card.replaceChildren(preview);
+            const open = document.createElement('button');
+            open.type = 'button';
+            open.className = 'chat-media-card__file-open';
+            open.textContent = 'Open PDF';
+            open.addEventListener('click', (event) => {
+              event.stopPropagation();
+              void openChatFileUrl(pdfUrl);
+            });
+            card.append(open);
+          }, { once: true });
+          card.replaceChildren(frame);
           return;
         }
         if (kind === 'text') {
