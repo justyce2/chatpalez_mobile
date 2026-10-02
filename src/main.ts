@@ -528,12 +528,11 @@ const shell = createAppShell(root, {
     logInfo('Conversation started', { conversationId: conversation.conversation_id, recipientId });
     return conversation;
   },
-  onForwardMessage: async (target, message, photo) => {
-    // The engine validates conversation access, recipients, and upload source.
-    // Forwarding uses HTTP for text and photos alike, avoiding socket retry ambiguity.
+  onForwardMessage: async (target, message, photo, video, file, voice) => {
+    // Forwarding uses the same HTTP message contract for text and all attachment types.
     return target.conversationId !== undefined
-      ? chat.sendMessage(target.conversationId, message, photo)
-      : chat.startConversation(target.recipientId!, message, photo);
+      ? chat.sendMessage(target.conversationId, message, photo || '', video || '', file || '', voice || '')
+      : chat.startConversation(target.recipientId!, message, photo || '', video || '', file || '', voice || '');
   },
   onLoadChatFeatures: () => chat.getFeatures(),
   onLoadMessages: async (conversationId, offset, lastMessageId) => {
