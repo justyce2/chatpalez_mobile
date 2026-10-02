@@ -195,6 +195,7 @@ export class ProfileScreen {
       if (version !== this.renderVersion) return;
       if (!profile.user_picture) throw new Error('The profile picture upload completed but no new picture was returned.');
 
+      this.profilePictureBusy = false;
       await this.render();
     } catch (error) {
       if (version !== this.renderVersion) return;
