@@ -494,6 +494,31 @@ const shell = createAppShell(root, {
     logInfo('Native profile loaded', { userId: profile.user_id });
     return profile;
   },
+  onPickProfilePicture: async () => {
+    if (Capacitor.isNativePlatform()) return pickNativeChatPhoto();
+    return pickBrowserImage();
+  },
+  onCaptureProfilePicture: async () => {
+    if (Capacitor.isNativePlatform()) return captureNativeChatPhoto();
+    return pickBrowserImage();
+  },
+  onUploadProfilePicture: async (file, onProgress) => {
+    await uploads.uploadProfilePicture(file, onProgress);
+    const profile = await users.getProfile();
+    const session = getSession();
+    if (session && profile.user_picture) {
+      session.user.user_picture = profile.user_picture;
+      try {
+        await setSession(session);
+      } catch (error) {
+        logWarn('Updated profile picture could not be persisted to the secure session store', {
+          detail: error instanceof Error ? error.message : String(error ?? '')
+        });
+      }
+    }
+    logInfo('Native profile picture updated', { userId: profile.user_id });
+    return profile;
+  },
   onFriendsEnabled: () => friends.enabled(),
   onLoadFriends: (view, offset) => friends.page(view, offset),
   onSearchFriends: (query) => friends.search(query),
@@ -741,6 +766,17 @@ const shell = createAppShell(root, {
 });
 
 shell.setRetryAction(() => { void bootstrap(); });
+
+async function pickBrowserImage(): Promise<File | null> {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.multiple = false;
+  return new Promise<File | null>((resolve) => {
+    input.addEventListener('change', () => resolve(input.files?.[0] ?? null), { once: true });
+    input.click();
+  });
+}
 
 async function prepareNativeUi(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
