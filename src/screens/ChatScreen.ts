@@ -1019,6 +1019,29 @@ export class ChatScreen {
             const confirmed = findConfirmedDeliveryMessage(ownMessages, delivery.payload, confirmedMessageIds);
             if (confirmed) {
               if (confirmed.message_id != null) confirmedMessageIds.add(String(confirmed.message_id));
+              if (delivery.payload.file) {
+                const uploadedFile = delivery.payload.file;
+                const existingFile = confirmed.attachments?.file;
+                const source = typeof existingFile === 'string'
+                  ? existingFile
+                  : existingFile && typeof existingFile === 'object' && typeof existingFile.source === 'string'
+                    ? existingFile.source
+                    : typeof confirmed.file === 'string' ? confirmed.file : '';
+                const existingAttachment = existingFile && typeof existingFile === 'object' ? existingFile : {};
+                confirmed.attachments = {
+                  ...(confirmed.attachments ?? {}),
+                  file: {
+                    ...existingAttachment,
+                    ...(source ? { source } : {}),
+                    name: uploadedFile.name,
+                    size: uploadedFile.size,
+                    type: uploadedFile.type
+                  }
+                };
+                confirmed.file_name = uploadedFile.name;
+                confirmed.file_size = uploadedFile.size;
+                confirmed.file_type = uploadedFile.type;
+              }
               pendingDeliveries.delete(localId);
               if (delivery.previewUrl) URL.revokeObjectURL(delivery.previewUrl);
             }
@@ -1169,8 +1192,17 @@ export class ChatScreen {
           pendingImage.alt = 'Photo being sent';
           mediaSurface.append(pendingImage);
         } else {
-          const pendingFile = elementWithText('div', files.voice ? (files.voice.name || 'Voice note') : (files.file?.name || 'File attachment'));
-          pendingFile.className = files.voice ? 'message-voice-preview' : 'message-file-preview';
+          const pendingFile = element('div', files.voice ? 'message-voice-preview' : 'message-file-preview');
+          const pendingName = files.voice?.name || files.file?.name || 'File attachment';
+          pendingFile.append(elementWithText('strong', pendingName));
+          if (files.file) {
+            const pendingMeta = elementWithText(
+              'small',
+              attachmentFileKindLabel(files.file.name) + ' · ' + formatAttachmentSize(files.file.size) + (files.file.type ? ' · ' + files.file.type : '')
+            );
+            pendingMeta.className = 'message-file-preview__meta';
+            pendingFile.append(pendingMeta);
+          }
           mediaSurface.append(pendingFile);
         }
         bubble.append(mediaSurface);
@@ -1344,7 +1376,6 @@ export class ChatScreen {
         payload,
         sent: false
       };
-      (bubble as HTMLDivElement & { __payload?: ChatOutboxPayload }).__payload = payload;
       delivery.payload = payload;
       pendingDeliveries.set(localId, delivery);
 
@@ -1941,9 +1972,15 @@ export class ChatScreen {
     const fileName = rawFile && typeof rawFile === 'object' && typeof rawFile.name === 'string'
       ? rawFile.name
       : (typeof message.file_name === 'string' ? message.file_name : '') || body || 'File attachment';
+    const fileSize = rawFile && typeof rawFile === 'object' && typeof rawFile.size === 'number' && rawFile.size > 0
+      ? rawFile.size
+      : typeof message.file_size === 'number' && message.file_size > 0 ? message.file_size : 0;
+    const fileType = rawFile && typeof rawFile === 'object' && typeof rawFile.type === 'string'
+      ? rawFile.type
+      : typeof message.file_type === 'string' ? message.file_type : '';
     const voiceSource = typeof message.voice_note === 'string' ? message.voice_note : '';
 
-    const renderDownloadable = (source: string, _thumbnail: string, kind: 'video' | 'file' | 'voice'): void => {
+    const renderDownloadable = (source: string, kind: 'video' | 'file' | 'voice'): void => {
       if (!source) return;
       const card = element('div', `chat-media-card chat-media-card--${kind}`);
       const resolvedUrl = this.handlers.resolveChatMediaUrl?.(source);
@@ -2003,31 +2040,15 @@ export class ChatScreen {
         video.preload = 'metadata';
         video.src = resolvedUrl || '';
         video.setAttribute('aria-label', 'Video attachment');
+        if (!resolvedUrl) video.setAttribute('aria-disabled', 'true');
+        video.addEventListener('error', () => {
+          video.controls = false;
+          video.setAttribute('aria-label', 'Video unavailable');
+          const status = elementWithText('span', 'Video unavailable');
+          status.className = 'chat-media-card__video-error';
+          video.replaceWith(status);
+        }, { once: true });
         card.append(video);
-
-        const openVideo = document.createElement('button');
-        openVideo.type = 'button';
-        openVideo.className = 'chat-media-card__download';
-        openVideo.setAttribute('aria-label', 'Play video');
-        openVideo.innerHTML = '<span class="chat-media-card__play-icon" aria-hidden="true"></span>';
-        card.append(openVideo);
-
-        card.addEventListener('click', () => openVideo.click());
-
-        openVideo.addEventListener('click', (event) => {
-          event.stopPropagation();
-          if (!resolvedUrl) {
-            window.alert('This video URL is not available.');
-            return;
-          }
-          const video = document.createElement('video');
-          video.controls = true;
-          video.playsInline = true;
-          video.preload = 'metadata';
-          video.src = resolvedUrl;
-          card.replaceChildren(video);
-          void video.play().catch(() => undefined);
-        });
         bubble.append(card);
         return;
       }
@@ -2040,7 +2061,12 @@ export class ChatScreen {
       fileLabel.className = 'chat-media-card__file-name';
       const kindLabel = elementWithText('span', attachmentFileKindLabel(fileName));
       kindLabel.className = 'chat-media-card__file-kind';
-      info.append(fileLabel, kindLabel);
+      const metadataParts = [attachmentFileKindLabel(fileName)];
+      if (fileSize > 0) metadataParts.push(formatAttachmentSize(fileSize));
+      if (fileType && !metadataParts.some((part) => part.toLowerCase() === fileType.toLowerCase())) metadataParts.push(fileType);
+      const metadata = elementWithText('span', metadataParts.join(' · '));
+      metadata.className = 'chat-media-card__file-meta';
+      info.append(fileLabel, kindLabel, metadata);
       preview.append(icon, info);
       card.append(preview);
 
@@ -2189,9 +2215,9 @@ export class ChatScreen {
       }, { once: true });
       bubble.append(openPhoto);
     }
-    if (videoSource) renderDownloadable(videoSource, '', 'video');
-    if (fileSource) renderDownloadable(fileSource, '', 'file');
-    if (voiceSource) renderDownloadable(voiceSource, '', 'voice');
+    if (videoSource) renderDownloadable(videoSource, 'video');
+    if (fileSource) renderDownloadable(fileSource, 'file');
+    if (voiceSource) renderDownloadable(voiceSource, 'voice');
     if (body && !fileSource) {
       const caption = elementWithText('div', body);
       caption.className = 'chat-message-text';
