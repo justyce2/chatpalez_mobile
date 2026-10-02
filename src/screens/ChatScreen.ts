@@ -2182,7 +2182,7 @@ export class ChatScreen {
           progress.hidden = true;
           void showLoadedPreview(url);
         }).catch((error: unknown) => {
-          progress.hidden = false;
+          progress.hidden = true;
           openFile.disabled = false;
           window.alert(error instanceof Error ? error.message : 'Unable to open this file.');
         });
