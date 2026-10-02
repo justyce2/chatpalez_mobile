@@ -395,11 +395,12 @@ public class WebContentSurfacePlugin extends Plugin {
 
     private final class PullRefreshWebView extends WebView {
         private float touchStartY;
+        private float touchStartX;
         private boolean pullRefreshEnabled;
         private boolean refreshTriggered;
 
         PullRefreshWebView() {
-            super(getContext());
+            super(WebContentSurfacePlugin.this.getContext());
         }
 
         void setPullRefreshEnabled(boolean enabled) {
@@ -416,10 +417,13 @@ public class WebContentSurfacePlugin extends Plugin {
                 switch (event.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:
                         touchStartY = event.getY();
+                        touchStartX = event.getX();
                         refreshTriggered = false;
                         break;
                     case MotionEvent.ACTION_MOVE:
-                        if (!refreshTriggered && getScrollY() <= 0 && event.getY() - touchStartY >= dp(56)) {
+                        if (!refreshTriggered && getScrollY() <= 0
+                                && event.getY() - touchStartY >= dp(56)
+                                && Math.abs(event.getY() - touchStartY) > Math.abs(event.getX() - touchStartX)) {
                             refreshTriggered = true;
                             performPullRefresh();
                         }
@@ -428,6 +432,7 @@ public class WebContentSurfacePlugin extends Plugin {
                     case MotionEvent.ACTION_CANCEL:
                         refreshTriggered = false;
                         touchStartY = 0;
+                        touchStartX = 0;
                         break;
                     default:
                         break;
