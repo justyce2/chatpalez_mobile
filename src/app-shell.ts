@@ -31,6 +31,9 @@ export type AppShellHandlers = {
   onChatSoundChange?: (enabled: boolean) => void;
   onManageNotifications?: () => Promise<NativeNotificationStatus>;
   onLoadProfile?: () => Promise<UserProfile>;
+  onPickProfilePicture?: () => Promise<File | null>;
+  onCaptureProfilePicture?: () => Promise<File | null>;
+  onUploadProfilePicture?: (file: File, onProgress?: (percent: number) => void) => Promise<UserProfile>;
   onFriendsEnabled?: () => Promise<boolean>;
   onLoadFriends?: (view: FriendsView, offset: number) => Promise<PageResult<FriendPerson>>;
   onSearchFriends?: (query: string) => Promise<FriendPerson[]>;
@@ -420,6 +423,9 @@ export function createAppShell(root: HTMLElement, handlers: AppShellHandlers): A
 
     const profileScreen = new ProfileScreen(content, session, {
       onLoadProfile: handlers.onLoadProfile,
+      onPickProfilePicture: handlers.onPickProfilePicture,
+      onCaptureProfilePicture: handlers.onCaptureProfilePicture,
+      onUploadProfilePicture: handlers.onUploadProfilePicture,
       onLoadAccount: handlers.onLoadAccount,
       onUpdateProfile: handlers.onUpdateProfile,
       onUpdateIdentity: handlers.onUpdateIdentity,
