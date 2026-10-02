@@ -340,6 +340,19 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         if (error as NSError).code != NSURLErrorCancelled { finishFeedLoading() }
     }
 
+    @objc private func handlePullRefresh(_ sender: UIRefreshControl) {
+        guard let webView = contentWebView, isPullRefreshRoute(webView.url) else {
+            sender.endRefreshing()
+            return
+        }
+        webView.reload()
+    }
+
+    private func isPullRefreshRoute(_ url: URL?) -> Bool {
+        guard let url else { return false }
+        return url.path == "/" || url.path == "/reels"
+    }
+
     private func finishFeedLoading() {
         feedLoading = false
         feedLoadingView?.isHidden = true
