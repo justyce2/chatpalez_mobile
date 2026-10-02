@@ -48,7 +48,7 @@ export type AppShellHandlers = {
   onFindConversation?: (recipientId: number | string) => Promise<Conversation | null>;
   onLoadContacts?: (query: string, offset: number) => Promise<PageResult<ChatContact>>;
   onStartConversation?: (recipientId: number | string, message: string) => Promise<Conversation>;
-  onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo: string) => Promise<Conversation>;
+  onForwardMessage?: (target: { conversationId?: number | string; recipientId?: number | string }, message: string, photo?: string, video?: string, file?: string, voice?: string) => Promise<Conversation>;
   onLoadChatFeatures?: () => Promise<ChatFeatures>;
   onLoadMessages?: (conversationId: number | string, offset: number, lastMessageId?: number | string) => Promise<MessagesResult>;
   onSendMessage?: (conversationId: number | string, message: string, photo?: File, video?: File, file?: File, voice?: File, onProgress?: (percent: number) => void, clientMessageId?: string, signal?: AbortSignal) => Promise<ChatDeliveryTransport>;
