@@ -1946,7 +1946,7 @@ export class ChatScreen {
     const { text: body, forwarded } = displayChatMessage(message);
     const photoUrl = this.handlers.resolveChatPhotoUrl?.(message.image || message.photo || '');
     const media = (message.attachments ?? {}) as {
-      file?: { source?: string; name?: string } | null;
+      file?: string | { source?: string; name?: string; size?: number; type?: string } | null;
       video_thumbnail?: { source?: string } | null;
     };
     const downloadMedia = this.handlers.onDownloadChatMedia;
@@ -2552,6 +2552,31 @@ function primaryButton(text: string): HTMLButtonElement {
   return button;
 }
 
+
+function initials(value: string): string {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+async function openChatFileUrl(url: string): Promise<void> {
+  const target = url.trim();
+  if (!target) {
+    window.alert('This file is unavailable.');
+    return;
+  }
+
+  try {
+    if (Capacitor.isNativePlatform()) {
+      await Browser.open({ url: target });
+      return;
+    }
+    window.open(target, '_blank', 'noopener,noreferrer');
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : 'Unable to open this file.');
+  }
+}
 
 function formatAttachmentSize(size: number): string {
   if (!Number.isFinite(size) || size < 0) return '';
