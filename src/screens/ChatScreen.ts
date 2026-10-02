@@ -1229,11 +1229,10 @@ export class ChatScreen {
             const progress = delivery.bubble.querySelector<HTMLElement>('.chat-circular-progress');
             if (progress) progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
           }, localId, delivery.controller.signal).then(async () => {
-          await refresh();
-          // Sending succeeded. The history request can lag; keep the optimistic
-          // bubble pending reconciliation until the real server message appears.
-          finishDelivery(localId, true);
-            }
+            await refresh();
+            // Sending succeeded. The history request can lag; keep the optimistic
+            // bubble until reconciliation sees the real server message.
+            finishDelivery(localId, true);
             void removeChatOutbox(localId).catch(() => undefined);
             playSentChatSound(this.session.user.user_id);
           }).catch(async (retryError: unknown) => {
@@ -1281,10 +1280,8 @@ export class ChatScreen {
         delivery.controller.signal
       ).then(async () => {
         await refresh();
-        // Upload/message delivery succeeded even when the immediate history
-        // refresh does not yet contain the new message.
+        // Upload/message delivery succeeded even when history has not caught up.
         finishDelivery(localId, true);
-        }
         void removeChatOutbox(localId).catch(() => undefined);
         deliveryStatus.textContent = '';
         playSentChatSound(this.session.user.user_id);
