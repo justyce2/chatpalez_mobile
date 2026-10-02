@@ -63,6 +63,41 @@ export class UploadService {
     throw new Error('ChatPalez returned an invalid upload result.');
   }
 
+  async uploadProfilePicture(file: File, onProgress?: (percent: number) => void, signal?: AbortSignal): Promise<string> {
+    if (!file.type.startsWith('image/')) throw new Error('Choose an image file for your profile picture.');
+    if (file.size <= 0) throw new Error('The selected profile picture is empty.');
+    if (file.size > 8 * 1024 * 1024) throw new Error('This profile picture is too large. Choose a smaller image.');
+
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('name', file.name);
+    form.append('guid', this.makeGuid());
+    form.append('type', 'photos');
+    form.append('handle', 'picture-user');
+    form.append('multiple', 'false');
+    form.append('blur', 'false');
+    form.append('chunkIndex', '0');
+    form.append('totalChunks', '1');
+
+    const result = await this.api.postFormWithProgress<string | { source?: string }>(
+      CHAT_UPLOAD_ENDPOINT,
+      form,
+      (loaded, total) => {
+        if (!total) return;
+        onProgress?.(Math.max(0, Math.min(100, Math.round((loaded / total) * 100))));
+      },
+      120000,
+      signal
+    );
+
+    if (typeof result === 'string' && result.trim()) return result;
+    if (result && typeof result === 'object' && typeof result.source === 'string' && result.source.trim()) {
+      return result.source;
+    }
+
+    throw new Error('ChatPalez returned an invalid profile picture upload result.');
+  }
+
   async uploadChatPhoto(file: File, onProgress?: (percent: number) => void, signal?: AbortSignal): Promise<string> {
     if (!file.type.startsWith('image/')) throw new Error('Choose an image file to attach.');
     const result = await this.upload(file, 'photos', false, onProgress, signal);
