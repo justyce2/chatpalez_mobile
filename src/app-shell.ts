@@ -25,6 +25,7 @@ export type AppShellHandlers = {
   onShowCreateActions?: () => Promise<string | null>;
   onOpenPublicPage?: (path: string) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
+  resolveChatMediaUrl?: ChatScreenHandlers['resolveChatMediaUrl'];
   onPickChatPhoto?: () => Promise<File | null>;
   onPickChatAttachment?: (kind: 'image' | 'video' | 'file') => Promise<File | null>;
   onChatSoundChange?: (enabled: boolean) => void;
