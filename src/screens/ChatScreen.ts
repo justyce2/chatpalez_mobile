@@ -14,7 +14,7 @@ function findConfirmedDeliveryMessage(messages: Message[], payload: ChatOutboxPa
     if (kind === 'voice') return Boolean(message.voice_note);
     if (kind === 'file') {
       const file = message.attachments?.file ?? message.file;
-      return Boolean(typeof file === 'string' ? file : file && typeof file === 'object' ? file.source : file);
+      if (typeof file === 'string') return Boolean(file);\n      if (file && typeof file === 'object') {\n        const source = 'source' in file ? file.source : undefined;\n        return Boolean(source);\n      }\n      return Boolean(file);
     }
     return false;
   };
