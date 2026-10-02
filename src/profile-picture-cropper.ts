@@ -1,6 +1,5 @@
 export type CroppedProfilePicture = {
   file: File;
-  previewUrl: string;
 };
 
 export async function cropProfilePicture(file: File): Promise<CroppedProfilePicture | null> {
@@ -187,8 +186,7 @@ function openCropper(image: HTMLImageElement, originalName: string): Promise<Cro
           const baseName = originalName.replace(/\.[^.]*$/, '').trim() || 'profile-picture';
           const fileName = `${baseName}-profile.jpg`;
           const croppedFile = new File([blob], fileName, { type: 'image/jpeg', lastModified: Date.now() });
-          const previewUrl = URL.createObjectURL(croppedFile);
-          finish({ file: croppedFile, previewUrl });
+          finish({ file: croppedFile });
         }, 'image/jpeg', 0.9);
       } catch {
         apply.disabled = false;
