@@ -655,8 +655,10 @@ export class ChatScreen {
       option.type = 'button';
       option.className = 'chat-attachment-option';
       option.disabled = !enabled;
+      option.dataset.featureEnabled = String(enabled);
       option.innerHTML = `${attachmentIcon(kind)}<span>${label}</span>`;
       option.addEventListener('click', () => {
+        if (option.dataset.featureEnabled !== 'true') return;
         if ((kind === 'image' || kind === 'camera') && !photosAvailable) return;
         attachmentSheet.hidden = true;
         if (kind === 'voice') {
@@ -666,7 +668,7 @@ export class ChatScreen {
             if (file && version === this.viewVersion) showVoiceAttachment(file);
           }).catch((error: unknown) => {
             if (version === this.viewVersion && error instanceof Error && !/cancel|dismiss/i.test(error.message)) window.alert(error.message);
-          }).finally(() => { option.disabled = false; });
+          }).finally(() => { option.disabled = option.dataset.featureEnabled !== 'true'; });
           return;
         }
         if (kind === 'camera') {
@@ -676,7 +678,7 @@ export class ChatScreen {
             if (file && version === this.viewVersion) showAttachment(file);
           }).catch((error: unknown) => {
             if (version === this.viewVersion && error instanceof Error && !/cancel|dismiss/i.test(error.message)) window.alert(error.message);
-          }).finally(() => { option.disabled = !enabled; });
+          }).finally(() => { option.disabled = option.dataset.featureEnabled !== 'true'; });
           return;
         }
         if (this.handlers.onPickChatAttachment) {
@@ -833,7 +835,7 @@ export class ChatScreen {
         fileMaxBytes = Number(features.fileMaxBytes || 0);
         const options = Array.from(attachmentSheetOptions.querySelectorAll<HTMLButtonElement>('.chat-attachment-option'));
         const labels = options.map((option) => option.textContent?.trim().toLowerCase());
-        const setOption = (label: string, enabled: boolean) => { const index = labels.indexOf(label); if (index >= 0 && options[index]) options[index].disabled = !enabled; };
+        const setOption = (label: string, enabled: boolean) => { const index = labels.indexOf(label); if (index >= 0 && options[index]) { options[index].dataset.featureEnabled = String(enabled); options[index].disabled = !enabled; } };
         setOption('image', features.photos); setOption('camera', features.photos); setOption('video', features.videos); setOption('file', features.files); setOption('voice note', features.voiceNotes);
         photosAvailable = Boolean(features.photos);
         if (!photosAvailable && selectedPhoto) clearAttachment();
