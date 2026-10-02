@@ -995,6 +995,108 @@ p { color: #64748b; line-height: 1.55; }
 .native-profile-detail-row strong { color: #1F2937; font-size: 13px; font-weight: 650; }
 
 
+.native-profile-avatar-wrap {
+  position: relative;
+  flex: 0 0 72px;
+  width: 72px;
+  min-height: 102px;
+}
+.native-profile-avatar-wrap .native-profile-avatar {
+  display: block;
+}
+.native-profile-avatar-action {
+  width: 100%;
+  min-height: 30px;
+  margin-top: 6px;
+  padding: 6px 5px;
+  border-radius: 9px;
+  font-size: 10px;
+}
+.profile-picture-upload-status {
+  margin: 0 14px 12px;
+  color: #0066B2;
+  font-size: 12px;
+  font-weight: 650;
+}
+.profile-picture-source,
+.profile-picture-cropper {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, .62);
+}
+.profile-picture-source__panel,
+.profile-picture-cropper__panel {
+  width: min(100%, 430px);
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 18px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .25);
+}
+.profile-picture-source__panel {
+  display: grid;
+  gap: 10px;
+}
+.profile-picture-source__panel strong {
+  margin-bottom: 4px;
+  color: #172A3A;
+  font-size: 17px;
+}
+.profile-picture-cropper__heading {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.profile-picture-cropper__heading strong {
+  color: #172A3A;
+  font-size: 17px;
+}
+.profile-picture-cropper__heading span {
+  color: #64748B;
+  font-size: 12px;
+}
+.profile-picture-cropper__viewport {
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  margin: 0 auto 14px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #000;
+  touch-action: none;
+}
+.profile-picture-cropper__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+.profile-picture-cropper__canvas:active {
+  cursor: grabbing;
+}
+.profile-picture-cropper__zoom-label {
+  display: grid;
+  gap: 7px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 650;
+}
+.profile-picture-cropper__zoom {
+  width: 100%;
+}
+.profile-picture-cropper__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 16px;
+}
+
 /* Shared Capacitor navigation: same markup and assets on Android and iOS. */
 .bottom-tabs {
   position: fixed;
