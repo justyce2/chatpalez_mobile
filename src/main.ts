@@ -546,8 +546,19 @@ const shell = createAppShell(root, {
     return result;
   },
   onRecordVoiceNote: async () => recordVoiceNote(),
+  resolveChatMediaUrl: (source) => getChatMediaUrl(
+    config.origin,
+    source,
+    config.allowedHosts,
+    config.uploadsBaseUrl
+  ),
   onDownloadChatMedia: async (source, onProgress) => {
-    const url = getChatMediaUrl(config.origin, source);
+    const url = getChatMediaUrl(
+      config.origin,
+      source,
+      config.allowedHosts,
+      config.uploadsBaseUrl
+    );
     if (!url) throw new Error('This attachment URL is not allowed.');
     const blob = await api.downloadWithProgress(url, (loaded, total) => { if (total) onProgress?.(Math.round((loaded / total) * 100)); });
     return URL.createObjectURL(blob);
