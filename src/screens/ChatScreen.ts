@@ -1,5 +1,6 @@
-function findConfirmedDeliveryMessage(messages: Message[], payload: ChatOutboxPayload): Message | null {
+function findConfirmedDeliveryMessage(messages: Message[], payload: ChatOutboxPayload, usedMessageIds = new Set<string>()): Message | null {
   const normalizedPayloadText = String(payload.message ?? '').trim();
+  const fallbackPayloadText = !normalizedPayloadText && payload.file ? payload.file.name.trim() : '';
   const attachmentKinds = [
     payload.photo ? 'photo' : '',
     payload.video ? 'video' : '',
@@ -19,8 +20,13 @@ function findConfirmedDeliveryMessage(messages: Message[], payload: ChatOutboxPa
   };
 
   for (const message of messages) {
+    const messageId = message.message_id == null ? '' : String(message.message_id);
+    if (messageId && usedMessageIds.has(messageId)) continue;
     const messageText = chatMessageText(message).trim();
-    if (messageText !== normalizedPayloadText) continue;
+    const textMatches = normalizedPayloadText
+      ? messageText === normalizedPayloadText
+      : !messageText || (fallbackPayloadText && messageText === fallbackPayloadText);
+    if (!textMatches) continue;
     if (attachmentKinds.some((kind) => !hasAttachment(message, kind))) continue;
     return message;
   }
@@ -978,10 +984,12 @@ export class ChatScreen {
           const ownMessages = messages.filter((message) =>
             String(message.user_id ?? message.sender_id ?? '') === String(this.session.user.user_id)
           );
+          const confirmedMessageIds = new Set<string>();
           for (const [localId, delivery] of [...pendingDeliveries]) {
             if (!delivery.sent) continue;
-            const confirmed = findConfirmedDeliveryMessage(ownMessages, delivery.payload);
+            const confirmed = findConfirmedDeliveryMessage(ownMessages, delivery.payload, confirmedMessageIds);
             if (confirmed) {
+              if (confirmed.message_id != null) confirmedMessageIds.add(String(confirmed.message_id));
               pendingDeliveries.delete(localId);
               if (delivery.previewUrl) URL.revokeObjectURL(delivery.previewUrl);
             }
