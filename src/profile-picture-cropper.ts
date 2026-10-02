@@ -92,7 +92,15 @@ function openCropper(image: HTMLImageElement, originalName: string): Promise<Cro
     let lastY = 0;
     let settled = false;
 
+    const clampOffsets = (): void => {
+      const minX = 640 - imageWidth * scale;
+      const minY = 640 - imageHeight * scale;
+      offsetX = Math.min(0, Math.max(minX, offsetX));
+      offsetY = Math.min(0, Math.max(minY, offsetY));
+    };
+
     const draw = (): void => {
+      clampOffsets();
       context.clearRect(0, 0, 640, 640);
       context.fillStyle = '#000';
       context.fillRect(0, 0, 640, 640);
