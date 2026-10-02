@@ -2614,4 +2614,36 @@ function attachmentFileMimeType(name: string, source = ''): string {
 }
 
 function createLocalFilePreview(file: File): HTMLElement {
-  const kind = attachmentFileKind(file.name);
+  const kind = attachmentFileKind(file.name, file.type);
+  const preview = element('div', 'chat-attachment-preview__file');
+  const icon = elementWithText('span', attachmentFileBadge(file.name, file.type));
+  icon.className = 'chat-attachment-preview__file-icon';
+  icon.setAttribute('aria-hidden', 'true');
+
+  const info = element('div', 'chat-attachment-preview__file-info');
+  const name = elementWithText('strong', file.name || 'File attachment');
+  name.className = 'chat-attachment-preview__file-name';
+
+  const kindLabel = elementWithText('span', attachmentFileKindLabel(file.name, file.type));
+  kindLabel.className = 'chat-attachment-preview__file-kind';
+
+  const metadata = elementWithText(
+    'small',
+    [formatAttachmentSize(file.size), file.type || attachmentFileMimeType(file.name, file.type)]
+      .filter(Boolean)
+      .join(' · ')
+  );
+  metadata.className = 'chat-attachment-preview__file-meta';
+
+  info.append(name, kindLabel, metadata);
+  preview.append(icon, info);
+
+  // Keep the selected-file preview lightweight. The actual file remains the
+  // File object used by the upload flow; previewing binary documents locally
+  // here would duplicate parsing/loading work before the message is sent.
+  if (kind === 'pdf') preview.setAttribute('aria-label', 'PDF document');
+  else if (kind === 'text') preview.setAttribute('aria-label', 'Text document');
+  else preview.setAttribute('aria-label', 'File attachment');
+
+  return preview;
+}
