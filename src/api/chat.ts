@@ -66,7 +66,7 @@ export type Message = {
   image?: string;
   video?: string;
   voice_note?: string;
-  attachments?: { file?: string | { source?: string; name?: string } | null; video_thumbnail?: { source?: string } | null };
+  attachments?: { file?: string | { source?: string; name?: string; size?: number; type?: string } | null; video_thumbnail?: { source?: string } | null };
   [key: string]: unknown;
 };
 
