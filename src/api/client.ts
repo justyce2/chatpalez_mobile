@@ -238,10 +238,17 @@ export class ChatPalezApiClient {
     let envelope: ApiEnvelope<T> | null = null;
     let responseBody: unknown = null;
     try {
-      responseBody = await response.json();
-      envelope = responseBody as ApiEnvelope<T>;
+      const rawBody = await response.text();
+      if (rawBody.trim()) {
+        try {
+          responseBody = JSON.parse(rawBody) as unknown;
+          envelope = responseBody as ApiEnvelope<T>;
+        } catch {
+          responseBody = rawBody.trim();
+        }
+      }
     } catch {
-      // Fall through to normalized HTTP error below.
+      // Fall through to the normalized HTTP error below.
     }
 
     if (!response.ok || envelope?.status === 'error') {
