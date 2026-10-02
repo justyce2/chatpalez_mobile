@@ -108,6 +108,41 @@ export async function clearSession(): Promise<void> {
   }
 }
 
+/**
+ * Updates a single session user field without allowing a secure-storage
+ * persistence failure to destroy the still-valid in-memory authentication
+ * session. This is used for profile metadata that may change after login.
+ */
+export async function updateSessionUserPicture(userPicture: string): Promise<void> {
+  const session = current;
+  if (!session) return;
+
+  const updated: AuthSession = {
+    ...session,
+    user: {
+      ...session.user,
+      user_picture: userPicture
+    }
+  };
+  current = updated;
+
+  if (!isNative()) return;
+
+  try {
+    await prepareNativeStorage();
+    await SecureStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+
+    const persisted = await SecureStorage.getItem(SESSION_KEY);
+    if (!persisted || !parseSession(persisted)) {
+      throw new Error('Secure session verification failed.');
+    }
+  } catch {
+    // Keep the authenticated in-memory session intact. Persistence can be
+    // retried by the next explicit session write or app restart.
+    throw new Error('ChatPalez could not persist the updated profile picture.');
+  }
+}
+
 function isNative(): boolean {
   return Capacitor.isNativePlatform();
 }
