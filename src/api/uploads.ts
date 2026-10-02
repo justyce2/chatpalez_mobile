@@ -1,6 +1,7 @@
 import type { ChatPalezApiClient } from './client';
 
 const CHAT_UPLOAD_ENDPOINT = 'https://chatpalez.com/apis/php/data/upload';
+const PROFILE_UPLOAD_ENDPOINT = 'data/upload';
 
 export class UploadService {
   constructor(private readonly api: ChatPalezApiClient) {}
@@ -80,7 +81,7 @@ export class UploadService {
     form.append('totalChunks', '1');
 
     const result = await this.api.postFormWithProgress<string | { source?: string }>(
-      CHAT_UPLOAD_ENDPOINT,
+      PROFILE_UPLOAD_ENDPOINT,
       form,
       (loaded, total) => {
         if (!total) return;
