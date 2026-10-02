@@ -21,11 +21,16 @@ function isConfigured(config: AppConfig): boolean {
   return Capacitor.isNativePlatform() && Boolean(config.oneSignalAppId);
 }
 
-async function syncOneSignalUser(users: UserService): Promise<void> {
+async function syncOneSignalIdentifiers(users: UserService): Promise<void> {
+  // OneSignal.login() keeps the current OneSignal user ID associated with
+  // ChatPalez's stable account ID. The backend's existing /user/onesignal
+  // endpoint stores the current push subscription ID in its session field;
+  // that field is consumed by the legacy OneSignal sender as its player ID.
+  // Keep those two identifiers distinct: never send the OneSignal user ID
+  // where the backend expects the push subscription ID.
+  await OneSignal.User.getOnesignalId();
   const subscriptionId = await OneSignal.User.pushSubscription.getIdAsync();
-  if (subscriptionId) {
-    await users.updateOneSignalSubscriptionId(subscriptionId);
-  }
+  if (subscriptionId) await users.updateOneSignalSubscriptionId(subscriptionId);
 }
 
 export async function getNativeNotificationStatus(config: AppConfig): Promise<NativeNotificationStatus> {
@@ -43,7 +48,7 @@ export async function initializeNativeNotifications(
 ): Promise<NativeNotificationStatus> {
   if (!isConfigured(config)) return getNativeNotificationStatus(config);
 
-  syncCurrentUser = () => syncOneSignalUser(users);
+  syncCurrentUser = () => syncOneSignalIdentifiers(users);
   openNotificationRoute = onNotificationRoute ?? null;
 
   if (!initialized) {
@@ -74,7 +79,7 @@ export async function initializeNativeNotifications(
   }
 
   await OneSignal.login(String(userId));
-  await syncOneSignalUser(users);
+  await syncOneSignalIdentifiers(users);
   return getNativeNotificationStatus(config);
 }
 
