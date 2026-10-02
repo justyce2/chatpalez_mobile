@@ -44,6 +44,12 @@ export async function pickNativeChatPhoto(): Promise<File | null> {
 }
 
 export async function captureNativeChatPhoto(): Promise<File | null> {
+  const permissions = await Camera.checkPermissions();
+  if (permissions.camera !== 'granted') {
+    const requested = await Camera.requestPermissions({ permissions: ['camera'] });
+    if (requested.camera !== 'granted') throw new Error('Camera permission was not granted.');
+  }
+
   const photo = await Camera.getPhoto({
     source: CameraSource.Camera,
     resultType: CameraResultType.Uri,
