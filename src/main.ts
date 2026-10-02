@@ -622,8 +622,10 @@ const shell = createAppShell(root, {
     if (signal?.aborted) {
       throw new DOMException('The upload was cancelled.', 'AbortError');
     }
+    // Deliberately send only the real video source. The server/client thumbnail
+    // path has been the source of the HTTP 400 and is not required to play video.
     const videoSource = video
-      ? (typeof videoUpload === 'string' ? videoUpload : JSON.stringify({ source: videoUpload.source, video_thumbnail: videoUpload.thumbnail || '' }))
+      ? (typeof videoUpload === 'string' ? videoUpload : videoUpload.source)
       : '';
     const finalMessage = message || (file ? file.name : '');
     await chat.sendMessage(conversationId, finalMessage, photoSource, videoSource, fileSource, voiceSource);
