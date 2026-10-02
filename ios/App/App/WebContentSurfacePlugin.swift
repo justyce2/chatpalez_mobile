@@ -356,6 +356,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
     private func finishFeedLoading() {
         feedLoading = false
         feedLoadingView?.isHidden = true
+        pullRefreshControl?.endRefreshing()
     }
 
     private func syncChatSound() {
