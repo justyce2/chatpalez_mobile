@@ -2076,7 +2076,8 @@ p { color: #64748b; line-height: 1.55; }
   padding: 14px;
   background: rgba(255,255,255,.12);
 }
-.chat-upload-preview .chat-circular-progress {
+.chat-upload-preview .chat-circular-progress[hidden] { display: none !important; }
+.chat-circular-progress {
   z-index: 4;
 }
 .chat-circular-progress {
