@@ -2472,6 +2472,12 @@ p { color: #64748b; line-height: 1.55; }
 }
 .chat-media-card--file,
 .chat-media-card--voice { min-height: 64px; }
+.chat-media-card--file { cursor: pointer; display: grid; gap: 8px; align-items: center; padding: 10px; }
+.chat-media-card__file-name { overflow-wrap: anywhere; font-weight: 700; }
+.chat-media-card__file-open { min-height: 40px; padding: 8px 12px; border: 1px solid #CBD5E1; border-radius: 9px; background: #fff; color: #334155; font: inherit; font-weight: 700; }
+.chat-media-card--video { position: relative; cursor: pointer; }
+.chat-media-card__play-icon { display: block; width: 0; height: 0; border-top: 9px solid transparent; border-bottom: 9px solid transparent; border-left: 14px solid currentColor; margin-left: 3px; }
+.chat-file-preview-frame { width: min(100%, 420px); height: min(70dvh, 560px); border: 0; border-radius: 10px; background: #fff; }
 .chat-voice-player { min-height: 64px; width: min(300px, 100%); display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 10px; padding: 8px 10px; box-sizing: border-box; }
 .chat-voice-player__play { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: #0066B2; color: #fff; }
 .chat-voice-player__play:disabled { opacity: .5; }
