@@ -2053,7 +2053,6 @@ export class ChatScreen {
         return;
       }
 
-      const fileKind = attachmentFileKind(fileName, source);
       const fileKindLabel = attachmentFileKindLabel(fileName, source);
       const derivedFileType = attachmentFileMimeType(fileName, source);
       const displayFileName = fileName || fileKindLabel;
@@ -2561,12 +2560,6 @@ function formatAttachmentSize(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
 }
 
-function attachmentFileExtension(name: string): string {
-  const clean = name.split(/[?#]/)[0].split('/').pop() || '';
-  const dot = clean.lastIndexOf('.');
-  return dot > 0 ? clean.slice(dot + 1).toLowerCase() : '';
-}
-
 type ChatAttachmentKind = 'pdf' | 'text' | 'image' | 'audio' | 'video' | 'office' | 'archive' | 'psd' | 'generic';
 
 function attachmentFileExtension(name: string): string {
@@ -2622,38 +2615,3 @@ function attachmentFileMimeType(name: string, source = ''): string {
 
 function createLocalFilePreview(file: File): HTMLElement {
   const kind = attachmentFileKind(file.name);
-  if (kind === 'pdf') {
-    const wrap = element('div', 'chat-attachment-preview__document');
-    wrap.append(
-      elementWithText('strong', 'PDF'),
-      elementWithText('span', file.name || 'PDF document'),
-      elementWithText('small', formatAttachmentSize(file.size))
-    );
-    return wrap;
-  }
-  if (kind === 'text') {
-    const wrap = element('div', 'chat-attachment-preview__text');
-    const pre = elementWithText('pre', 'Loading preview…');
-    void file.text().then((value) => { pre.textContent = value.slice(0, 12000); }).catch(() => { pre.textContent = 'Text preview unavailable.'; });
-    wrap.append(pre);
-    return wrap;
-  }
-  const wrap = element('div', 'chat-attachment-preview__generic');
-  wrap.append(elementWithText('strong', attachmentFileBadge(file.name)), elementWithText('span', attachmentFileKindLabel(file.name)));
-  return wrap;
-}
-
-async function openChatFileUrl(url: string): Promise<void> {
-  if (!url) { window.alert('This file URL is not available.'); return; }
-  try {
-    if (Capacitor.isNativePlatform()) { await Browser.open({ url }); return; }
-    const opened = window.open(url, '_blank', 'noopener,noreferrer');
-    if (!opened) window.location.href = url;
-  } catch { window.location.href = url; }
-}
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return 'U';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
-}
