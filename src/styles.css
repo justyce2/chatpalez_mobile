@@ -2840,6 +2840,33 @@ p { color: #64748b; line-height: 1.55; }
   color: inherit;
   overflow-wrap: anywhere;
 }
+.chat-media-card__file-meta {
+  color: #64748B;
+  font-size: 10px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.message-bubble.is-mine .chat-media-card__file-meta { color: rgba(255,255,255,.72); }
+.chat-media-card__video-error {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  padding: 12px;
+  border-radius: 10px;
+  background: #0F172A;
+  color: #fff;
+  font-weight: 700;
+}
+.message-file-preview {
+  display: grid;
+  gap: 4px;
+}
+.message-file-preview__meta {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: .78;
+  overflow-wrap: anywhere;
+}
 .chat-media-card__file-kind {
   color: #64748B;
   font-size: 10px;
