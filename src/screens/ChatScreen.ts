@@ -1971,7 +1971,7 @@ export class ChatScreen {
         : typeof message.file === 'string' ? message.file : '';
     const fileName = rawFile && typeof rawFile === 'object' && typeof rawFile.name === 'string'
       ? rawFile.name
-      : (typeof message.file_name === 'string' ? message.file_name : '') || body || 'File attachment';
+      : (typeof message.file_name === 'string' ? message.file_name : '');
     const fileSize = rawFile && typeof rawFile === 'object' && typeof rawFile.size === 'number' && rawFile.size > 0
       ? rawFile.size
       : typeof message.file_size === 'number' && message.file_size > 0 ? message.file_size : 0;
@@ -2053,17 +2053,22 @@ export class ChatScreen {
         return;
       }
 
+      const fileKind = attachmentFileKind(fileName, source);
+      const fileKindLabel = attachmentFileKindLabel(fileName, source);
+      const derivedFileType = attachmentFileMimeType(fileName, source);
+      const displayFileName = fileName || fileKindLabel;
       const preview = element('div', 'chat-media-card__file-preview');
-      const icon = elementWithText('span', attachmentFileBadge(fileName));
+      const icon = elementWithText('span', attachmentFileBadge(fileName, source));
       icon.className = 'chat-media-card__file-icon';
       const info = element('div', 'chat-media-card__file-info');
-      const fileLabel = elementWithText('strong', fileName);
+      const fileLabel = elementWithText('strong', displayFileName);
       fileLabel.className = 'chat-media-card__file-name';
-      const kindLabel = elementWithText('span', attachmentFileKindLabel(fileName));
+      const kindLabel = elementWithText('span', fileKindLabel);
       kindLabel.className = 'chat-media-card__file-kind';
-      const metadataParts = [attachmentFileKindLabel(fileName)];
+      const metadataParts = [fileKindLabel];
       if (fileSize > 0) metadataParts.push(formatAttachmentSize(fileSize));
-      if (fileType && !metadataParts.some((part) => part.toLowerCase() === fileType.toLowerCase())) metadataParts.push(fileType);
+      const resolvedFileType = fileType || derivedFileType;
+      if (resolvedFileType && !metadataParts.some((part) => part.toLowerCase() === resolvedFileType.toLowerCase())) metadataParts.push(resolvedFileType);
       const metadata = elementWithText('span', metadataParts.join(' · '));
       metadata.className = 'chat-media-card__file-meta';
       info.append(fileLabel, kindLabel, metadata);
@@ -2084,7 +2089,7 @@ export class ChatScreen {
       card.append(progress);
 
       const showLoadedPreview = async (url: string): Promise<void> => {
-        const kind = attachmentFileKind(fileName);
+        const kind = attachmentFileKind(fileName, source);
         if (kind === 'pdf') {
           card.replaceChildren(preview);
           const open = document.createElement('button');
@@ -2168,7 +2173,7 @@ export class ChatScreen {
 
       // Load lightweight previewable file types immediately so a sent
       // attachment is already a real preview, not just a filename card.
-      const previewKind = attachmentFileKind(fileName);
+      const previewKind = attachmentFileKind(fileName, source);
       if (downloadMedia && ['pdf', 'text', 'image'].includes(previewKind)) {
         progress.hidden = false;
         void downloadMedia(source, (percent: number) => {
@@ -2562,8 +2567,16 @@ function attachmentFileExtension(name: string): string {
   return dot > 0 ? clean.slice(dot + 1).toLowerCase() : '';
 }
 
-function attachmentFileKind(name: string): 'pdf' | 'text' | 'image' | 'audio' | 'video' | 'office' | 'archive' | 'psd' | 'generic' {
-  const ext = attachmentFileExtension(name);
+type ChatAttachmentKind = 'pdf' | 'text' | 'image' | 'audio' | 'video' | 'office' | 'archive' | 'psd' | 'generic';
+
+function attachmentFileExtension(name: string): string {
+  const clean = name.split(/[?#]/)[0].split('/').pop() || '';
+  const dot = clean.lastIndexOf('.');
+  return dot > 0 ? clean.slice(dot + 1).toLowerCase() : '';
+}
+
+function attachmentFileKind(name: string, source = ''): ChatAttachmentKind {
+  const ext = attachmentFileExtension(name) || attachmentFileExtension(source);
   if (ext === 'pdf') return 'pdf';
   if (['txt','csv','tsv','json','xml','md','markdown','log','ini','yaml','yml'].includes(ext)) return 'text';
   if (['jpg','jpeg','png','gif','webp','avif','bmp','svg'].includes(ext)) return 'image';
@@ -2575,14 +2588,36 @@ function attachmentFileKind(name: string): 'pdf' | 'text' | 'image' | 'audio' | 
   return 'generic';
 }
 
-function attachmentFileBadge(name: string): string {
-  const ext = attachmentFileExtension(name);
+function attachmentFileBadge(name: string, source = ''): string {
+  const ext = attachmentFileExtension(name) || attachmentFileExtension(source);
   return ext ? ext.slice(0, 5).toUpperCase() : 'FILE';
 }
 
-function attachmentFileKindLabel(name: string): string {
-  const labels: Record<string, string> = { pdf: 'PDF document', text: 'Text document', image: 'Image', audio: 'Audio', video: 'Video', office: 'Office document', archive: 'Archive', psd: 'Photoshop document', generic: 'File' };
-  return labels[attachmentFileKind(name)];
+function attachmentFileKindLabel(name: string, source = ''): string {
+  const labels: Record<ChatAttachmentKind, string> = {
+    pdf: 'PDF document',
+    text: 'Text document',
+    image: 'Image',
+    audio: 'Audio',
+    video: 'Video',
+    office: 'Office document',
+    archive: 'Archive',
+    psd: 'Photoshop document',
+    generic: 'File'
+  };
+  return labels[attachmentFileKind(name, source)];
+}
+
+function attachmentFileMimeType(name: string, source = ''): string {
+  const ext = attachmentFileExtension(name) || attachmentFileExtension(source);
+  const mimeTypes: Record<string, string> = {
+    pdf: 'application/pdf',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  };
+  return mimeTypes[ext] || '';
 }
 
 function createLocalFilePreview(file: File): HTMLElement {
