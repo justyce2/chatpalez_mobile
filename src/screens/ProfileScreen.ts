@@ -173,15 +173,12 @@ export class ProfileScreen {
 
     this.profilePictureBusy = true;
     const version = this.renderVersion;
-    let previewUrl = '';
     try {
       const file = await this.chooseProfilePicture();
       if (!file) return;
 
       const cropped = await cropProfilePicture(file);
       if (!cropped) return;
-      previewUrl = cropped.previewUrl;
-
       const status = this.content.querySelector<HTMLElement>('.profile-picture-upload-status');
       if (status) {
         status.hidden = false;
@@ -205,7 +202,6 @@ export class ProfileScreen {
         status.textContent = error instanceof Error ? error.message : 'Unable to update your profile picture.';
       }
     } finally {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
       this.profilePictureBusy = false;
     }
   }
