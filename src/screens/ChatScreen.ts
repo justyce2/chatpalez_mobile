@@ -29,8 +29,11 @@ function findConfirmedDeliveryMessage(messages: Message[], payload: ChatOutboxPa
     if (messageId && usedMessageIds.has(messageId)) continue;
     const messageText = chatMessageText(message).trim();
     const fileAttachment = message.attachments?.file ?? message.file;
-    const fileName = fileAttachment && typeof fileAttachment === 'object' && typeof fileAttachment.name === 'string'
-      ? fileAttachment.name.trim()
+    const fileName = fileAttachment && typeof fileAttachment === 'object'
+      ? (() => {
+          const attachment = fileAttachment as Record<string, unknown>;
+          return typeof attachment.name === 'string' ? attachment.name.trim() : '';
+        })()
       : '';
     const hasRequestedFile = attachmentKinds.includes('file') && hasAttachment(message, 'file');
     const fileIdentityMatches = hasRequestedFile && (
@@ -821,7 +824,7 @@ export class ChatScreen {
         videoPreview.src = previewUrl;
         attachmentMedia.replaceChildren(videoPreview);
       } else {
-        attachmentMedia.replaceChildren(createLocalFilePreview(file, previewUrl));
+        attachmentMedia.replaceChildren(createLocalFilePreview(file));
       }
       attachmentMedia.after(details);
       attachment.hidden = false;
@@ -2556,7 +2559,7 @@ function attachmentFileKindLabel(name: string): string {
   return labels[attachmentFileKind(name)];
 }
 
-function createLocalFilePreview(file: File, url: string): HTMLElement {
+function createLocalFilePreview(file: File): HTMLElement {
   const kind = attachmentFileKind(file.name);
   if (kind === 'pdf') {
     const wrap = element('div', 'chat-attachment-preview__document');
