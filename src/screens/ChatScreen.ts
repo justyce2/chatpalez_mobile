@@ -758,6 +758,7 @@ export class ChatScreen {
       photo.value = '';
       attachment.hidden = true;
       attachmentMedia.replaceChildren();
+      attachment.querySelector('.chat-attachment-preview__details')?.remove();
       text.placeholder = 'Write a message…';
       send.setAttribute('aria-label', 'Send message');
     };
@@ -2128,6 +2129,21 @@ export class ChatScreen {
         });
       });
       bubble.append(card);
+
+      // Load lightweight previewable file types immediately so a sent
+      // attachment is already a real preview, not just a filename card.
+      const previewKind = attachmentFileKind(fileName);
+      if (downloadMedia && ['pdf', 'text', 'image'].includes(previewKind)) {
+        progress.hidden = false;
+        void downloadMedia(source, (percent: number) => {
+          progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
+        }).then((url: string) => {
+          progress.hidden = true;
+          void showLoadedPreview(url);
+        }).catch(() => {
+          progress.hidden = true;
+        });
+      }
     };
     if (forwarded) {
       const label = elementWithText('small', 'Forwarded');
