@@ -173,13 +173,21 @@ export class ProfileScreen {
 
     this.profilePictureBusy = true;
     const version = this.renderVersion;
+    this.setProfilePictureBusyUi(true, 'Working…');
+    const status = this.content.querySelector<HTMLElement>('.profile-picture-upload-status');
+    if (status) {
+      status.hidden = true;
+      status.textContent = '';
+    }
+
     try {
       const file = await this.chooseProfilePicture();
       if (!file) return;
 
       const cropped = await cropProfilePicture(file);
       if (!cropped) return;
-      const status = this.content.querySelector<HTMLElement>('.profile-picture-upload-status');
+
+      this.setProfilePictureBusyUi(true, 'Uploading…');
       if (status) {
         status.hidden = false;
         status.textContent = 'Uploading profile picture…';
@@ -203,7 +211,15 @@ export class ProfileScreen {
       }
     } finally {
       this.profilePictureBusy = false;
+      if (version === this.renderVersion) this.setProfilePictureBusyUi(false);
     }
+  }
+
+  private setProfilePictureBusyUi(busy: boolean, label = 'Change photo'): void {
+    const button = this.content.querySelector<HTMLButtonElement>('.native-profile-avatar-action');
+    if (!button) return;
+    button.disabled = busy || (!this.handlers.onPickProfilePicture && !this.handlers.onCaptureProfilePicture);
+    button.textContent = busy ? label : 'Change photo';
   }
 
   private async chooseProfilePicture(): Promise<File | null> {
