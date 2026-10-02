@@ -21,6 +21,7 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
 
     private var contentWebView: WKWebView?
     private var feedLoadingView: UIView?
+    private var pullRefreshControl: UIRefreshControl?
     private var feedLoading = false
     private var feedLoadGeneration = 0
     private var chatSoundEnabled = true
