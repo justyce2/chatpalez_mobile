@@ -475,10 +475,15 @@ async function chooseProfilePictureSource(): Promise<'gallery' | 'camera' | 'can
     overlay.append(panel);
     document.body.append(overlay);
 
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') finish('cancel');
+    };
     const finish = (source: 'gallery' | 'camera' | 'cancel'): void => {
+      document.removeEventListener('keydown', onKeyDown);
       overlay.remove();
       resolve(source);
     };
+    document.addEventListener('keydown', onKeyDown);
     gallery.addEventListener('click', () => finish('gallery'));
     camera.addEventListener('click', () => finish('camera'));
     cancel.addEventListener('click', () => finish('cancel'));
