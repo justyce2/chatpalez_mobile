@@ -2077,7 +2077,7 @@ export class ChatScreen {
       const openFile = document.createElement('button');
       openFile.type = 'button';
       openFile.className = 'chat-media-card__file-open';
-      openFile.setAttribute('aria-label', `Open ${fileName}`);
+      openFile.setAttribute('aria-label', `Open ${displayFileName}`);
       openFile.textContent = 'Open';
       card.append(openFile);
 
@@ -2118,7 +2118,7 @@ export class ChatScreen {
           const image = document.createElement('img');
           image.className = 'chat-file-image-preview';
           image.src = url;
-          image.alt = fileName;
+          image.alt = displayFileName;
           card.replaceChildren(image);
           return;
         }
