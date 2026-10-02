@@ -184,7 +184,7 @@ function openCropper(image: HTMLImageElement, originalName: string): Promise<Cro
             apply.disabled = false;
             return;
           }
-          const baseName = originalName.replace(/\\.[^.]*$/, '').trim() || 'profile-picture';
+          const baseName = originalName.replace(/\.[^.]*$/, '').trim() || 'profile-picture';
           const fileName = `${baseName}-profile.jpg`;
           const croppedFile = new File([blob], fileName, { type: 'image/jpeg', lastModified: Date.now() });
           const previewUrl = URL.createObjectURL(croppedFile);
