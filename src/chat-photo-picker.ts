@@ -5,7 +5,7 @@ const androidPicker = registerPlugin<{ pick(): Promise<{ uri?: string; type?: st
 
 async function photoToFile(photo: { webPath?: string; uri?: string; metadata?: { format?: string } } | null): Promise<File | null> {
   if (!photo || !(photo.webPath || photo.uri)) return null;
-  const webPath = photo.webPath || Capacitor.convertFileSrc(photo.uri!);
+  const webPath = photo.uri ? Capacitor.convertFileSrc(photo.uri) : photo.webPath!;
   const response = await fetch(webPath!);
   if (!response.ok) throw new Error('The selected photo could not be opened.');
   const maximumBytes = 8 * 1024 * 1024;
