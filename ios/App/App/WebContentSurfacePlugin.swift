@@ -47,6 +47,11 @@ public class WebContentSurfacePlugin: CAPPlugin, CAPBridgedPlugin, WKNavigationD
         webView.isHidden = true
         webView.autoresizingMask = []
         webView.navigationDelegate = self
+        webView.scrollView.alwaysBounceVertical = true
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(handlePullRefresh(_:)), for: .valueChanged)
+        webView.scrollView.refreshControl = refreshControl
+        pullRefreshControl = refreshControl
         host.addSubview(webView)
         host.bringSubviewToFront(webView)
         let loading = UIView(frame: .zero)
