@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearSession, getAuthToken, getSession, restoreSession, setSession } from './session';
+import { clearSession, getAuthToken, getSession, restoreSession, setSession, updateSessionUserPicture } from './session';
 
 describe('mobile auth session', () => {
   beforeEach(async () => {
@@ -14,6 +14,19 @@ describe('mobile auth session', () => {
 
     expect(getAuthToken()).toBe('test-token');
     expect(getSession()?.user.user_id).toBe(42);
+  });
+
+  it('updates the profile picture without replacing the authenticated session', async () => {
+    await setSession({
+      token: 'test-token',
+      user: { user_id: 42, user_name: 'tester', user_picture: 'old.jpg' }
+    });
+
+    await updateSessionUserPicture('new.jpg');
+
+    expect(getAuthToken()).toBe('test-token');
+    expect(getSession()?.user.user_id).toBe(42);
+    expect(getSession()?.user.user_picture).toBe('new.jpg');
   });
 
   it('clears the active session on logout', async () => {
