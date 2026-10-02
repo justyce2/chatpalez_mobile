@@ -28,11 +28,23 @@ function findConfirmedDeliveryMessage(messages: Message[], payload: ChatOutboxPa
     const messageId = message.message_id == null ? '' : String(message.message_id);
     if (messageId && usedMessageIds.has(messageId)) continue;
     const messageText = chatMessageText(message).trim();
+    const fileAttachment = message.attachments?.file ?? message.file;
+    const fileName = fileAttachment && typeof fileAttachment === 'object' && typeof fileAttachment.name === 'string'
+      ? fileAttachment.name.trim()
+      : '';
+    const hasRequestedFile = attachmentKinds.includes('file') && hasAttachment(message, 'file');
+    const fileIdentityMatches = hasRequestedFile && (
+      !payload.file ||
+      !fileName ||
+      fileName === payload.file.name.trim() ||
+      messageText === payload.file.name.trim() ||
+      messageText === fallbackPayloadText
+    );
     const textMatches = normalizedPayloadText
       ? messageText === normalizedPayloadText
       : !messageText || (fallbackPayloadText && messageText === fallbackPayloadText);
-    if (!textMatches) continue;
-    if (attachmentKinds.some((kind) => !hasAttachment(message, kind))) continue;
+    if (hasRequestedFile ? !fileIdentityMatches : !textMatches) continue;
+    if (attachmentKinds.some((kind) => kind !== 'file' && !hasAttachment(message, kind))) continue;
     return message;
   }
   return null;
@@ -1906,24 +1918,17 @@ export class ChatScreen {
     const downloadMedia = this.handlers.onDownloadChatMedia;
     const rawVideoSource = typeof message.video === 'string' ? message.video : '';
     let videoSource = rawVideoSource;
-    let videoThumbnailSource = media.video_thumbnail?.source || '';
     if (rawVideoSource) {
       try {
-        const parsed = JSON.parse(rawVideoSource) as { source?: unknown; video_thumbnail?: unknown; thumbnail?: unknown };
-        if (parsed && typeof parsed === 'object') {
-          if (typeof parsed.source === 'string' && parsed.source.trim()) videoSource = parsed.source;
-          const thumbnail = parsed.video_thumbnail;
-          if (thumbnail && typeof thumbnail === 'object' && typeof (thumbnail as { source?: unknown }).source === 'string') {
-            videoThumbnailSource = String((thumbnail as { source: string }).source);
-          } else if (typeof parsed.thumbnail === 'string' && parsed.thumbnail.trim()) {
-            videoThumbnailSource = parsed.thumbnail;
-          }
+        const parsed = JSON.parse(rawVideoSource) as { source?: unknown };
+        if (parsed && typeof parsed.source === 'string' && parsed.source.trim()) {
+          videoSource = parsed.source;
         }
       } catch {
-        // Older messages may store the video source as a plain upload path.
+        // Current messages store the video source directly. Older messages
+        // may still contain the source inside the legacy JSON wrapper.
       }
     }
-    const videoThumbnail = this.handlers.resolveChatPhotoUrl?.(videoThumbnailSource);
     const rawFile = media.file;
     const fileSource = typeof rawFile === 'string'
       ? rawFile
@@ -1935,7 +1940,7 @@ export class ChatScreen {
       : (typeof message.file_name === 'string' ? message.file_name : '') || body || 'File attachment';
     const voiceSource = typeof message.voice_note === 'string' ? message.voice_note : '';
 
-    const renderDownloadable = (source: string, thumbnail: string, kind: 'video' | 'file' | 'voice'): void => {
+    const renderDownloadable = (source: string, _thumbnail: string, kind: 'video' | 'file' | 'voice'): void => {
       if (!source) return;
       const card = element('div', `chat-media-card chat-media-card--${kind}`);
       const resolvedUrl = this.handlers.resolveChatMediaUrl?.(source);
@@ -1988,16 +1993,14 @@ export class ChatScreen {
       }
 
       if (kind === 'video') {
-        const thumb = thumbnail ? document.createElement('img') : null;
-        if (thumb) {
-          thumb.className = 'chat-media-card__thumbnail';
-          thumb.src = thumbnail;
-          thumb.alt = 'Video thumbnail';
-          thumb.loading = 'lazy';
-          card.append(thumb);
-        } else {
-          card.append(elementWithText('span', 'Video'));
-        }
+        const video = document.createElement('video');
+        video.className = 'chat-media-card__video';
+        video.controls = true;
+        video.playsInline = true;
+        video.preload = 'metadata';
+        video.src = resolvedUrl || '';
+        video.setAttribute('aria-label', 'Video attachment');
+        card.append(video);
 
         const openVideo = document.createElement('button');
         openVideo.type = 'button';
@@ -2054,12 +2057,16 @@ export class ChatScreen {
       const showLoadedPreview = async (url: string): Promise<void> => {
         const kind = attachmentFileKind(fileName);
         if (kind === 'pdf') {
-          const frame = document.createElement('iframe');
-          frame.className = 'chat-file-preview-frame';
-          frame.src = url;
-          frame.title = fileName;
-          frame.setAttribute('allow', 'fullscreen');
-          card.replaceChildren(frame);
+          card.replaceChildren(preview);
+          const open = document.createElement('button');
+          open.type = 'button';
+          open.className = 'chat-media-card__file-open';
+          open.textContent = 'Open PDF';
+          open.addEventListener('click', (event) => {
+            event.stopPropagation();
+            void openChatFileUrl(resolvedUrl || url);
+          });
+          card.append(open);
           return;
         }
         if (kind === 'text') {
@@ -2179,7 +2186,7 @@ export class ChatScreen {
       }, { once: true });
       bubble.append(openPhoto);
     }
-    if (videoSource) renderDownloadable(videoSource, videoThumbnail || '', 'video');
+    if (videoSource) renderDownloadable(videoSource, '', 'video');
     if (fileSource) renderDownloadable(fileSource, '', 'file');
     if (voiceSource) renderDownloadable(voiceSource, '', 'voice');
     if (body && !fileSource) {
@@ -2552,11 +2559,13 @@ function attachmentFileKindLabel(name: string): string {
 function createLocalFilePreview(file: File, url: string): HTMLElement {
   const kind = attachmentFileKind(file.name);
   if (kind === 'pdf') {
-    const frame = document.createElement('iframe');
-    frame.className = 'chat-attachment-preview__document';
-    frame.src = url;
-    frame.title = file.name;
-    return frame;
+    const wrap = element('div', 'chat-attachment-preview__document');
+    wrap.append(
+      elementWithText('strong', 'PDF'),
+      elementWithText('span', file.name || 'PDF document'),
+      elementWithText('small', formatAttachmentSize(file.size))
+    );
+    return wrap;
   }
   if (kind === 'text') {
     const wrap = element('div', 'chat-attachment-preview__text');
