@@ -1,3 +1,32 @@
+function findConfirmedDeliveryMessage(messages: Message[], payload: ChatOutboxPayload): Message | null {
+  const normalizedPayloadText = String(payload.message ?? '').trim();
+  const attachmentKinds = [
+    payload.photo ? 'photo' : '',
+    payload.video ? 'video' : '',
+    payload.file ? 'file' : '',
+    payload.voice ? 'voice' : ''
+  ].filter(Boolean);
+
+  const hasAttachment = (message: Message, kind: string): boolean => {
+    if (kind === 'photo') return Boolean(message.photo || message.image);
+    if (kind === 'video') return Boolean(message.video);
+    if (kind === 'voice') return Boolean(message.voice_note);
+    if (kind === 'file') {
+      const file = message.attachments?.file ?? message.file;
+      return Boolean(typeof file === 'string' ? file : file && typeof file === 'object' ? file.source : file);
+    }
+    return false;
+  };
+
+  for (const message of messages) {
+    const messageText = chatMessageText(message).trim();
+    if (messageText !== normalizedPayloadText) continue;
+    if (attachmentKinds.some((kind) => !hasAttachment(message, kind))) continue;
+    return message;
+  }
+  return null;
+}
+
 function formatChatLastSeen(value: string): string {
   const normalized = value.includes('T') ? value : value.replace(' ', 'T') + (/[zZ]|[+-]\d\d:\d\d$/.test(value) ? '' : 'Z');
   const date = new Date(normalized);
@@ -663,31 +692,28 @@ export class ChatScreen {
         attachmentSheet.hidden = true;
         if (kind === 'voice') {
           if (!this.handlers.onRecordVoiceNote) return;
-          option.disabled = true;
           void this.handlers.onRecordVoiceNote(conversationId).then((file) => {
             if (file && version === this.viewVersion) showVoiceAttachment(file);
           }).catch((error: unknown) => {
             if (version === this.viewVersion && error instanceof Error && !/cancel|dismiss/i.test(error.message)) window.alert(error.message);
-          }).finally(() => { option.disabled = option.dataset.featureEnabled !== 'true'; });
+          });
           return;
         }
         if (kind === 'camera') {
           if (!this.handlers.onPickChatPhoto) return;
-          option.disabled = true;
           void this.handlers.onPickChatPhoto().then((file) => {
             if (file && version === this.viewVersion) showAttachment(file);
           }).catch((error: unknown) => {
             if (version === this.viewVersion && error instanceof Error && !/cancel|dismiss/i.test(error.message)) window.alert(error.message);
-          }).finally(() => { option.disabled = option.dataset.featureEnabled !== 'true'; });
+          });
           return;
         }
         if (this.handlers.onPickChatAttachment) {
-          option.disabled = true;
           void this.handlers.onPickChatAttachment(kind).then((file) => {
             if (file && version === this.viewVersion) showAttachment(file);
           }).catch((error: unknown) => {
             if (version === this.viewVersion && error instanceof Error && !/cancel|dismiss/i.test(error.message)) window.alert(error.message);
-          }).finally(() => { option.disabled = !enabled; });
+          });
         } else if (kind === 'image') {
           photo.click();
         }
@@ -870,7 +896,14 @@ export class ChatScreen {
     let loadingOlder = false;
     let renderedMessages: Message[] = [];
     let realtimeConnected = false;
-    type PendingDelivery = { bubble: HTMLDivElement; previewUrl: string | null; controller: AbortController; cancelled: boolean };
+    type PendingDelivery = {
+      bubble: HTMLDivElement;
+      previewUrl: string | null;
+      controller: AbortController;
+      cancelled: boolean;
+      payload: ChatOutboxPayload;
+      sent: boolean;
+    };
     const pendingDeliveries = new Map<string, PendingDelivery>();
     let lastMarkedIncomingId: string | null = null;
     let previousScrollTop = 0;
@@ -937,6 +970,24 @@ export class ChatScreen {
         const existing = new Map([...thread.querySelectorAll<HTMLDivElement>('.message-bubble[data-message-id]')]
           .map((bubble) => [bubble.dataset.messageId!, bubble]));
         renderedMessages = mergeChatHistory(renderedMessages, messages, older);
+
+        // A successful send can race the history endpoint: the server may acknowledge
+        // the message before it becomes visible in the next history response. Keep the
+        // optimistic bubble in place until a matching server message is actually present.
+        if (!older && messages.length) {
+          const ownMessages = messages.filter((message) =>
+            String(message.user_id ?? message.sender_id ?? '') === String(this.session.user.user_id)
+          );
+          for (const [localId, delivery] of [...pendingDeliveries]) {
+            if (!delivery.sent) continue;
+            const confirmed = findConfirmedDeliveryMessage(ownMessages, delivery.payload);
+            if (confirmed) {
+              pendingDeliveries.delete(localId);
+              if (delivery.previewUrl) URL.revokeObjectURL(delivery.previewUrl);
+            }
+          }
+        }
+
         void saveChatHistory(this.session.user.user_id, conversationId, renderedMessages, hasMoreHistory).catch(() => undefined);
 
         const latestIds = new Set(messages.map((message) => String(message.message_id)));
@@ -1109,9 +1160,18 @@ export class ChatScreen {
       const delivery = pendingDeliveries.get(localId);
       if (!delivery) return;
       if (success) {
-        delivery.bubble.remove();
-        if (delivery.previewUrl) URL.revokeObjectURL(delivery.previewUrl);
-        pendingDeliveries.delete(localId);
+        // Do not remove the optimistic bubble merely because the send request
+        // succeeded. History can lag the write by one refresh cycle. Keep the
+        // exact bubble visible and reconcile it when the server message appears.
+        delivery.sent = true;
+        delivery.bubble.classList.remove('is-pending', 'is-failed');
+        delivery.bubble.classList.add('is-sent-optimistic');
+        const progress = delivery.bubble.querySelector<HTMLElement>('.chat-circular-progress');
+        if (progress) progress.hidden = true;
+        const state = delivery.bubble.querySelector<HTMLElement>('.chat-delivery-state') ?? element('small', 'chat-delivery-state');
+        state.textContent = 'Sent';
+        state.setAttribute('role', 'status');
+        if (!state.parentElement) delivery.bubble.append(state);
         return;
       }
 
@@ -1163,6 +1223,9 @@ export class ChatScreen {
           }, localId, delivery.controller.signal).then(async () => {
             const synced = await refresh();
             if (synced) {
+              // refresh() may succeed while still returning a stale history page.
+              // finishDelivery therefore only marks the optimistic bubble as sent;
+              // reconciliation removes it only when the real server message exists.
               finishDelivery(localId, true);
             } else {
               const current = pendingDeliveries.get(localId);
@@ -1265,9 +1328,12 @@ export class ChatScreen {
         bubble,
         previewUrl: deliveryPreviewUrl,
         controller: new AbortController(),
-        cancelled: false
+        cancelled: false,
+        payload,
+        sent: false
       };
       (bubble as HTMLDivElement & { __payload?: ChatOutboxPayload }).__payload = payload;
+      delivery.payload = payload;
       pendingDeliveries.set(localId, delivery);
 
       if (progress) {
@@ -1381,7 +1447,20 @@ export class ChatScreen {
           file: record.file,
           voice: record.voice
         };
-        pendingDeliveries.set(record.localId, { bubble: delivery.bubble, previewUrl: persistedPreviewUrl, controller: new AbortController(), cancelled: false });
+        pendingDeliveries.set(record.localId, {
+          bubble: delivery.bubble,
+          previewUrl: persistedPreviewUrl,
+          controller: new AbortController(),
+          cancelled: false,
+          payload: {
+            message: record.message,
+            photo: record.photo,
+            video: record.video,
+            file: record.file,
+            voice: record.voice
+          },
+          sent: false
+        });
         if (delivery.progress) {
           delivery.progress.addEventListener('click', (clickEvent) => {
             clickEvent.stopPropagation();
