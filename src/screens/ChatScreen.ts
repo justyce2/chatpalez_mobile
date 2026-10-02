@@ -46,6 +46,7 @@ export type ChatScreenHandlers = {
   onThreadPresenceChange?: (conversationId: number | string, presence: string) => void;
   onSelectionChange?: (selection: ChatSelectionState | null) => void;
   resolveChatPhotoUrl?: (source: string) => string | null;
+  resolveChatMediaUrl?: (source: string) => string | null;
   onPickChatPhoto?: () => Promise<File | null>;
   onPickChatAttachment?: (kind: 'image' | 'video' | 'file') => Promise<File | null>;
   onRecordVoiceNote?: (conversationId: number | string) => Promise<File | null>;
@@ -1828,8 +1829,9 @@ export class ChatScreen {
     const voiceSource = typeof message.voice_note === 'string' ? message.voice_note : '';
 
     const renderDownloadable = (source: string, thumbnail: string, kind: 'video' | 'file' | 'voice'): void => {
-      if (!downloadMedia || !source) return;
+      if (!source) return;
       const card = element('div', `chat-media-card chat-media-card--${kind}`);
+      const resolvedUrl = this.handlers.resolveChatMediaUrl?.(source);
 
       if (kind === 'voice') {
         const loadButton = document.createElement('button');
@@ -1847,6 +1849,19 @@ export class ChatScreen {
         card.append(loadButton, progress);
         loadButton.addEventListener('click', (event) => {
           event.stopPropagation();
+
+          if (mine && resolvedUrl) {
+            const audio = document.createElement('audio');
+            audio.controls = true;
+            audio.preload = 'auto';
+            audio.src = resolvedUrl;
+            audio.setAttribute('aria-label', 'Voice note');
+            card.replaceChildren(audio);
+            void audio.play().catch(() => undefined);
+            return;
+          }
+
+          if (!downloadMedia) return;
           loadButton.disabled = true;
           progress.hidden = false;
           void downloadMedia(source, (percent: number) => {
@@ -1865,65 +1880,102 @@ export class ChatScreen {
         return;
       }
 
-      if (thumbnail) {
-        const thumb = document.createElement('img');
-        thumb.className = 'chat-media-card__thumbnail';
-        thumb.src = thumbnail;
-        thumb.alt = kind === 'video' ? 'Video thumbnail' : 'Attachment preview';
-        thumb.loading = 'lazy';
-        card.append(thumb);
-      } else {
-        card.append(elementWithText('span', kind === 'file' ? fileName : 'Video'));
+      if (kind === 'video') {
+        const thumb = thumbnail ? document.createElement('img') : null;
+        if (thumb) {
+          thumb.className = 'chat-media-card__thumbnail';
+          thumb.src = thumbnail;
+          thumb.alt = 'Video thumbnail';
+          thumb.loading = 'lazy';
+          card.append(thumb);
+        } else {
+          card.append(elementWithText('span', 'Video'));
+        }
+
+        const openVideo = document.createElement('button');
+        openVideo.type = 'button';
+        openVideo.className = 'chat-media-card__download';
+        openVideo.setAttribute('aria-label', 'Play video');
+        openVideo.innerHTML = '<span class="chat-media-card__play-icon" aria-hidden="true"></span>';
+        card.append(openVideo);
+
+        openVideo.addEventListener('click', (event) => {
+          event.stopPropagation();
+          if (!resolvedUrl) {
+            window.alert('This video URL is not available.');
+            return;
+          }
+          const video = document.createElement('video');
+          video.controls = true;
+          video.playsInline = true;
+          video.preload = 'metadata';
+          video.src = resolvedUrl;
+          card.replaceChildren(video);
+          void video.play().catch(() => undefined);
+        });
+        bubble.append(card);
+        return;
       }
 
-      const download = document.createElement('button');
-      download.type = 'button';
-      download.className = 'chat-media-card__download';
-      download.setAttribute('aria-label', `Download ${kind}`);
-      download.innerHTML = '<span class="chat-media-card__download-icon" aria-hidden="true"></span>';
+      const fileLabel = elementWithText('span', fileName);
+      fileLabel.className = 'chat-media-card__file-name';
+      card.append(fileLabel);
+
+      const openFile = document.createElement('button');
+      openFile.type = 'button';
+      openFile.className = 'chat-media-card__file-open';
+      openFile.setAttribute('aria-label', `Open ${fileName}`);
+      openFile.textContent = 'Open';
+      card.append(openFile);
+
       const progress = document.createElement('div');
       progress.className = 'chat-circular-progress chat-media-card__progress';
       progress.style.setProperty('--chat-progress', '0%');
       progress.hidden = true;
       progress.innerHTML = '<span class="chat-circular-progress__icon" aria-hidden="true"></span>';
-      card.append(download, progress);
+      card.append(progress);
 
-      download.addEventListener('click', (event) => {
+      const openDownloadedFile = (url: string): void => {
+        const lowerName = fileName.toLowerCase();
+        if (lowerName.endsWith('.pdf')) {
+          const frame = document.createElement('iframe');
+          frame.className = 'chat-file-preview-frame';
+          frame.src = url;
+          frame.title = fileName;
+          frame.setAttribute('allow', 'fullscreen');
+          card.replaceChildren(frame);
+          return;
+        }
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = fileName;
+        link.className = 'chat-file-open-link';
+        card.replaceChildren(link);
+        link.click();
+      };
+
+      openFile.addEventListener('click', (event) => {
         event.stopPropagation();
-        download.disabled = true;
+        if (!downloadMedia) return;
+        openFile.disabled = true;
         progress.hidden = false;
         void downloadMedia(source, (percent: number) => {
           progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
         }).then((url: string) => {
           progress.hidden = true;
-          if (kind === 'video') {
-            const video = document.createElement('video');
-            video.controls = true;
-            video.playsInline = true;
-            video.src = url;
-            card.replaceChildren(video);
-            return;
-          }
-
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          link.style.display = 'none';
-          document.body.append(link);
-          link.click();
-          link.remove();
-
-          const downloaded = elementWithText('span', kind === 'file' ? 'Downloaded' : 'Ready to play');
-          downloaded.className = 'chat-media-card__download-status';
-          card.append(downloaded);
+          openDownloadedFile(url);
         }).catch((error: unknown) => {
           progress.hidden = true;
-          window.alert(error instanceof Error ? error.message : `Unable to download this ${kind}.`);
-        }).finally(() => { download.disabled = false; });
+          openFile.disabled = false;
+          window.alert(error instanceof Error ? error.message : 'Unable to open this file.');
+        });
       });
+
       bubble.append(card);
     };
-
     if (forwarded) {
       const label = elementWithText('small', 'Forwarded');
       label.className = 'message-forwarded-label';
