@@ -28,7 +28,6 @@ async function syncOneSignalIdentifiers(users: UserService): Promise<void> {
   // that field is consumed by the legacy OneSignal sender as its player ID.
   // Keep those two identifiers distinct: never send the OneSignal user ID
   // where the backend expects the push subscription ID.
-  await OneSignal.User.getOnesignalId();
   const subscriptionId = await OneSignal.User.pushSubscription.getIdAsync();
   if (subscriptionId) await users.updateOneSignalSubscriptionId(subscriptionId);
 }
@@ -93,7 +92,7 @@ export async function requestNativeNotificationPermission(
   if (initialStatus === 'unsupported' || initialStatus === 'not-configured') return initialStatus;
 
   await OneSignal.Notifications.requestPermission(true);
-  await syncOneSignalUser(users);
+  await syncOneSignalIdentifiers(users)
   return getNativeNotificationStatus(config);
 }
 
