@@ -621,22 +621,11 @@ export class ChatScreen {
     photo.hidden = true;
     const attachment = element('div', 'chat-attachment-preview');
     attachment.hidden = true;
-    const attachmentImage = document.createElement('img');
-    attachmentImage.alt = 'Selected photo';
-    attachmentImage.addEventListener('error', () => {
-      attachmentImage.hidden = true;
-    });
-    const attachmentVideo = document.createElement('video');
-    attachmentVideo.className = 'message-video-preview';
-    attachmentVideo.controls = true;
-    attachmentVideo.muted = true;
-    attachmentVideo.playsInline = true;
-    attachmentVideo.preload = 'metadata';
-    attachmentVideo.hidden = true;
+    const attachmentMedia = element('div', 'chat-attachment-preview__media');
     const removeAttachment = secondaryButton('Remove');
     removeAttachment.type = 'button';
     removeAttachment.setAttribute('aria-label', 'Remove selected attachment');
-    attachment.append(attachmentImage, attachmentVideo, removeAttachment);
+    attachment.append(attachmentMedia, removeAttachment);
     const attachmentSheet = element('div', 'chat-attachment-sheet');
     attachmentSheet.hidden = true;
     attachmentSheet.setAttribute('role', 'dialog');
@@ -727,11 +716,7 @@ export class ChatScreen {
       selectedVoice = null;
       photo.value = '';
       attachment.hidden = true;
-      attachmentImage.hidden = false;
-      attachmentImage.removeAttribute('src');
-      attachmentVideo.hidden = true;
-      attachmentVideo.removeAttribute('src');
-      attachmentVideo.load();
+      attachmentMedia.replaceChildren();
       text.placeholder = 'Write a message…';
       send.setAttribute('aria-label', 'Send message');
     };
@@ -739,8 +724,9 @@ export class ChatScreen {
       clearAttachment();
       selectedVoice = file;
       previewUrl = URL.createObjectURL(file);
-      attachmentImage.hidden = true;
-      attachmentImage.removeAttribute('src');
+      const voicePreview = elementWithText('div', file.name || 'Voice note');
+      voicePreview.className = 'chat-attachment-preview__file chat-attachment-preview__voice';
+      attachmentMedia.replaceChildren(voicePreview);
       attachment.hidden = false;
       text.placeholder = 'Add a caption (optional)…';
       send.setAttribute('aria-label', 'Send voice note');
@@ -756,20 +742,26 @@ export class ChatScreen {
       else if (kind === 'video') selectedVideo = file;
       else selectedFile = file;
       previewUrl = URL.createObjectURL(file);
-      attachmentImage.hidden = kind !== 'image';
-      attachmentVideo.hidden = kind !== 'video';
       if (kind === 'image') {
-        attachmentImage.src = previewUrl;
-        attachmentVideo.removeAttribute('src');
-        attachmentVideo.load();
+        const imagePreview = document.createElement('img');
+        imagePreview.alt = 'Selected photo';
+        imagePreview.src = previewUrl;
+        imagePreview.addEventListener('error', () => { imagePreview.hidden = true; }, { once: true });
+        attachmentMedia.replaceChildren(imagePreview);
       } else if (kind === 'video') {
-        attachmentImage.removeAttribute('src');
-        attachmentVideo.src = previewUrl;
-        attachmentVideo.load();
+        const videoPreview = document.createElement('video');
+        videoPreview.className = 'message-video-preview';
+        videoPreview.controls = true;
+        videoPreview.muted = true;
+        videoPreview.playsInline = true;
+        videoPreview.preload = 'metadata';
+        videoPreview.setAttribute('aria-label', 'Selected video');
+        videoPreview.src = previewUrl;
+        attachmentMedia.replaceChildren(videoPreview);
       } else {
-        attachmentImage.removeAttribute('src');
-        attachmentVideo.removeAttribute('src');
-        attachmentVideo.load();
+        const filePreview = elementWithText('div', file.name || 'File attachment');
+        filePreview.className = 'chat-attachment-preview__file';
+        attachmentMedia.replaceChildren(filePreview);
       }
       attachment.hidden = false;
       text.placeholder = 'Add a caption (optional)…';
