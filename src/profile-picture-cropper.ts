@@ -110,6 +110,11 @@ function openCropper(image: HTMLImageElement, originalName: string): Promise<Cro
       if (settled) return;
       settled = true;
       document.removeEventListener('keydown', onKeyDown);
+      zoom.removeEventListener('input', onZoom);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('pointercancel', onPointerUp);
       overlay.remove();
       resolve(result);
     };
@@ -181,6 +186,7 @@ function openCropper(image: HTMLImageElement, originalName: string): Promise<Cro
         output.toBlob((blob) => {
           if (!blob) {
             apply.disabled = false;
+            window.alert('The cropped profile picture could not be prepared. Please try again.');
             return;
           }
           const baseName = originalName.replace(/\.[^.]*$/, '').trim() || 'profile-picture';
