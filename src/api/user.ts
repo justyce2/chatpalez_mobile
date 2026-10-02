@@ -149,8 +149,8 @@ export class UserService {
     await this.api.post<unknown>('user/delete', { password });
   }
 
-  async updateOneSignalId(oneSignalId: string): Promise<void> {
-    await this.api.post<unknown>('user/onesignal', { onesignal_id: oneSignalId });
+  async updateOneSignalSubscriptionId(subscriptionId: string): Promise<void> {
+    await this.api.post<unknown>('user/onesignal', { onesignal_id: subscriptionId });
   }
 }
 
