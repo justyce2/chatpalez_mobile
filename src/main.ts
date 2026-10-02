@@ -13,7 +13,7 @@ import { UserService } from './api/user';
 import { FriendsService } from './api/friends';
 import { UploadService } from './api/uploads';
 import { VoiceRecorder } from '@independo/capacitor-voice-recorder';
-import { clearSession, getAuthToken, getSession, restoreSession, setSession, type AuthSession } from './auth/session';
+import { clearSession, getAuthToken, getSession, restoreSession, setSession, updateSessionUserPicture, type AuthSession } from './auth/session';
 import { installPasswordRecovery } from './auth/password-recovery';
 import { installRegistration, needsRegistrationCompletion, resumeRegistration, type RegistrationOptions } from './auth/registration';
 import { renderTwoFactorChallenge } from './auth/two-factor';
@@ -498,18 +498,16 @@ const shell = createAppShell(root, {
     if (Capacitor.isNativePlatform()) return pickNativeChatPhoto();
     return pickBrowserImage();
   },
-  onCaptureProfilePicture: async () => {
-    if (Capacitor.isNativePlatform()) return captureNativeChatPhoto();
-    return pickBrowserImage();
-  },
+  onCaptureProfilePicture: Capacitor.isNativePlatform()
+    ? async () => captureNativeChatPhoto()
+    : undefined,
   onUploadProfilePicture: async (file, onProgress) => {
     await uploads.uploadProfilePicture(file, onProgress);
     const profile = await users.getProfile();
     const session = getSession();
     if (session && profile.user_picture) {
-      session.user.user_picture = profile.user_picture;
       try {
-        await setSession(session);
+        await updateSessionUserPicture(profile.user_picture);
       } catch (error) {
         logWarn('Updated profile picture could not be persisted to the secure session store', {
           detail: error instanceof Error ? error.message : String(error ?? '')
