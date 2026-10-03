@@ -32,13 +32,8 @@ async function syncOneSignalSubscriptionId(
   if (!id) return false;
 
 
-  try {
-    const response = await users.updateOneSignalSubscriptionId(id);
-    return true;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'OneSignal update failed.';
-    throw error;
-  }
+  await users.updateOneSignalSubscriptionId(id);
+  return true;
 }
 
 async function waitForOneSignalSubscription(users: UserService): Promise<void> {
