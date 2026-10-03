@@ -1,8 +1,8 @@
-# ChatPalez Mobile — Architecture, Scope and Delivery Design
+# ChatPalez Mobile — Progressive Hybrid Architecture, Scope and Delivery Design
 
 **Repository:** `justyce2/chatpalez_mobile`  
 **Target platforms:** Android and iOS  
-**Delivery model:** Hybrid mobile application using Capacitor  
+**Delivery model:** Progressive hybrid mobile application using Capacitor + selective ChatPalez APIs + retained web-backed modules  
 **Existing platform:** ChatPalez PHP/Smarty social-network backend and mobile-responsive web experience  
 **Target implementation window:** 2 weeks / 10 working days for a submission-ready first release
 
@@ -10,556 +10,485 @@
 
 ## 1. Purpose
 
-This document is the technical and delivery source of truth for converting the existing ChatPalez mobile web experience into a maintainable Android and iOS hybrid application without rewriting the social network from scratch.
+This document is the technical and delivery source of truth for ChatPalez Mobile.
 
-The project will reuse the existing ChatPalez web platform for the majority of social-network screens and business logic, while a Capacitor-based native shell provides mobile-device integration, app lifecycle handling, notifications, deep links, permissions, native navigation behavior, and store-ready Android/iOS projects.
+The approved direction is now a **progressive hybrid architecture**. ChatPalez Mobile will not be a simple full-screen wrapper around the mobile website, and it will not attempt a complete API-driven rewrite in the first release.
 
-The goal is not to create another website wrapper. The goal is to create a hybrid mobile product that preserves the proven web platform while adding the native capabilities expected from an installed social-network application.
+Instead, the application combines three layers:
 
----
+1. **Native Capacitor capabilities** for device- and platform-level behavior.
+2. **Local/API-driven mobile screens** for high-visibility app experiences that should clearly differ from Safari.
+3. **Existing web-backed ChatPalez modules** for complex social-network functionality that would be too expensive or risky to rebuild during the initial delivery window.
 
-## 2. Current Platform Assessment
-
-The existing ChatPalez platform is a server-rendered PHP application using Smarty templates. Its frontend is based on traditional web technologies, Bootstrap and JavaScript libraries rather than a standalone React, Vue or Angular SPA.
-
-The current mobile experience appears to be implemented primarily through responsive/mobile-specific presentation inside the existing theme. The existing backend already manages core social-network functionality such as authentication, feeds, profiles, messaging, notifications, media and other platform features.
-
-The existing backend therefore remains the system of record. The mobile application will integrate with it rather than reproduce all backend logic.
-
-### Key architectural implication
-
-A conventional Capacitor project normally packages local web assets. ChatPalez is server-rendered, so the mobile architecture must deliberately separate:
-
-- the native mobile shell and bridge code;
-- the existing remotely served ChatPalez application;
-- native integrations that cannot rely on browser-only implementations;
-- backend changes required specifically for mobile integration.
+The goal is to preserve the mature ChatPalez backend and working product features while making the installed application clearly behave and present itself as a mobile application rather than a repackaged website.
 
 ---
 
-## 3. Target Architecture
+## 2. Architectural Decision
 
-### 3.1 High-level structure
+### 2.1 Approved model
+
+The project will use a **progressive hybrid** model.
+
+The first release should prioritize local/API-driven implementation for the most visible surfaces:
+
+- splash/startup experience;
+- authentication/login and onboarding where API coverage allows;
+- main application shell;
+- bottom-tab or equivalent primary navigation;
+- notifications;
+- profile/account summary;
+- settings/account entry points.
+
+More complex modules may continue to use the existing ChatPalez responsive web experience initially:
+
+- full feed/post workflows if API implementation would exceed the delivery window;
+- messaging/chat;
+- groups;
+- pages;
+- search/discovery;
+- complex media workflows;
+- specialized modules;
+- audio/video/calling until separately validated.
+
+These web-backed modules remain migration candidates and can move to API-driven local UI incrementally after the first release.
+
+### 2.2 Why this architecture
+
+This direction balances four goals:
+
+- **delivery speed:** we retain working social-network functionality;
+- **App Store quality:** the installed app gains its own navigation, entry flow and native/local surfaces;
+- **maintainability:** new mobile UI can consume APIs without forcing changes to the existing website;
+- **migration flexibility:** web-backed modules can be replaced one-by-one instead of through a risky full rewrite.
+
+### 2.3 Architecture rule
+
+From this point forward:
+
+> New high-visibility mobile screens should prefer local/API-driven implementation when existing ChatPalez APIs can support them safely. Backend/template modification should be a last resort, used only for a proven integration gap that cannot reasonably be solved in the mobile project or through existing APIs.
+
+---
+
+## 3. Current Platform Assessment
+
+ChatPalez is a server-rendered PHP application using Smarty templates, Bootstrap and JavaScript. The backend already owns the system of record for users, content, social relationships, messaging, notifications, media and platform settings.
+
+The existing responsive/mobile website remains valuable because it already implements a large amount of mature social-network behavior. However, using that responsive website as the entire visible app would leave the product too close to a browser experience.
+
+The mobile implementation must therefore separate:
+
+- the **native shell**;
+- the **local mobile application UI**;
+- the **API/service layer**;
+- the **retained secure web-backed modules**;
+- the **existing backend**, which remains authoritative.
+
+Before implementing a local screen, the corresponding Sngine/ChatPalez API coverage must be audited. Existing APIs should be reused before any new backend endpoint is introduced.
+
+---
+
+## 4. Target Architecture
 
 ```text
-+---------------------------------------------------------+
-|                  Android / iOS App                      |
-|                                                         |
-|  +---------------------------------------------------+  |
-|  | Capacitor Native Shell                            |  |
-|  |                                                   |  |
-|  | - App lifecycle                                   |  |
-|  | - Native navigation handling                      |  |
-|  | - Push notifications                              |  |
-|  | - Deep links                                      |  |
-|  | - Camera / media permissions                      |  |
-|  | - Share / downloads                               |  |
-|  | - Status bar / splash / keyboard                  |  |
-|  | - Network/offline handling                        |  |
-|  | - Native bridge                                   |  |
-|  +-------------------------+-------------------------+  |
-|                            |                            |
-|                 Secure WebView / Bridge                |
-+----------------------------+----------------------------+
-                             |
-                             | HTTPS
-                             v
-+---------------------------------------------------------+
-|                 Existing ChatPalez Web App              |
-|                                                         |
-| PHP + Smarty + JavaScript + Bootstrap                  |
-| Existing mobile-responsive interface                   |
-| Existing sessions / authentication                     |
-| Social feed / profiles / messaging / media / calls     |
-+----------------------------+----------------------------+
-                             |
-                             v
-+---------------------------------------------------------+
-|                  Existing Backend                      |
-| Database / storage / notifications / social services   |
-+---------------------------------------------------------+
++------------------------------------------------------------------+
+|                     ChatPalez Android / iOS                      |
+|                                                                  |
+|  +------------------------------------------------------------+  |
+|  | Capacitor Native Layer                                     |  |
+|  | lifecycle | push | deep links | share | permissions        |  |
+|  | camera/media | keyboard | haptics | status/splash          |  |
+|  +-----------------------------+------------------------------+  |
+|                                |                                 |
+|  +-----------------------------v------------------------------+  |
+|  | Local Mobile Application Shell                             |  |
+|  | app navigation | bottom tabs | loading/error states        |  |
+|  +-------------------+----------------------+-----------------+  |
+|                      |                      |                    |
+|        +-------------v-----------+   +------v----------------+  |
+|        | API-driven local UI     |   | Secure Web Modules    |  |
+|        | login/onboarding        |   | complex feed flows    |  |
+|        | notifications           |   | messaging initially   |  |
+|        | profile summary         |   | groups/pages/search   |  |
+|        | settings                |   | calls/media as needed |  |
+|        +-------------+-----------+   +-----------+-----------+  |
++----------------------+---------------------------+--------------+
+                       | HTTPS / API               | HTTPS
+                       v                           v
++------------------------------------------------------------------+
+|                   Existing ChatPalez Backend                     |
+| PHP / business logic / database / storage / social services      |
+| Existing APIs + minimal new endpoints only where proven needed    |
++------------------------------------------------------------------+
 ```
 
-### 3.2 Repository responsibility
-
-`chatpalez_mobile` will contain both mobile platforms. A separate iOS repository is not required.
-
-Expected structure:
-
-```text
-chatpalez_mobile/
-├── android/
-├── ios/
-├── src/
-│   ├── bridge/
-│   ├── navigation/
-│   ├── notifications/
-│   ├── lifecycle/
-│   └── platform/
-├── public/
-├── docs/
-│   ├── ARCHITECTURE_AND_SCOPE.md
-│   └── BACKLOG.md
-├── capacitor.config.ts
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
-Platform-specific configuration remains in `android/` and `ios/`. Shared bridge and application behavior remains in the shared source directories.
-
 ---
 
-## 4. Recommended Technology Stack
+## 5. Responsibility by Layer
 
-### Mobile runtime
+### 5.1 Capacitor/native layer
 
-- Capacitor
-- TypeScript
-- Minimal local HTML/CSS/JavaScript shell
+Capacitor remains responsible for:
 
-### Android
-
-- Capacitor Android
-- Android Studio / Gradle
-- Kotlin/Java only where a native plugin or platform-specific fix requires it
-- Firebase Cloud Messaging through the selected push provider
-
-### iOS
-
-- Capacitor iOS
-- Xcode
-- Swift/Objective-C only where native integration requires it
-- Apple Push Notification service through the selected push provider
-
-### Push notifications
-
-Recommended first-release approach: OneSignal Capacitor SDK backed by FCM for Android and APNs for iOS.
-
-The existing web OneSignal service-worker files are not a replacement for native mobile push. Native registration and device-token handling must be configured independently.
-
----
-
-## 5. Core Design Principles
-
-1. **Do not rewrite working social-network functionality unnecessarily.** Reuse the existing platform where doing so does not compromise mobile usability, security or store compliance.
-2. **Native where it matters.** Notifications, permissions, deep links, lifecycle events, sharing, app navigation and selected device integrations should behave like a mobile application.
-3. **Backend remains authoritative.** Existing ChatPalez business logic, content, users and sessions remain controlled by the current backend.
-4. **Shared Android/iOS code first.** Platform-specific code should be introduced only when required.
-5. **Secure navigation.** The application must restrict WebView navigation to trusted ChatPalez origins and intentionally open unsupported external destinations outside the app.
-6. **No embedded secrets.** API secrets, Apple private keys, server credentials and privileged tokens must never be committed to the mobile repository.
-7. **Store readiness is part of engineering.** App-review requirements are considered during development rather than after the build is finished.
-
----
-
-## 6. Functional Scope
-
-### 6.1 Project foundation
-
-We will:
-
-- initialize the Capacitor/TypeScript project;
-- create Android and iOS native projects;
-- define application ID/bundle identifier once client ownership details are confirmed;
-- establish development and production configuration;
-- configure the trusted ChatPalez web origin;
-- establish a bridge layer between web content and native functionality;
-- create environment/configuration rules that avoid committing secrets.
-
-### 6.2 Web application container
-
-The mobile app will:
-
-- load the approved ChatPalez mobile experience securely;
-- maintain authenticated sessions correctly;
-- support internal ChatPalez navigation;
-- prevent unintended external sites from taking over the app WebView;
-- open suitable external links using the operating system/browser when required;
-- provide loading, error, no-network and retry states;
-- handle SSL/navigation failures gracefully.
-
-### 6.3 Authentication and session handling
-
-Initial implementation will reuse the proven web authentication/session flow unless inspection shows a mobile-specific blocker.
-
-Work includes:
-
-- login/logout verification;
-- session-cookie persistence;
-- CSRF/session compatibility;
-- app restart/session restoration;
-- social/OAuth callback testing where currently enabled;
-- expired-session handling;
-- safe navigation back to login when the server invalidates a session.
-
-A fully token-native authentication rewrite is outside the initial two-week scope unless the existing platform makes it unavoidable.
-
-### 6.4 Native navigation behavior
-
-We will implement:
-
-- Android hardware/system back-button behavior;
-- internal history navigation;
-- exit confirmation or root-screen handling where appropriate;
-- external URL interception;
-- deep-link routing;
-- opening notification destinations inside the correct ChatPalez screen;
-- safe handling of popup/new-window links.
-
-### 6.5 Push notifications
-
-We will implement the native notification foundation for both platforms:
-
-- OneSignal Capacitor integration;
-- FCM setup for Android;
-- APNs setup for iOS;
-- runtime notification permission flow where required;
-- device registration;
-- user/device association strategy;
-- foreground notification handling;
-- background notification handling;
-- notification click/open behavior;
-- deep linking from a notification to relevant ChatPalez content;
-- notification badge handling where supported.
-
-Backend modifications may be required so the installed-app identity can be associated with the logged-in ChatPalez user.
-
-### 6.6 Camera, gallery and file handling
-
-We will verify and implement the mobile behavior required for:
-
-- profile/avatar upload;
-- post photo upload;
-- messaging attachments;
-- camera capture;
-- gallery/photo-library selection;
-- file selection;
-- permission handling;
-- upload progress/failure scenarios where supported by the existing web flow.
-
-Existing HTML file inputs will be reused where reliable. Native plugins will only be introduced where the WebView implementation is insufficient.
-
-### 6.7 Sharing and external actions
-
-The mobile bridge should support appropriate native handling for:
-
-- system share sheet;
-- `tel:` links;
-- `mailto:` links;
-- supported messaging links;
-- maps/external browser links where applicable;
-- downloadable files where the existing WebView does not provide an acceptable user experience.
-
-### 6.8 Mobile UI integration
-
-Native/container-level work includes:
-
-- splash screen;
-- app icon configuration;
-- status bar behavior;
-- safe-area handling;
+- Android/iOS project lifecycle;
+- push notifications;
+- deep links and app links;
+- native share sheet;
+- phone/email/app intents;
+- camera/microphone/photo permissions;
+- file/device integrations where needed;
 - keyboard behavior;
-- orientation policy;
-- Android edge-to-edge compatibility where applicable;
-- iOS safe-area/notch compatibility;
-- loading indicator/screen;
-- offline/error screen.
+- haptics;
+- status bar and splash;
+- app foreground/background events;
+- OS-specific release configuration.
 
-This project does not include a full redesign of the existing ChatPalez website. Mobile-web CSS/template defects that directly prevent acceptable app operation may be fixed in the backend as integration work.
+### 5.2 Local mobile UI layer
 
-### 6.9 Messaging, audio/video and real-time functionality
+The local application should own the screens that most strongly establish the product as an installed app:
 
-Existing messaging and communication features must be regression-tested inside the native WebView.
+- startup/loading shell;
+- login/onboarding where feasible;
+- primary application navigation;
+- notifications list/entry experience;
+- profile/account summary;
+- settings shell;
+- native/local error and offline states.
 
-Testing will cover, where enabled on the platform:
+These screens should have mobile-first interaction patterns rather than simply reproducing the website markup.
 
-- real-time/chat updates;
-- notification sounds;
-- audio playback;
-- microphone permission;
-- camera permission;
-- Agora/browser calling behavior;
-- incoming/outgoing call flows;
-- foreground/background transitions during calls.
+### 5.3 API/service layer
 
-If a browser/WebView implementation cannot provide a stable calling experience, a native calling integration is treated as a separate remediation item and may exceed the first-release two-week scope.
+The mobile repository will contain a service abstraction around ChatPalez APIs. This layer should:
 
-### 6.10 App lifecycle and resilience
+- centralize base URL/configuration;
+- normalize API responses and errors;
+- handle authentication/session/token rules;
+- provide typed service functions;
+- support pagination where required;
+- avoid leaking API implementation details into UI components;
+- support future migration of additional screens.
 
-We will handle:
+### 5.4 Secure web-backed module layer
 
-- first launch;
-- cold start;
-- foreground/background transitions;
-- app resume;
-- connectivity loss;
-- connectivity recovery;
-- process/app restart;
-- invalid session;
-- server unavailable state;
-- navigation state restoration where practical.
+Web-backed screens are permitted where they materially reduce first-release risk. They must still operate inside a controlled experience:
 
-### 6.11 Security hardening
+- only approved ChatPalez origins are internal;
+- external navigation leaves the app;
+- loading and failures remain app-controlled;
+- deep links route predictably;
+- web-backed modules should enter/exit through the app shell rather than becoming the app shell themselves;
+- a web-backed screen should be replaceable later without restructuring the whole application.
 
-Work includes:
+### 5.5 Backend layer
 
-- HTTPS-only production communication;
-- trusted-host allow-listing;
-- external navigation controls;
-- preventing privileged secrets from entering the bundle;
-- minimal permissions;
-- secure cookie/session compatibility review;
-- safe deep-link validation;
-- production logging review;
-- disabling unnecessary development/debug behavior in release builds.
+The existing backend remains authoritative. Existing APIs must be audited and reused before modifying backend templates or introducing new endpoints.
 
-### 6.12 User-generated-content and store-compliance review
+Backend changes are allowed only when one of these conditions is met:
 
-Because ChatPalez is a social network, the release review must verify the platform's existing mechanisms for:
+- a required mobile operation is not available through the existing API;
+- a security-sensitive server operation cannot be implemented client-side;
+- push/device association requires server participation;
+- OAuth/session behavior requires a server callback adjustment;
+- a store-compliance requirement cannot be satisfied from the current interface/API.
 
-- reporting objectionable content;
-- blocking abusive users;
-- moderation/filtering capabilities;
-- published support/contact information;
-- privacy policy availability;
-- account deletion capability where required;
-- appropriate permission-purpose descriptions;
-- data/privacy disclosures required by Google Play and Apple.
-
-Backend/product changes required to satisfy these rules will be recorded in the backlog rather than silently excluded.
+Any backend change must remain compatible with the website.
 
 ---
 
-## 7. Non-Functional Scope
+## 6. First-Release Screen Strategy
 
-### Performance
+| Surface | Initial implementation | Reason |
+|---|---|---|
+| Splash/startup | Native/local | Establish installed-app experience immediately |
+| Login/onboarding | API-driven local UI where API permits | High visibility; important App Store differentiation |
+| Main navigation shell | Local mobile UI | Makes app structurally different from Safari |
+| Notifications | API-driven local UI | High-value native/push integration point |
+| Profile/account summary | API-driven local UI | High-frequency identity surface |
+| Settings | Local/API-driven shell | Native permissions/account controls fit naturally here |
+| Feed | API-driven if coverage/time permits; otherwise web-backed for v1 | Large implementation surface |
+| Post creation/media | Web-backed initially unless API path proves straightforward | Complex media/validation workflow |
+| Messaging/chat | Web-backed initially | Real-time complexity and schedule risk |
+| Groups/pages/search | Web-backed initially | Lower first-release differentiation value |
+| Calls/audio/video | Existing flow first; remediate separately | High technical uncertainty |
 
-- Avoid unnecessary duplicate reloads.
-- Keep native startup shell lightweight.
-- Optimize initial loading feedback.
-- Validate media-heavy screens on realistic mobile connections.
-
-### Reliability
-
-- App should recover from temporary connection loss.
-- Invalid URLs must not strand the user on blank screens.
-- Native bridge calls must fail safely.
-
-### Maintainability
-
-- Shared functionality should not be duplicated separately in Android and iOS.
-- Native integrations should be encapsulated behind bridge/service modules.
-- Configuration should be documented.
-- Backlog and architecture documents stay inside the repository.
-
-### Compatibility target
-
-Exact minimum Android/iOS versions will be finalized when the Capacitor version and client distribution requirements are locked. We will favor currently supported platform versions rather than unnecessarily broad legacy support.
+This table is a migration policy, not a permanent limitation. Any retained web-backed module can become local/API-driven later.
 
 ---
 
-## 8. Backend Integration Scope
+## 7. Authentication Strategy
 
-Some changes may belong in `chatpalez-backend-2` rather than this repository. These may include:
+Authentication must be designed so API-driven screens and retained web-backed modules behave as one product.
 
-- adding a reliable way for the web application to detect that it is running inside the official mobile shell;
-- mapping native push subscription/device IDs to authenticated users;
-- exposing safe mobile bridge hooks/events;
-- correcting OAuth redirects for app-originated login;
-- deep-link route support;
-- mobile-specific logout/session synchronization;
-- mobile UI fixes needed for WebView behavior;
-- app-store compliance gaps discovered during audit.
+Implementation should prefer the existing supported API authentication mechanism. Before coding login, we must audit:
 
-Any backend modification must remain compatible with the existing website unless a deliberate breaking change is approved.
+- API login endpoint and credentials/response format;
+- token/session lifetime;
+- refresh/session renewal behavior;
+- logout endpoint;
+- current-user endpoint;
+- OAuth/social login support;
+- whether an API-authenticated user can establish or share the website session needed by retained web modules.
+
+Possible patterns, in preferred order:
+
+1. **Shared supported authentication model** that works for both API and web-backed modules.
+2. **Mobile token + server session bootstrap** where the backend can securely convert/associate authenticated mobile identity with a web session.
+3. Minimal backend endpoint only if existing APIs cannot bridge the two safely.
+
+Do not invent insecure cookie injection or expose server credentials to the app.
 
 ---
 
-## 9. Out of Scope for the Initial Two-Week Release
+## 8. API Audit Before Implementation
 
-Unless a blocker makes one mandatory, the following are not part of the initial conversion:
+Before converting a screen, record whether existing APIs support:
 
-- rebuilding the complete social network in Flutter, React Native, Swift or Kotlin;
+- login/logout/current user;
+- profile retrieval/update;
+- notifications and read state;
+- feed retrieval/pagination;
+- post creation/edit/delete;
+- reactions/comments;
+- media upload;
+- conversations/messages;
+- friends/following;
+- groups/pages/search;
+- settings/privacy/block/report/account deletion.
+
+Each feature receives one of four classifications:
+
+- **API Ready** — existing API is sufficient;
+- **API + Mobile Adapter** — API is sufficient but needs client normalization;
+- **Minimal Backend Gap** — a small endpoint/server adjustment is required;
+- **Web-backed for v1** — migration cost is not justified for the first release.
+
+This audit controls implementation priority.
+
+---
+
+## 9. Native Integrations
+
+The first release continues to include:
+
+- OneSignal Capacitor SDK;
+- FCM Android push configuration;
+- APNs iOS push configuration;
+- user-controlled notification permission UX;
+- foreground/background notification handling;
+- trusted notification click routing;
+- deep links;
+- system share;
+- AppLauncher handling for `tel:` and `mailto:`;
+- keyboard integration;
+- haptics used selectively;
+- camera/microphone/photo permissions where required;
+- native loading/offline/error behavior.
+
+These integrations remain valuable regardless of whether the visible screen is local or web-backed.
+
+---
+
+## 10. Store-Readiness Principle
+
+Using Capacitor does not itself determine whether the app is accepted or rejected. The application must provide meaningful installed-app value and must not present itself merely as the website with browser chrome removed.
+
+For ChatPalez, the first-release differentiation target is:
+
+- dedicated app startup experience;
+- dedicated app navigation shell;
+- local/API-driven high-visibility screens;
+- native notifications and permission UX;
+- native sharing and device actions;
+- deep linking;
+- app lifecycle/resilience;
+- platform-appropriate keyboard/status/safe-area behavior;
+- UGC report/block/delete-account compliance.
+
+The website and the installed app may share branding and content, but their application shell and interaction model should not be identical.
+
+---
+
+## 11. Security Principles
+
+1. HTTPS only in production.
+2. Only trusted ChatPalez origins may remain inside web-backed modules.
+3. No privileged secret is stored in source or exposed through `VITE_*` configuration.
+4. API tokens/session material must use the safest storage option supported by the final auth model.
+5. Deep links must be validated before navigation.
+6. Backend user-agent detection is presentation/integration metadata only and never authentication.
+7. Native permissions remain least-privilege.
+8. Diagnostics must remain bounded and redact passwords, cookies, sessions, authorization values and tokens.
+9. New backend endpoints require authentication, authorization and CSRF/token rules appropriate to their transport.
+
+---
+
+## 12. Backend Modification Policy
+
+The earlier mobile integration work in `chatpalez-backend-2` introduced official-shell detection and bridge support. That work should now be treated as **legacy/compatibility support for retained web-backed modules**, not as the preferred method for building new mobile screens.
+
+From this decision onward:
+
+- do not add new Smarty/mobile-template changes when the same outcome can be achieved through an existing API and local mobile UI;
+- do not extend backend business logic merely to make a WebView look native;
+- add minimal server/API work only when an audited feature gap requires it;
+- keep all new mobile presentation code in `chatpalez_mobile` where practical.
+
+---
+
+## 13. Out of Scope for the Initial Two-Week Release
+
+The first release does **not** require:
+
+- rewriting the complete social network locally;
 - replacing the PHP/Smarty backend;
-- rewriting every page as a local SPA;
-- redesigning the full website;
-- migrating the database;
-- replacing the current real-time/chat architecture;
-- writing a complete new REST API for all ChatPalez features;
-- a fully native Agora calling implementation;
-- guaranteed Apple App Store or Google Play approval date.
-
-These can become later phases after the hybrid release is stable.
+- reproducing every website screen through APIs;
+- redesigning the whole ChatPalez website;
+- replacing the database;
+- replacing the current messaging/real-time architecture;
+- creating a complete new REST API;
+- fully native Agora calling unless existing behavior proves unusable;
+- migrating every web-backed module before submission.
 
 ---
 
-## 10. Delivery Phases
+## 14. Revised Delivery Phases
 
-### Phase 1 — Foundation and architecture
+### Phase 1 — Architecture/API audit
 
-- repository setup;
-- Capacitor initialization;
-- configuration model;
-- Android project;
-- iOS project;
-- local native shell;
-- secure ChatPalez navigation.
+- inventory existing API capabilities;
+- define authentication/session bridge;
+- classify key screens as API Ready / Minimal Backend Gap / Web-backed;
+- freeze first-release migration list.
 
-### Phase 2 — Core application behavior
+### Phase 2 — App shell and high-visibility local UI
 
-- authentication/session verification;
-- back/navigation behavior;
-- external link handling;
-- keyboard/status bar/safe areas;
-- error and offline states;
-- uploads and permissions.
+- local startup shell;
+- mobile navigation structure;
+- login/onboarding;
+- notifications;
+- profile/account summary;
+- settings shell.
 
 ### Phase 3 — Native integrations
 
-- OneSignal;
-- FCM;
-- APNs;
-- notification routing;
+- push;
 - deep links;
-- native share;
-- selected file/download integrations.
+- share/intents;
+- permissions/media;
+- keyboard/status/safe areas;
+- lifecycle/error/offline handling.
 
-### Phase 4 — Social-network regression testing
+### Phase 4 — Web-module integration and regression
 
-- feed;
-- profile;
-- reactions/comments;
+- feed if retained web-backed;
 - messaging;
-- media;
-- notifications;
-- authentication;
-- account settings;
-- calls/audio/video where enabled.
+- groups/pages/search;
+- complex media;
+- calls/audio/video;
+- cross-boundary navigation between local and web-backed screens.
 
-### Phase 5 — Release engineering
+### Phase 5 — Release hardening
 
-- Android release build/AAB;
-- iOS archive;
-- TestFlight build;
+- security/compliance;
+- Android AAB;
+- iOS archive/TestFlight;
 - icons/splash;
-- release configuration;
-- store metadata/readiness checklist;
-- privacy and permission review;
-- final regression test.
+- store metadata;
+- physical-device regression;
+- release-candidate documentation.
 
 ---
 
-## 11. Two-Week Working Schedule
+## 15. Two-Week Working Strategy
 
-### Working days 1–2
+The remaining implementation window should prioritize differentiation, not broad rewriting.
 
-Architecture validation, Capacitor bootstrap, Android/iOS generation, secure container/navigation and first successful platform builds.
+### Priority 1
 
-### Working days 3–4
+- API capability audit;
+- authentication architecture;
+- local app shell/navigation.
 
-Authentication/session behavior, back navigation, external URLs, keyboard, status bar, uploads, camera/gallery/file permissions and resilience states.
+### Priority 2
 
-### Working days 5–6
+- local login/onboarding;
+- local notifications;
+- local profile/account summary;
+- local settings shell.
 
-Native push setup, FCM/APNs wiring, user-device association, notification click routing and deep links.
+### Priority 3
 
-### Working days 7–8
+- integrate existing web-backed modules behind the app shell;
+- validate session continuity and cross-boundary navigation.
 
-End-to-end social-network regression testing, messaging/media/calling investigation, lifecycle fixes and platform-specific defects.
+### Priority 4
 
-### Working days 9–10
+- native push/media/device behavior;
+- release/security/compliance testing.
 
-Release hardening, Android AAB, iOS archive/TestFlight preparation, compliance checks, documentation and submission-ready packaging.
-
-This schedule is a delivery target, not a guarantee of store-review completion. Apple and Google control their own review timelines.
-
----
-
-## 12. Effort Estimate
-
-The initial hybrid conversion is estimated at approximately **10–15 engineering days of effort**, concentrated into a two-week implementation window where possible.
-
-The effort distribution is expected to be approximately:
-
-| Area | Estimated effort |
-|---|---:|
-| Architecture/project setup | 1–1.5 days |
-| Android/iOS shell and navigation | 1–2 days |
-| Authentication/session/lifecycle | 1–1.5 days |
-| Permissions/uploads/device integration | 1–1.5 days |
-| Push notifications/deep links | 2–3 days |
-| Social/messaging/media regression and fixes | 2–3 days |
-| Release QA/store packaging | 1.5–2 days |
-
-Some activities overlap. The largest uncertainty is not Capacitor itself; it is how existing web behaviors—particularly authentication redirects, media/calling, permissions and notification identity—behave inside iOS WKWebView and Android WebView.
+If feed API coverage is strong and implementation remains within schedule, feed becomes the next API-driven screen. Otherwise feed remains web-backed for v1 and moves to the next migration phase.
 
 ---
 
-## 13. Required Accounts, Keys and Access
+## 16. Compatibility and Release Policy
 
-Implementation may require the following from the client/project owner:
+Initial support floor:
 
-- production/staging ChatPalez URL;
-- Apple Developer Program membership;
-- App Store Connect access;
-- final iOS bundle identifier;
-- Google Play Console access;
-- final Android application ID;
-- Firebase project / Android FCM configuration;
-- Apple APNs key/certificate configuration;
-- OneSignal application access or a new mobile OneSignal application;
-- final app name;
-- production app icon and splash assets;
-- privacy-policy URL;
-- support/contact URL or details;
-- physical Android/iOS testing access where available.
+- Android API 24+;
+- Android target/compile API 36;
+- iOS 15+.
 
-Secrets should be supplied through secure configuration channels and must not be committed to Git.
+Android and iOS remain in one shared Capacitor project. Shared TypeScript/application logic should be preferred, with native Swift/Java/Kotlin only when platform behavior requires it.
+
+GitHub Actions are currently disabled by project-owner instruction. Validation must therefore be performed manually/local or through explicitly approved tooling until that decision changes.
 
 ---
 
-## 14. Definition of Done for Initial Release
+## 17. Definition of Done for Initial Release
 
-The first mobile release is considered engineering-complete when:
+The first release is engineering-complete when:
 
 - Android and iOS projects build successfully;
-- the app loads only the approved ChatPalez experience;
-- login, logout and persisted sessions behave correctly;
-- primary social-network flows work in the mobile container;
-- back navigation and external links behave correctly;
-- essential camera/gallery/file permissions work;
-- native push works on Android and iOS test devices;
+- the application has a distinct local/native app shell;
+- approved high-visibility surfaces are local/API-driven;
+- retained web-backed modules are integrated deliberately rather than acting as the entire app shell;
+- authentication works across local/API-driven and retained web-backed areas;
+- primary social-network flows remain usable;
+- native navigation, share, deep links and permissions work;
+- push notifications work on configured test devices;
 - notification taps route correctly;
-- offline/server-error states do not leave a blank unusable screen;
-- release configuration contains no development secrets/debug configuration;
-- Android release artifact can be produced;
-- iOS archive/TestFlight build can be produced;
-- critical defects in the project backlog are closed or explicitly accepted;
-- store-readiness/compliance checks are completed.
+- offline/server failures produce an app-controlled recoverable state;
+- report/block/account-deletion requirements are satisfied;
+- release configuration contains no privileged secrets;
+- Android release artifact and iOS archive/TestFlight candidate can be produced once signing access is available;
+- all release-blocking backlog items are completed or explicitly accepted.
 
-Store approval itself is not part of the engineering Definition of Done because approval timing and final decisions are controlled by Apple and Google.
-
----
-
-## 15. Delivery Governance
-
-`docs/BACKLOG.md` is the living execution document for this architecture. Every implementation task should have a status. As work is completed, its status will be changed to **Completed** and relevant implementation/verification notes will be added.
-
-Any newly discovered blocker or required scope item should be added to the backlog rather than being left undocumented.
-
-Status definitions:
-
-- **Planned** — accepted work not yet started.
-- **In Progress** — implementation is actively underway.
-- **Blocked** — work cannot continue until a dependency or external requirement is resolved.
-- **Testing** — implementation exists and is undergoing verification.
-- **Completed** — implementation and the applicable acceptance checks are complete.
-- **Deferred** — intentionally moved out of the initial release scope.
+Store approval itself is not part of engineering Definition of Done because Apple and Google control their review decisions and timelines.
 
 ---
 
-## 16. Future Phase Opportunities
+## 18. Delivery Governance
 
-After the hybrid release is stable, ChatPalez can progressively replace selected high-value web screens with native/local experiences without changing the overall backend immediately. Potential candidates include native onboarding, notification center, media creation, chat, calls, offline caching and other high-frequency flows.
+`docs/BACKLOG.md` is the living implementation tracker for this architecture.
 
-This progressive approach preserves delivery speed now while leaving a path toward a more deeply native product later.
+Every significant implementation task must be reflected there. The architecture document controls **how** the app should be built; the backlog controls **what is being implemented and its state**.
+
+Any decision to migrate a web-backed module to API-driven UI must update both documents where it materially changes scope.
+
+---
+
+## 19. Long-Term Migration Path
+
+The progressive architecture is intentionally evolutionary.
+
+After v1, likely migration order is:
+
+1. feed/home;
+2. post creation/media;
+3. messaging;
+4. search/discovery;
+5. groups/pages;
+6. calls/media if a native implementation is justified.
+
+The end state may become predominantly API-driven without requiring a disruptive rewrite today.
