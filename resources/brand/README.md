@@ -1,7 +1,7 @@
 # ChatPalez native brand assets
 
-`chatpalez-app-icon.png` is the master 1024px ChatPalez icon derived from the logo supplied for this release. It is the source for Android launcher icons, iOS app icon and the local bundled welcome screen.
+`chatpalez-app-icon.png` is the master square ChatPalez logo supplied for this release. The complete artwork is retained, including the `ChatPalez` wordmark. It is used for the bundled application branding and native launcher icon artwork.
 
-`chatpalez-mark.png` is the transparent mark used to compose the native Android and iOS splash screens on ChatPalez blue (`#0066B2`).
+Android adaptive-icon foreground assets use the same complete artwork inside a safe inset so the wordmark is not cropped by launcher masking.
 
-Do not replace generated platform assets ad hoc. Regenerate each density from these masters so Android and iOS retain the same visual identity.
+Do not remove or recreate the `ChatPalez` wordmark when replacing this asset.
