@@ -2165,45 +2165,34 @@ export class ChatScreen {
         card.append(open);
       };
 
-      card.addEventListener('click', () => openFile.click());
       openFile.addEventListener('click', (event) => {
         event.stopPropagation();
         const directUrl = resolvedUrl || '';
-        if (attachmentFileKind(fileName, source) === 'pdf' && directUrl) {
+        if (!directUrl) {
+          window.alert('This attachment could not be resolved to a safe file URL.');
+          return;
+        }
+
+        const kind = attachmentFileKind(fileName, source);
+        if (['pdf', 'text', 'image', 'audio', 'video'].includes(kind)) {
           void showLoadedPreview(directUrl);
           return;
         }
-        if (!downloadMedia) { void openChatFileUrl(directUrl); return; }
-        openFile.disabled = true;
-        progress.hidden = false;
-        void downloadMedia(source, (percent: number) => {
-          progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
-        }).then((url: string) => {
-          progress.hidden = true;
-          void showLoadedPreview(url);
-        }).catch((error: unknown) => {
-          progress.hidden = true;
-          openFile.disabled = false;
-          window.alert(error instanceof Error ? error.message : 'Unable to open this file.');
-        });
+
+        // Non-previewable documents (for example DOC/DOCX) must be opened
+        // from their real HTTPS server URL. Never turn them into blob: URLs
+        // before handing them to the native/browser opener.
+        void openChatFileUrl(directUrl);
       });
       bubble.append(card);
 
-      // Load lightweight previewable file types immediately so a sent
-      // attachment is already a real preview, not just a filename card.
+      // Preview browser-renderable attachments directly from the trusted
+      // server URL. This avoids a second download/blob lifecycle and keeps
+      // the same URL usable by the native/browser opener when previewing is
+      // not supported.
       const previewKind = attachmentFileKind(fileName, source);
-      if (previewKind === 'pdf' && resolvedUrl) {
+      if (resolvedUrl && ['pdf', 'text', 'image', 'audio', 'video'].includes(previewKind)) {
         void showLoadedPreview(resolvedUrl);
-      } else if (downloadMedia && ['text', 'image'].includes(previewKind)) {
-        progress.hidden = false;
-        void downloadMedia(source, (percent: number) => {
-          progress.style.setProperty('--chat-progress', `${Math.max(0, Math.min(100, percent))}%`);
-        }).then((url: string) => {
-          progress.hidden = true;
-          void showLoadedPreview(url);
-        }).catch(() => {
-          progress.hidden = true;
-        });
       }
     };
     if (forwarded) {
