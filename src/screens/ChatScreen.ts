@@ -2081,12 +2081,6 @@ export class ChatScreen {
       openFile.textContent = 'Open';
       card.append(openFile);
 
-      const progress = element('div', 'chat-circular-progress chat-media-card__progress');
-      progress.style.setProperty('--chat-progress', '0%');
-      progress.hidden = true;
-      progress.innerHTML = '<span class="chat-circular-progress__icon" aria-hidden="true"></span>';
-      card.append(progress);
-
       const showLoadedPreview = async (url: string): Promise<void> => {
         const kind = attachmentFileKind(fileName, source);
         if (kind === 'pdf') {
