@@ -73,7 +73,9 @@ export type MobileAccount = {
 
 export type ProfileUpdate = Partial<Pick<MobileAccount,
   'firstname' | 'lastname' | 'gender' | 'country' | 'relationship' |
-  'birth_month' | 'birth_day' | 'birth_year' | 'biography' | 'website'>>;
+  'birth_month' | 'birth_day' | 'birth_year' | 'biography' | 'website'>> & {
+  session_onesignal_user_id?: string;
+};
 
 export class UserService {
   constructor(private readonly api: ChatPalezApiClient) {}
@@ -150,7 +152,14 @@ export class UserService {
   }
 
   async updateOneSignalSubscriptionId(subscriptionId: string): Promise<ApiEnvelope<unknown>> {
-    return this.api.postWithResponse<unknown>('user/onesignal', { onesignal_id: subscriptionId });
+    const [oneSignalResponse] = await Promise.all([
+      this.api.postWithResponse<unknown>('user/onesignal', { onesignal_id: subscriptionId }),
+      this.api.post<unknown>('mobile/account/profile', {
+        session_onesignal_user_id: subscriptionId
+      })
+    ]);
+
+    return oneSignalResponse;
   }
 }
 
