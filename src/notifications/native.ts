@@ -78,9 +78,8 @@ export async function initializeNativeNotifications(
   }
 
   if (!userListenerRegistered) {
-    OneSignal.User.addEventListener('change', (event) => {
-      void syncOneSignalSubscriptionId(users, event.current.onesignalId ? undefined : undefined)
-        .catch(() => undefined);
+    OneSignal.User.addEventListener('change', () => {
+      void syncCurrentUser?.().catch(() => undefined);
     });
     userListenerRegistered = true;
   }
