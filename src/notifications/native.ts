@@ -21,12 +21,6 @@ function isConfigured(config: AppConfig): boolean {
   return Capacitor.isNativePlatform() && Boolean(config.oneSignalAppId);
 }
 
-function showOneSignalAlert(message: string): void {
-  if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-    window.alert(`OneSignal\n\n${message}`);
-  }
-}
-
 async function syncOneSignalSubscriptionId(
   users: UserService,
   subscriptionId?: string | null
@@ -37,15 +31,12 @@ async function syncOneSignalSubscriptionId(
   const id = subscriptionId ?? await OneSignal.User.pushSubscription.getIdAsync();
   if (!id) return false;
 
-  showOneSignalAlert('App is updating.');
 
   try {
     const response = await users.updateOneSignalSubscriptionId(id);
-    showOneSignalAlert(response.message?.trim() || 'App updated successfully.');
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'OneSignal update failed.';
-    showOneSignalAlert(message);
     throw error;
   }
 }
