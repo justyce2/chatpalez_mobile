@@ -1,4 +1,4 @@
-import { ApiError, type ApiPage, type ChatPalezApiClient } from './client';
+import { ApiError, type ApiEnvelope, type ApiPage, type ChatPalezApiClient } from './client';
 
 export type UserProfile = {
   user_id: number | string;
@@ -149,8 +149,8 @@ export class UserService {
     await this.api.post<unknown>('user/delete', { password });
   }
 
-  async updateOneSignalSubscriptionId(subscriptionId: string): Promise<void> {
-    await this.api.post<unknown>('user/onesignal', { onesignal_id: subscriptionId });
+  async updateOneSignalSubscriptionId(subscriptionId: string): Promise<ApiEnvelope<unknown>> {
+    return this.api.postWithResponse<unknown>('user/onesignal', { onesignal_id: subscriptionId });
   }
 }
 
