@@ -60,6 +60,14 @@ export class ChatPalezApiClient {
     });
   }
 
+  async postWithResponse<T>(path: string, body?: unknown): Promise<ApiEnvelope<T>> {
+    const url = this.buildUrl(path);
+    return this.requestEnvelope<T>(url, {
+      method: 'POST',
+      body: body === undefined ? undefined : JSON.stringify(body)
+    });
+  }
+
   async postForm<T>(path: string, body: FormData): Promise<T> {
     const url = this.buildUrl(path);
     return this.request<T>(url, { method: 'POST', body });
